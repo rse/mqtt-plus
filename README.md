@@ -4,7 +4,7 @@
 MQTT+
 =====
 
-[MQTT](http://mqtt.org/) Communication Addons
+[MQTT](http://mqtt.org/) Communication Patterns
 
 <p/>
 <img src="https://nodei.co/npm/@rse/mqttp.png?downloads=true&stars=true" alt=""/>
@@ -22,16 +22,15 @@ $ npm install mqtt mqtt-plus
 About
 -----
 
-This is an addon API for the excellent
-[MQTT.js](https://www.npmjs.com/package/mqtt)
-JavaScript/TypeScript API for additional
+This is **MQTT+**, an addon JavaScript/TypeScript API for the excellent
+[MQTT.js](https://www.npmjs.com/package/mqtt), for additional
 communication patterns like [Remote Procedure
 Call](https://en.wikipedia.org/wiki/Remote_procedure_call) (RPC).
 This allows a bi-directional request/response-style
 communication over the technically uni-directional message protocol
 [MQTT](http://mqtt.org).
 
-Conceptually, this MQTT addon API provides two types of communication patterns:
+Conceptually, the **MQTT+** API provides two types of communication patterns:
 
 - **Event Emission**:
   Event Emission is a *uni-directional* communication pattern.
@@ -40,22 +39,26 @@ Conceptually, this MQTT addon API provides two types of communication patterns:
   When an event is *emitted*, either a single particular subscriber (in case of
   a directed event emission) or all subscribers are called and receive the
   arguments as extra information.
+  In contrast to the regular MQTT message publish/subscribe, this
+  pattern allows to direct the event to particular subscribers and
+  provides optional information about the sender to subscribers.
 
 - **Service Call**:
   Service Call is a *bi-directional* communication pattern.
   A Service is the combination of a service name and optionally zero or more arguments.
   You *register* for a service.
-   When a service is *called*, a single particular registrator (in case
+  When a service is *called*, a single particular registrator (in case
   of a directed service call) or one arbitrary registrator is called and
   receives the arguments as the request. The registrator then has to
   provide the service response.
 
-Notice: this is similar to
-[MQTT-JSON-RPC](https://github.com/rse/mqtt-json-rpc) of the same
-author, but instead of just JSON, MQTT+ encodes packets as JSON or
-CBOR (default), uses an own packet format (allowing sender and receiver
-information) and uses shorter NanoIDs instead of longer UUIDs for
-identification of sender, receiver and requests.
+> [!Note]
+> **MQTT+** is similar to and derived from
+> [MQTT-JSON-RPC](https://github.com/rse/mqtt-json-rpc) of the same
+> author, but instead of just JSON, MQTT+ encodes packets as JSON
+> or CBOR (default), uses an own packet format (allowing sender and
+> receiver information) and uses shorter NanoIDs instead of longer UUIDs
+> for identification of sender, receiver and requests.
 
 Usage
 -----
