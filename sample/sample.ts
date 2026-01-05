@@ -1,7 +1,9 @@
 
-import Mosquitto from "mosquitto"
-import MQTT      from "mqtt"
-import MQTTp     from "mqtt-plus"
+import fs               from "node:fs"
+import Mosquitto        from "mosquitto"
+import MQTT             from "mqtt"
+import MQTTp            from "mqtt-plus"
+import type * as MQTTpt from "mqtt-plus"
 
 const mosquitto = new Mosquitto({
     listen: [ { protocol: "wss", address: "127.0.0.1", port: 8443 } ]
@@ -16,8 +18,9 @@ const mqtt = MQTT.connect("wss://127.0.0.1:8443", {
 })
 
 type API = {
-    "example/sample": (a1: string, a2: number) => void
-    "example/hello":  (a1: string, a2: number) => string
+    "example/sample": MQTTpt.Event<(a1: string, a2: number) => void>
+    "example/upload": MQTTpt.Stream<(a1: string, a2: number) => void>
+    "example/hello":  MQTTpt.Service<(a1: string, a2: number) => string>
 }
 
 const mqttp = new MQTTp<API>(mqtt, { codec: "json" })
@@ -34,6 +37,15 @@ mqtt.on("connect", () => {
         console.log("example/sample: info: ", a1, a2, info.sender)
     })
     mqttp.emit("example/sample", "world", 42)
+    /*
+    mqttp.attach("example/upload", (a1, a2, info) => {
+        console.log("example/upload: info: ", a1, a2, info.sender)
+        const x = fs.createWriteStream("x2.png")
+        info.stream.pipe(x)
+    })
+    const readable = fs.createReadStream("x.png")
+    mqttp.transfer("example/upload", readable, "filename", 42)
+    */
     mqttp.register("example/hello", (a1, a2, info) => {
         console.log("example/hello: request: ", a1, a2, info.sender)
         return `${a1}:${a2}`

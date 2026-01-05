@@ -42,6 +42,18 @@ export class EventEmission extends Base {
     ) { super(id, sender, receiver) }
 }
 
+/*  stream chunk  */
+export class StreamChunk extends Base {
+    constructor (
+        id:             string,
+        public stream:  string,
+        public chunk:   Buffer | null,
+        public params?: any[],
+        sender?:        string,
+        receiver?:      string,
+    ) { super(id, sender, receiver) }
+}
+
 /*  service request  */
 export class ServiceRequest extends Base {
     constructor (
@@ -86,6 +98,18 @@ export default class Msg {
         return new EventEmission(id, event, params, sender, receiver)
     }
 
+    /*  factory for stream chunk  */
+    makeStreamChunk (
+        id:             string,
+        stream:         string,
+        chunk:          Buffer | null,
+        params?:        any[],
+        sender?:        string,
+        receiver?:      string
+    ): StreamChunk {
+        return new StreamChunk(id, stream, chunk, params, sender, receiver)
+    }
+
     /*  factory for service request  */
     makeServiceRequest (
         id:             string,
@@ -118,7 +142,7 @@ export default class Msg {
     }
 
     /*  parse any object into typed object  */
-    parse (obj: any): EventEmission | ServiceRequest | ServiceResponseSuccess | ServiceResponseError {
+    parse (obj: any): EventEmission | StreamChunk | ServiceRequest | ServiceResponseSuccess | ServiceResponseError {
         if (typeof obj !== "object" || obj === null)
             throw new Error("invalid argument: not an object")
 
@@ -142,6 +166,18 @@ export default class Msg {
             if (obj.params !== undefined && (typeof obj.params !== "object" || !Array.isArray(obj.params)))
                 throw new Error("invalid EventEmission object: \"params\" field must be an array")
             return this.makeEventEmission(obj.id, obj.event, obj.params, obj.sender, obj.receiver)
+        }
+        if ("stream" in obj) {
+            /*  detect and parse stream chunk  */
+            if (typeof obj.stream !== "string")
+                throw new Error("invalid StreamChunk object: \"stream\" field must be a string")
+            if (anyFieldsExcept(obj, [ "type", "id", "stream", "chunk", "params", "sender", "receiver" ]))
+                throw new Error("invalid StreamChunk object: contains unknown fields")
+            if (obj.chunk !== undefined && typeof obj.chunk !== "object")
+                throw new Error("invalid StreamChunk object: \"chunk\" field must be an object or null")
+            if (obj.params !== undefined && (typeof obj.params !== "object" || !Array.isArray(obj.params)))
+                throw new Error("invalid StreamChunk object: \"params\" field must be an array")
+            return this.makeStreamChunk(obj.id, obj.stream, obj.chunk, obj.params, obj.sender, obj.receiver)
         }
         else if ("service" in obj) {
             /*  detect and parse service request  */

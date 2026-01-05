@@ -23,6 +23,7 @@
 */
 
 /*  external requirements  */
+import stream                                from "stream"
 import { MqttClient, IClientPublishOptions,
     IClientSubscribeOptions }                from "mqtt"
 import { nanoid }                            from "nanoid"
@@ -31,6 +32,7 @@ import { nanoid }                            from "nanoid"
 import Codec                                 from "./mqtt-plus-codec"
 import Msg, {
     EventEmission,
+    StreamChunk,
     ServiceRequest,
     ServiceResponseSuccess,
     ServiceResponseError }                   from "./mqtt-plus-msg"
@@ -50,10 +52,13 @@ export interface APIOptions {
     id:                        string
     codec:                     "cbor" | "json"
     timeout:                   number
+    chunkSize:                 number
     topicEventNoticeMake:      TopicMake
+    topicStreamChunkMake:      TopicMake
     topicServiceRequestMake:   TopicMake
     topicServiceResponseMake:  TopicMake
     topicEventNoticeMatch:     TopicMatch
+    topicStreamChunkMatch:     TopicMatch
     topicServiceRequestMatch:  TopicMatch
     topicServiceResponseMatch: TopicMatch
 }
@@ -62,42 +67,50 @@ export interface APIOptions {
 export interface Registration {
     unregister (): Promise<void>
 }
+export interface Attachment {
+    unattach (): Promise<void>
+}
 export interface Subscription {
     unsubscribe (): Promise<void>
 }
 
-/*  callback info type  */
-export interface Info {
+/*  info types  */
+export interface InfoBase {
     sender:    string,
     receiver?: string
 }
+export interface InfoEvent   extends InfoBase {}
+export interface InfoStream  extends InfoBase { stream: stream.Readable }
+export interface InfoService extends InfoBase {}
 
 /*  type utility: extend function with Info parameter  */
-export type WithInfo<F> = F extends (...args: infer P) => infer R
-    ? (...args: [ ...P, info: Info ]) => R
+export type WithInfo<F, I extends InfoBase> = F extends (...args: infer P) => infer R
+    ? (...args: [ ...P, info: I ]) => R
     : never
+
+/*  marker types  */
+type Brand<T> = T & { readonly __brand: unique symbol }
+export type APIEndpoint = ((...args: any[]) => void) | ((...args: any[]) => any)
+export type Event<T extends APIEndpoint>   = Brand<T>
+export type Stream<T extends APIEndpoint>  = Brand<T>
+export type Service<T extends APIEndpoint> = Brand<T>
 
 /*  type utilities for generic API  */
-export type APISchema = Record<
-    string,
-    ((...args: any[]) => void) |
-    ((...args: any[]) => any)
->
+export type APISchema = Record<string, APIEndpoint>
 
-/*  extract event keys where return type IS void (events: subscribe/notify/control)  */
+/*  extract event keys where type is branded as Event  */
 export type EventKeys<T> = string extends keyof T ? string : {
-    [ K in keyof T ]: T[K] extends (...args: any[]) => infer R
-    /*  eslint-disable-next-line @typescript-eslint/no-invalid-void-type  */
-    ? [ R ] extends [ void ] ? K : never
-    : never
+    [ K in keyof T ]: T[K] extends Event<infer _F> ? K : never
 }[ keyof T ]
 
-/*  extract service keys where return type is NOT void (services: register/call)  */
+/*  extract stream keys where type is branded as Stream  */
+export type StreamKeys<T> = string extends keyof T ? string : {
+    [ K in keyof T ]: T[K] extends Stream<infer _F> ? K : never
+}[ keyof T ]
+
+/*  extract service keys where type is branded as Service  */
 export type ServiceKeys<T> = string extends keyof T ? string : {
-    [ K in keyof T ]: T[K] extends (...args: any[]) => infer R
-    /*  eslint-disable-next-line @typescript-eslint/no-invalid-void-type  */
-    ? [ R ] extends [ void ] ? never : K
-    : never
+    [ K in keyof T ]: T[K] extends Service<infer _F> ? K : never
 }[ keyof T ]
 
 /*  MQTTp API class  */
@@ -105,9 +118,10 @@ export default class MQTTp<T extends APISchema = APISchema> {
     private options:      APIOptions
     private codec:        Codec
     private msg           = new Msg()
-    private registry      = new Map<string, ((...params: any[]) => any) | ((...params: any[]) => void)>()
+    private registry      = new Map<string, APIEndpoint>()
     private requests      = new Map<string, { service: string, callback: (err: any, result: any) => void }>()
     private subscriptions = new Map<string, number>()
+    private streams       = new Map<string, stream.Readable>()
 
     /*  construct API class  */
     constructor (
@@ -116,13 +130,19 @@ export default class MQTTp<T extends APISchema = APISchema> {
     ) {
         /*  determine options and provide defaults  */
         this.options = {
-            id:       nanoid(),
-            codec:    "cbor",
-            timeout:  10 * 1000,
+            id:        nanoid(),
+            codec:     "cbor",
+            timeout:   10 * 1000,
+            chunkSize: 16 * 1024,
             topicEventNoticeMake: (name, peerId) => {
                 return peerId
                     ? `${name}/event-notice/${peerId}`
                     : `${name}/event-notice`
+            },
+            topicStreamChunkMake: (name, peerId) => {
+                return peerId
+                    ? `${name}/stream-chunk/${peerId}`
+                    : `${name}/stream-chunk`
             },
             topicServiceRequestMake: (name, peerId) => {
                 return peerId
@@ -136,6 +156,10 @@ export default class MQTTp<T extends APISchema = APISchema> {
             },
             topicEventNoticeMatch: (topic) => {
                 const m = topic.match(/^(.+?)\/event-notice(?:\/(.+))?$/)
+                return m ? { name: m[1], peerId: m[2] } : null
+            },
+            topicStreamChunkMatch: (topic) => {
+                const m = topic.match(/^(.+?)\/stream-chunk(?:\/(.+))?$/)
                 return m ? { name: m[1], peerId: m[2] } : null
             },
             topicServiceRequestMatch: (topic) => {
@@ -181,12 +205,12 @@ export default class MQTTp<T extends APISchema = APISchema> {
     /*  subscribe to an RPC event  */
     async subscribe<K extends EventKeys<T> & string> (
         event:    K,
-        callback: WithInfo<T[K]>
+        callback: WithInfo<T[K], InfoEvent>
     ): Promise<Subscription>
     async subscribe<K extends EventKeys<T> & string> (
         event:    K,
         options:  Partial<IClientSubscribeOptions>,
-        callback: WithInfo<T[K]>
+        callback: WithInfo<T[K], InfoEvent>
     ): Promise<Subscription>
     async subscribe<K extends EventKeys<T> & string> (
         event:    K,
@@ -237,15 +261,74 @@ export default class MQTTp<T extends APISchema = APISchema> {
         return subscription
     }
 
+    /*  attach to a stream  */
+    async attach<K extends StreamKeys<T> & string> (
+        stream:   K,
+        callback: WithInfo<T[K], InfoStream>
+    ): Promise<Attachment>
+    async attach<K extends StreamKeys<T> & string> (
+        stream:   K,
+        options:  Partial<IClientSubscribeOptions>,
+        callback: WithInfo<T[K], InfoStream>
+    ): Promise<Attachment>
+    async attach<K extends StreamKeys<T> & string> (
+        stream:   K,
+        ...args:  any[]
+    ): Promise<Attachment> {
+        /*  determine parameters  */
+        let options:  Partial<IClientSubscribeOptions> = {}
+        let callback: T[K] = args[0] as T[K]
+        if (args.length === 2 && typeof args[0] === "object") {
+            options  = args[0]
+            callback = args[1]
+        }
+
+        /*  sanity check situation  */
+        if (this.registry.has(stream))
+            throw new Error(`attach: stream "${stream}" already attached`)
+
+        /*  generate the corresponding MQTT topics for broadcast and direct use  */
+        const topicB = this.options.topicStreamChunkMake(stream)
+        const topicD = this.options.topicStreamChunkMake(stream, this.options.id)
+
+        /*  subscribe to MQTT topics  */
+        await Promise.all([
+            this._subscribeTopic(topicB, { qos: 0, ...options }),
+            this._subscribeTopic(topicD, { qos: 0, ...options })
+        ]).catch((err: Error) => {
+            this._unsubscribeTopic(topicB).catch(() => {})
+            this._unsubscribeTopic(topicD).catch(() => {})
+            throw err
+        })
+
+        /*  remember the subscription  */
+        this.registry.set(stream, callback)
+
+        /*  provide an attachment for subsequent unattaching  */
+        const self = this
+        const attachment: Attachment = {
+            async unattach (): Promise<void> {
+                if (!self.registry.has(stream))
+                    throw new Error(`unattach: stream "${stream}" not attached`)
+                self.registry.delete(stream)
+                return Promise.all([
+                    self._unsubscribeTopic(topicB),
+                    self._unsubscribeTopic(topicD)
+                ]).then(() => {})
+            }
+        }
+        return attachment
+    }
+
     /*  register an RPC service  */
     async register<K extends ServiceKeys<T> & string> (
         service:  K,
-        callback: WithInfo<T[K]>
+        callback: WithInfo<T[K], InfoService>
     ): Promise<Registration>
     async register<K extends ServiceKeys<T> & string> (
         service:  K,
         options:  Partial<IClientSubscribeOptions>,
-        callback: WithInfo<T[K]>
+        callback: WithInfo<T[K], InfoService>
     ): Promise<Registration>
     async register<K extends ServiceKeys<T> & string> (
         service:  K,
@@ -375,7 +458,7 @@ export default class MQTTp<T extends APISchema = APISchema> {
         /*  generate unique request id  */
         const rid = nanoid()
 
-        /*  generate encoded Msg message  */
+        /*  generate encoded message  */
         const request = this.msg.makeEventEmission(rid, event, params, this.options.id, receiver)
         const message = this.codec.encode(request)
 
@@ -384,6 +467,88 @@ export default class MQTTp<T extends APISchema = APISchema> {
 
         /*  publish message to MQTT topic  */
         this.mqtt.publish(topic, message, { qos: 2, ...options })
+    }
+
+    /*  transfer stream ("chunked content")  */
+    transfer<K extends StreamKeys<T> & string> (
+        stream:    K,
+        readable:  stream.Readable,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    transfer<K extends StreamKeys<T> & string> (
+        stream:    K,
+        readable:  stream.Readable,
+        receiver:  Receiver,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    transfer<K extends StreamKeys<T> & string> (
+        stream:    K,
+        readable:  stream.Readable,
+        options:   IClientPublishOptions,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    transfer<K extends StreamKeys<T> & string> (
+        stream:    K,
+        readable:  stream.Readable,
+        receiver:  Receiver,
+        options:   IClientPublishOptions,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    transfer<K extends StreamKeys<T> & string> (
+        stream:    K,
+        readable:  stream.Readable,
+        ...args:   any[]
+    ): Promise<void> {
+        /*  determine actual parameters  */
+        const { receiver, options, params } = this._parseCallArgs<Parameters<T[K]>>(args)
+
+        /*  generate unique request id  */
+        const rid = nanoid()
+
+        /*  generate corresponding MQTT topic  */
+        const topic = this.options.topicStreamChunkMake(stream, receiver)
+
+        /*  utility function for converting a chunk to a Buffer  */
+        const chunkToBuffer = (chunk: any) => {
+            let buffer: Buffer
+            if (Buffer.isBuffer(chunk))
+                buffer = chunk
+            else if (typeof chunk === "string")
+                buffer = Buffer.from(chunk)
+            else if (chunk instanceof Uint8Array)
+                buffer = Buffer.from(chunk)
+            else
+                buffer = Buffer.from(String(chunk))
+            return buffer
+        }
+
+        /*  iterate over all chunks of the buffer  */
+        return new Promise((resolve, reject) => {
+            readable.on("readable", () => {
+                let chunk: any
+                while ((chunk = readable.read(this.options.chunkSize)) !== null) {
+                    /*  ensure data is a Buffer  */
+                    const buffer = chunkToBuffer(chunk)
+
+                    /*  generate encoded message  */
+                    const request = this.msg.makeStreamChunk(rid, stream, buffer, params, this.options.id, receiver)
+                    const message = this.codec.encode(request)
+
+                    /*  publish message to MQTT topic  */
+                    this.mqtt.publish(topic, message, { qos: 2, ...options })
+                }
+            })
+            readable.on("end", () => {
+                /*  send "null" chunk to signal end of stream  */
+                const request = this.msg.makeStreamChunk(rid, stream, null, params, this.options.id, receiver)
+                const message = this.codec.encode(request)
+                this.mqtt.publish(topic, message, { qos: 2, ...options })
+                resolve()
+            })
+            readable.on("error", () => {
+                reject(new Error("readable stream error"))
+            })
+        })
     }
 
     /*  call service ("request and response")  */
@@ -502,20 +667,25 @@ export default class MQTTp<T extends APISchema = APISchema> {
     private _onMessage (topic: string, message: Buffer): void {
         /*  ensure we handle only valid messages  */
         let eventMatch:    TopicMatching | null = null
+        let streamMatch:   TopicMatching | null = null
         let requestMatch:  TopicMatching | null = null
         let responseMatch: TopicMatching | null = null
         if (   (eventMatch    = this.options.topicEventNoticeMatch(topic))     === null
+            && (streamMatch   = this.options.topicStreamChunkMatch(topic))  === null
             && (requestMatch  = this.options.topicServiceRequestMatch(topic))  === null
             && (responseMatch = this.options.topicServiceResponseMatch(topic)) === null)
             return
 
         /*  ensure we really handle only messages for us  */
-        const peerId = eventMatch?.peerId ?? requestMatch?.peerId ?? responseMatch?.peerId
+        const peerId = eventMatch?.peerId ??
+            streamMatch?.peerId ??
+            requestMatch?.peerId ??
+            responseMatch?.peerId
         if (peerId !== undefined && peerId !== this.options.id)
             return
 
         /*  try to parse payload as payload  */
-        let parsed: EventEmission | ServiceRequest | ServiceResponseSuccess | ServiceResponseError
+        let parsed: EventEmission | StreamChunk | ServiceRequest | ServiceResponseSuccess | ServiceResponseError
         try {
             let input: Buffer | string = message
             if (this.options.codec === "json")
@@ -537,8 +707,28 @@ export default class MQTTp<T extends APISchema = APISchema> {
             const name = parsed.event
             const handler = this.registry.get(name)
             const params = parsed.params ?? []
-            const info: Info = { sender: parsed.sender ?? "", receiver: parsed.receiver }
+            const info: InfoEvent = { sender: parsed.sender ?? "", receiver: parsed.receiver }
             handler?.(...params, info)
+        }
+        else if (parsed instanceof StreamChunk) {
+            /*  just handle stream chunk  */
+            const id  = parsed.id
+            let chunk = parsed.chunk
+            let readable = this.streams.get(id)
+            if (readable === undefined) {
+                const name    = parsed.stream
+                const params  = parsed.params ?? []
+                readable = new stream.Readable({ read (_size) {} })
+                this.streams.set(id, readable)
+                const info: InfoStream = { sender: parsed.sender ?? "", receiver: parsed.receiver, stream: readable }
+                const handler = this.registry.get(name)
+                handler?.(...params, info)
+            }
+            if (chunk !== null && !Buffer.isBuffer(chunk))
+                chunk = Buffer.from(chunk)
+            readable.push(chunk)
+            if (chunk === null)
+                this.streams.delete(id)
         }
         else if (parsed instanceof ServiceRequest) {
             /*  deliver service request and send response  */
@@ -549,7 +739,7 @@ export default class MQTTp<T extends APISchema = APISchema> {
             if (handler !== undefined) {
                 /*  execute service handler  */
                 const params = parsed.params ?? []
-                const info: Info = { sender: parsed.sender ?? "", receiver: parsed.receiver }
+                const info: InfoService = { sender: parsed.sender ?? "", receiver: parsed.receiver }
                 response = Promise.resolve().then(() => handler(...params, info))
             }
             else

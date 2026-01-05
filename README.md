@@ -22,7 +22,7 @@ $ npm install mqtt mqtt-plus
 About
 -----
 
-This is **MQTT+**, an addon API for the excellent
+This is **MQTT+**, an companion addon API for the excellent
 [MQTT](http://mqtt.org/) client TypeScript/JavaScript API
 [MQTT.js](https://www.npmjs.com/package/mqtt), provoding additional
 communication patterns with optional type safety:
@@ -39,6 +39,20 @@ communication patterns with optional type safety:
   In contrast to the regular MQTT message publish/subscribe, this
   pattern allows to direct the event to particular subscribers and
   provides optional information about the sender to subscribers.
+
+- **Stream Transfer**:
+
+  Stream Transfer is a *uni-directional* communication pattern.
+  A stream is the combination of a stream name, a `Readable` stream object and optionally zero or more arguments.
+  You *attach* to a stream.
+  When a stream is *transferred*, either a single particular attacher (in case of
+  a directed stream transfer) or all attachers are called and receive the
+  arguments as extra information. The `Readable` stream is available via
+  `info.stream` in the attacher callback.
+
+  In contrast to the regular MQTT message publish/subscribe, this
+  pattern allows to transfer arbitrary amounts of arbitrary data by
+  chunking the data via a stream.
 
 - **Service Call**:
 
@@ -60,20 +74,33 @@ communication patterns with optional type safety:
 > [MQTT-JSON-RPC](https://github.com/rse/mqtt-json-rpc) of the same
 > author, but instead of just JSON, MQTT+ encodes packets as JSON
 > or CBOR (default), uses an own packet format (allowing sender and
-> receiver information) and uses shorter NanoIDs instead of longer UUIDs
-> for identification of sender, receiver and requests.
+> receiver information), uses shorter NanoIDs instead of longer UUIDs
+> for identification of sender, receiver and requests, and has
+> no support for stream transfers.
 
 Usage
 -----
 
 ### API:
 
+The API type defines the available endpoints. Use the marker types
+`Event<T>`, `Stream<T>`, and `Service<T>` to declare the communication
+pattern of each endpoint:
+
 ```ts
+import type * as MQTTpt from "mqtt-plus"
+
 export type API = {
-    "example/sample": (a1: string, a2: boolean) => void
-    "example/hello":  (a1: string, a2: number)  => string
+    "example/sample": MQTTpt.Event<(a1: string, a2: boolean) => void>    /*  event   */
+    "example/upload": MQTTpt.Stream<(a1: string, a2: number) => void>    /*  stream  */
+    "example/hello":  MQTTpt.Service<(a1: string, a2: number) => string> /*  service */
 }
 ```
+
+The marker types ensure that `subscribe()` and `emit()` only accept
+`Event<T>` endpoints, `attach()` and `transfer()` only accept
+`Stream<T>` endpoints, and `register()` and `call()` only accept
+`Service<T>` endpoints.
 
 ### Server:
 
@@ -128,12 +155,15 @@ The **MQTT+** API provides the following methods:
               id:                        string
               codec:                     "cbor" | "json"
               timeout:                   number
+              chunkSize:                 number
               topicEventNoticeMake:      (topic: string) => TopicMatching | null
+              topicStreamChunkMake:      (topic: string) => TopicMatching | null
               topicServiceRequestMake:   (topic: string) => TopicMatching | null
               topicServiceResponseMake:  (topic: string) => TopicMatching | null
-              topicEventNoticeMatch:     { name: string, clientId?: string }
-              topicServiceRequestMatch:  { name: string, clientId?: string }
-              topicServiceResponseMatch: { name: string, clientId?: string }
+              topicEventNoticeMatch:     { name: string, peerId?: string }
+              topicStreamChunkMatch:     { name: string, peerId?: string }
+              topicServiceRequestMatch:  { name: string, peerId?: string }
+              topicServiceResponseMatch: { name: string, peerId?: string }
           }
       )
 
@@ -149,18 +179,23 @@ The **MQTT+** API provides the following methods:
   - `id`: Custom MQTT peer identifier (default: auto-generated NanoID).
   - `codec`: Encoding format (default: `cbor`).
   - `timeout`: Communication timeout in milliseconds (default: `10000`).
+  - `chunkSize`: Chunk size in bytes for stream transfers (default: `16384`).
   - `topicEventNoticeMake`: Custom topic generation for event notices.
-    (default: `` (name, clientId) => clientId ? `${name}/event-notice/${clientId}` : `${name}/event-notice` ``)
+    (default: `` (name, peerId) => peerId ? `${name}/event-notice/${peerId}` : `${name}/event-notice` ``)
+  - `topicStreamChunkMake`: Custom topic generation for stream chunks.
+    (default: `` (name, peerId) => peerId ? `${name}/stream-chunk/${peerId}` : `${name}/stream-chunk` ``)
   - `topicServiceRequestMake`: Custom topic generation for service requests.
-    (default: `` (name, clientId) => clientId ? `${name}/service-request/${clientId}` : `${name}/service-request` ``)
+    (default: `` (name, peerId) => peerId ? `${name}/service-request/${peerId}` : `${name}/service-request` ``)
   - `topicServiceResponseMake`): Custom topic generation for service responses.
-    (default: `` (name, clientId) => clientId ? `${name}/service-response/${clientId}` : `${name}/service-response` ``)
+    (default: `` (name, peerId) => peerId ? `${name}/service-response/${peerId}` : `${name}/service-response` ``)
   - `topicEventNoticeMatch`: Custom topic matching for event notices.
-    (default: `` (topic) => { const m = topic.match(/^(.+?)\/event-notice(?:\/(.+))?$/); return m ? { name: m[1], clientId: m[2] } : null } ``)
+    (default: `` (topic) => { const m = topic.match(/^(.+?)\/event-notice(?:\/(.+))?$/); return m ? { name: m[1], peerId: m[2] } : null } ``)
+  - `topicStreamChunkMatch`: Custom topic matching for stream chunks.
+    (default: `` (topic) => { const m = topic.match(/^(.+?)\/stream-chunk(?:\/(.+))?$/); return m ? { name: m[1], peerId: m[2] } : null } ``)
   - `topicServiceRequestMatch`: Custom topic matching for service requests.
-    (default: `` (topic) => { const m = topic.match(/^(.+?)\/service-request(?:\/(.+))?$/); return m ? { name: m[1], clientId: m[2] } : null } ``)
+    (default: `` (topic) => { const m = topic.match(/^(.+?)\/service-request(?:\/(.+))?$/); return m ? { name: m[1], peerId: m[2] } : null } ``)
   - `topicServiceResponseMatch`: Custom topic matching for service responses.
-    (default: `` (topic) => { const m = topic.match(/^(.+?)\/service-response\/(.+)$/); return m ? { name: m[1], clientId: m[2] } : null } ``)
+    (default: `` (topic) => { const m = topic.match(/^(.+?)\/service-response\/(.+)$/); return m ? { name: m[1], peerId: m[2] } : null } ``)
 
 - **Event Subscription**:<br/>
 
@@ -168,7 +203,10 @@ The **MQTT+** API provides the following methods:
       subscribe(
           event:    string,
           options?: MQTT::IClientSubscribeOptions
-          callback: (...params: any[], info: { sender: string, receiver?: string }) => void
+          callback: (
+              ...params: any[],
+              info: { sender: string, receiver?: string }
+          ) => void
       ): Promise<Subscription>
 
   Subscribe to an event.
@@ -179,8 +217,32 @@ The **MQTT+** API provides the following methods:
 
   Internally, on the MQTT broker, the topics generated by
   `topicEventNoticeMake()` (default: `${event}/event-notice` and
-  `${event}/event-notice/${clientId}`) are subscribed. Returns a
+  `${event}/event-notice/${peerId}`) are subscribed. Returns a
   `Subscription` object with an `unsubscribe()` method.
+
+- **Stream Attachment**:<br/>
+
+      /*  (simplified TypeScript API method signature)  */
+      attach(
+          stream:   string,
+          options?: MQTT::IClientSubscribeOptions
+          callback: (
+              ...params: any[],
+              info: { sender: string, receiver?: string, stream: stream.Readable }
+          ) => void
+      ): Promise<Attachment>
+
+  Attach to (observe) a stream.
+  The `stream` has to be a valid MQTT topic name.
+  The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
+  The `callback` is called with the `params` passed to a remote `transfer()`.
+  The `info.stream` provides a Node.js `Readable` stream for consuming the transferred data.
+  There is no return value of `callback`.
+
+  Internally, on the MQTT broker, the topics generated by
+  `topicStreamChunkMake()` (default: `${stream}/stream-chunk` and
+  `${stream}/stream-chunk/${peerId}`) are subscribed. Returns an
+  `Attachment` object with an `unattach()` method.
 
 - **Service Registration**:<br/>
 
@@ -188,7 +250,10 @@ The **MQTT+** API provides the following methods:
       register(
           service:  string,
           options?: MQTT::IClientSubscribeOptions
-          callback: (...params: any[], info: { sender: string, receiver?: string }) => any
+          callback: (
+              ...params: any[],
+              info: { sender: string, receiver?: string }
+          ) => any
       ): Promise<Registration>
 
   Register a service.
@@ -199,7 +264,7 @@ The **MQTT+** API provides the following methods:
 
   Internally, on the MQTT broker, the topics by
   `topicServiceRequestMake()` (default: `${service}/service-request` and
-  `${service}/service-request/${clientId}`) are subscribed. Returns a
+  `${service}/service-request/${peerId}`) are subscribed. Returns a
   `Registration` object with an `unregister()` method.
 
 - **Event Emission**:<br/>
@@ -219,8 +284,35 @@ The **MQTT+** API provides the following methods:
   The remote `subscribe()` `callback` is called with `params` and its
   return value is silently ignored.
 
-  Internally, publishes to the MQTT topic by `topicEventNoticeMake(event, clientId)`
-  (default: `${event}/event-notice` or `${event}/event-notice/${clientId}`).
+  Internally, publishes to the MQTT topic by `topicEventNoticeMake(event, peerId)`
+  (default: `${event}/event-notice` or `${event}/event-notice/${peerId}`).
+
+- **Stream Transfer**:<br/>
+
+      /*  (simplified TypeScript API method signature)  */
+      transfer(
+          stream:    string,
+          readable:  stream.Readable,
+          receiver?: Receiver,
+          options?:  MQTT::IClientPublishOptions,
+          ...params: any[]
+      ): Promise<void>
+
+  Transfer a stream to all attachers or a specific attacher.
+  The `readable` is a Node.js `Readable` stream providing the data to transfer.
+  The optional `receiver` directs the transfer to a specific attacher only.
+  The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+
+  The data is read from `readable` in chunks (default: 16KB,
+  configurable via `chunkSize` option) and sent over MQTT until the
+  stream is closed. The returned `Promise` resolves when the entire
+  stream has been transferred.
+
+  The remote `attach()` `callback` is called with `params` and an `info` object
+  containing a `stream.Readable` for consuming the transferred data.
+
+  Internally, publishes to the MQTT topic by `topicStreamChunkMake(stream, peerId)`
+  (default: `${stream}/stream-chunk` or `${stream}/stream-chunk/${peerId}`).
 
 - **Service Call**:<br/>
 
@@ -240,8 +332,8 @@ The **MQTT+** API provides the following methods:
   return value resolves the returned `Promise`. If the remote `callback`
   throws an exception, this rejects the returned `Promise`.
 
-  Internally, on the MQTT broker, the topic by `topicServiceResponseMake(service, clientId)`
-  (default: `${service}/service-response/${clientId}`) is temporarily subscribed
+  Internally, on the MQTT broker, the topic by `topicServiceResponseMake(service, peerId)`
+  (default: `${service}/service-response/${peerId}`) is temporarily subscribed
   for receiving the response.
 
 - **Receiver Wrapping**:<br/>
@@ -382,9 +474,10 @@ it in action and tracing its communication (the typing of the `MQTTp`
 class with `API` is optional, but strongly suggested):
 
 ```ts
-import Mosquitto from "mosquitto"
-import MQTT      from "mqtt"
-import MQTTp     from "mqtt-plus"
+import Mosquitto        from "mosquitto"
+import MQTT             from "mqtt"
+import MQTTp            from "mqtt-plus"
+import type * as MQTTpt from "mqtt-plus"
 
 const mosquitto = new Mosquitto()
 await mosquitto.start()
@@ -396,8 +489,8 @@ const mqtt = MQTT.connect("mqtt://127.0.0.1:1883", {
 })
 
 type API = {
-    "example/sample": (a1: string, a2: number) => void
-    "example/hello":  (a1: string, a2: number) => string
+    "example/sample": MQTTpt.Event<(a1: string, a2: number) => void>
+    "example/hello":  MQTTpt.Service<(a1: string, a2: number) => string>
 }
 
 const mqttp = new MQTTp<API>(mqtt, { codec: "json" })
