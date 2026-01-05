@@ -1,5 +1,5 @@
 
-<img src="https://raw.githubusercontent.com/rse/mqttp/master/etc/logo.svg" width="400" align="right" alt=""/>
+<img src="https://raw.githubusercontent.com/rse/mqtt-plus/master/etc/logo.svg" width="400" align="right" alt=""/>
 
 MQTT+
 =====
@@ -7,7 +7,7 @@ MQTT+
 [MQTT](http://mqtt.org/) Communication Patterns
 
 <p/>
-<img src="https://nodei.co/npm/@rse/mqttp.png?downloads=true&stars=true" alt=""/>
+<img src="https://nodei.co/npm/mqtt-plus.png?downloads=true&stars=true" alt=""/>
 
 [![github (author stars)](https://img.shields.io/github/stars/rse?logo=github&label=author%20stars&color=%233377aa)](https://github.com/rse)
 [![github (author followers)](https://img.shields.io/github/followers/rse?label=author%20followers&logo=github&color=%234477aa)](https://github.com/rse)
