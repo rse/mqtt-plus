@@ -1,6 +1,7 @@
 {
-    "name":                           "junction",
-    "version":                        "1.0.0",
+    "name":                           "@rse/junction",
+    "version":                        "0.9.0",
+    "publishConfig":                  { "access": "public" },
     "description":                    "MQTT Communication Junction",
     "keywords":                       [ "mqtt", "rpc" ],
     "license":                        "MIT",
