@@ -24,26 +24,23 @@ About
 
 This is **MQTT+**, an addon JavaScript/TypeScript API for the excellent
 [MQTT.js](https://www.npmjs.com/package/mqtt), for additional
-communication patterns like [Remote Procedure
-Call](https://en.wikipedia.org/wiki/Remote_procedure_call) (RPC).
-This allows a bi-directional request/response-style
-communication over the technically uni-directional message protocol
-[MQTT](http://mqtt.org).
-
-Conceptually, the **MQTT+** API provides two types of communication patterns:
+communication patterns:
 
 - **Event Emission**:
+
   Event Emission is a *uni-directional* communication pattern.
   An Event is the combination of an event name and optionally zero or more arguments.
   You *subscribe* to events.
   When an event is *emitted*, either a single particular subscriber (in case of
   a directed event emission) or all subscribers are called and receive the
   arguments as extra information.
+
   In contrast to the regular MQTT message publish/subscribe, this
   pattern allows to direct the event to particular subscribers and
   provides optional information about the sender to subscribers.
 
 - **Service Call**:
+
   Service Call is a *bi-directional* communication pattern.
   A Service is the combination of a service name and optionally zero or more arguments.
   You *register* for a service.
@@ -51,6 +48,11 @@ Conceptually, the **MQTT+** API provides two types of communication patterns:
   of a directed service call) or one arbitrary registrator is called and
   receives the arguments as the request. The registrator then has to
   provide the service response.
+
+  In contrast to the regular uni-directional MQTT message
+  publish/subscribe communication, this allows a bi-directional [Remote
+  Procedure Call](https://en.wikipedia.org/wiki/Remote_procedure_call)
+  (RPC) style communication.
 
 > [!Note]
 > **MQTT+** is similar to and derived from
