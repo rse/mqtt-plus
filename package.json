@@ -33,14 +33,20 @@
         "@eslint/eslintrc":           "3.3.3",
         "jiti":                       "2.6.1",
         "tsx":                        "4.21.0",
+        "mocha":                      "11.7.5",
+        "chai":                       "6.2.2",
         "typescript":                 "5.9.3",
-        "typescript-eslint":          "8.51.0",
-        "@typescript-eslint/parser":  "8.51.0",
+        "typescript-eslint":          "8.52.0",
+        "@typescript-eslint/parser":  "8.52.0",
         "mqtt":                       "5.14.1",
+        "mosquitto":                  "0.9.4",
         "vite":                       "7.3.0",
         "vite-plugin-singlefile":     "2.3.0",
         "vite-plugin-node-polyfills": "0.24.0",
-        "@wroud/vite-plugin-tsc":     "0.12.2"
+        "@wroud/vite-plugin-tsc":     "0.12.2",
+        "@types/node":                "25.0.3",
+        "@types/chai":                "5.2.3",
+        "@types/mocha":               "10.0.10"
     },
     "peerDependencies": {
         "mqtt":                       ">=4.0.0"
