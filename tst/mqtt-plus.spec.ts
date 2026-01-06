@@ -30,12 +30,11 @@ import MQTT       from "mqtt"
 /*  internal dependencies  */
 import MQTTp      from "../dst-stage2/mqtt-plus.esm.js"
 
-/*  local state  */
-let mosquitto: Mosquitto
-let mqtt:      MQTT
-
 /*  test suite  */
 describe("MQTT+ Library", function () {
+    let mosquitto: Mosquitto
+    let mqtt:      MQTT
+
     before(async function () {
         /*  start Mosquitto  */
         this.timeout(8000)
@@ -46,20 +45,26 @@ describe("MQTT+ Library", function () {
         /*  connect with MQTT  */
         mqtt = MQTT.connect("mqtt://127.0.0.1:1883", {})
         await new Promise<void>((resolve, reject) => {
-            mqtt.once("connect", ()    => { resolve() })
-            mqtt.once("error",   (err) => { reject(err) })
+            mqtt.once("connect", ()         => { resolve() })
+            mqtt.once("error",   (err: any) => { reject(err) })
         })
     })
 
     it("MQTT+ TypeScript API sanity check", async function () {
         const mqttp = new MQTTp(mqtt)
+
         expect(MQTTp).to.be.a("function")
         expect(MQTTp.prototype).to.be.an("object")
         expect(MQTTp.prototype.constructor).to.equal(MQTTp)
+
+        expect(mqttp).to.respondTo("receiver")
+
         expect(mqttp).to.respondTo("subscribe")
         expect(mqttp).to.respondTo("attach")
+
         expect(mqttp).to.respondTo("register")
         expect(mqttp).to.respondTo("emit")
+
         expect(mqttp).to.respondTo("transfer")
         expect(mqttp).to.respondTo("call")
     })

@@ -27,7 +27,6 @@ import { ServiceTrait }   from "./mqtt-plus-service"
 
 export *                  from "./mqtt-plus-base"
 
-export default
-    class MQTTp<T extends APISchema = APISchema>
+export default class MQTTp<T extends APISchema = APISchema>
     extends ServiceTrait<T> {}
 
