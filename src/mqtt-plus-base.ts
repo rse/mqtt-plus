@@ -31,11 +31,8 @@ import { nanoid }                            from "nanoid"
 /*  internal requirements  */
 import Codec                                 from "./mqtt-plus-codec"
 import { APISchema, APIEndpoint }            from "./mqtt-plus-api"
-import Msg, {
-    EventEmission,
-    StreamChunk,
-    ServiceRequest,
-    ServiceResponseSuccess,
+import Msg, { EventEmission, StreamChunk,
+    ServiceRequest, ServiceResponseSuccess,
     ServiceResponseError }                   from "./mqtt-plus-msg"
 
 /*  MQTT topic making  */
