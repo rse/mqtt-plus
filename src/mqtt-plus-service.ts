@@ -34,8 +34,13 @@ import {
     ServiceResponseError }           from "./mqtt-plus-msg"
 import { APISchema, ServiceKeys }    from "./mqtt-plus-api"
 import type { Receiver, WithInfo,
-    InfoService, Registration }      from "./mqtt-plus-base"
+    InfoService }                    from "./mqtt-plus-base"
 import { StreamTrait }               from "./mqtt-plus-stream"
+
+/*  the registration result type  */
+export interface Registration {
+    unregister (): Promise<void>
+}
 
 /*  Service Communication Trait  */
 export class ServiceTrait<T extends APISchema = APISchema> extends StreamTrait<T> {
@@ -215,7 +220,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends StreamTrait<T
     }
 
     /*  dispatch message (Service pattern handling)  */
-    protected _dispatchMessage (parsed: any): boolean {
+    protected _dispatchMessage (parsed: any) {
+        super._dispatchMessage(parsed)
         if (parsed instanceof ServiceRequest) {
             /*  deliver service request and send response  */
             const rid = parsed.id
@@ -256,7 +262,6 @@ export class ServiceTrait<T extends APISchema = APISchema> extends StreamTrait<T
             }).catch((err: Error) => {
                 this.mqtt.emit("error", err)
             })
-            return true
         }
         else if (parsed instanceof ServiceResponseSuccess || parsed instanceof ServiceResponseError) {
             /*  handle service response  */
@@ -273,8 +278,6 @@ export class ServiceTrait<T extends APISchema = APISchema> extends StreamTrait<T
                 this.requests.delete(rid)
                 this._responseUnsubscribe(request.service)
             }
-            return true
         }
-        return super._dispatchMessage(parsed)
     }
 }

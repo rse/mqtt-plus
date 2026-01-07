@@ -34,8 +34,13 @@ import { nanoid }                    from "nanoid"
 import { StreamChunk }               from "./mqtt-plus-msg"
 import { APISchema, StreamKeys }     from "./mqtt-plus-api"
 import type { Receiver, WithInfo,
-    InfoStream, Attachment }         from "./mqtt-plus-base"
+    InfoStream }                     from "./mqtt-plus-base"
 import { EventTrait }                from "./mqtt-plus-event"
+
+/*  the attachment result type  */
+export interface Attachment {
+    unattach (): Promise<void>
+}
 
 /*  Stream Communication Trait  */
 export class StreamTrait<T extends APISchema> extends EventTrait<T> {
@@ -184,7 +189,8 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
     }
 
     /*  dispatch message (Stream pattern handling)  */
-    protected _dispatchMessage (parsed: any): boolean {
+    protected _dispatchMessage (parsed: any) {
+        super._dispatchMessage(parsed)
         if (parsed instanceof StreamChunk) {
             /*  just handle stream chunk  */
             const id  = parsed.id
@@ -204,8 +210,6 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
             readable.push(chunk)
             if (chunk === null)
                 this.streams.delete(id)
-            return true
         }
-        return super._dispatchMessage(parsed)
     }
 }

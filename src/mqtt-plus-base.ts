@@ -61,17 +61,6 @@ export interface APIOptions {
 /*  type of a wrapped receiver id (for method overloading)  */
 export type Receiver = { __receiver: string }
 
-/*  Registration, Subscription and Observation result types  */
-export interface Registration {
-    unregister (): Promise<void>
-}
-export interface Attachment {
-    unattach (): Promise<void>
-}
-export interface Subscription {
-    unsubscribe (): Promise<void>
-}
-
 /*  info types  */
 export interface InfoBase {
     sender:    string,
@@ -204,7 +193,13 @@ export class BaseTrait<T extends APISchema = APISchema> {
     }
 
     /*  parse optional peerId and options from variadic arguments  */
-    protected _parseCallArgs<U extends any[]> (args: any[]): { receiver?: string, options: IClientPublishOptions, params: U } {
+    protected _parseCallArgs<U extends any[]> (
+        args: any[]
+    ): {
+        receiver?: string,
+        options: IClientPublishOptions,
+        params: U
+    } {
         let receiver: string | undefined
         let options: IClientPublishOptions = {}
         let params = args as U
@@ -225,9 +220,7 @@ export class BaseTrait<T extends APISchema = APISchema> {
     }
 
     /*  dispatch parsed message to appropriate handler (base implementation)  */
-    protected _dispatchMessage (_parsed: any): boolean {
-        return false
-    }
+    protected _dispatchMessage (_parsed: any): void {}
 
     /*  handle incoming MQTT message  */
     private _onMessage (topic: string, message: Buffer): void {

@@ -31,8 +31,13 @@ import { nanoid }                    from "nanoid"
 import { EventEmission }             from "./mqtt-plus-msg"
 import { APISchema, EventKeys }      from "./mqtt-plus-api"
 import type { Receiver, WithInfo,
-    InfoEvent, Subscription }        from "./mqtt-plus-base"
+    InfoEvent }                      from "./mqtt-plus-base"
 import { BaseTrait }                 from "./mqtt-plus-base"
+
+/*  the subscription result type  */
+export interface Subscription {
+    unsubscribe (): Promise<void>
+}
 
 /*  Event Communication Trait  */
 export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
@@ -138,7 +143,8 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
     }
 
     /*  dispatch message (Event pattern handling)  */
-    protected _dispatchMessage (parsed: any): boolean {
+    protected _dispatchMessage (parsed: any) {
+        super._dispatchMessage(parsed)
         if (parsed instanceof EventEmission) {
             /*  just deliver event  */
             const name = parsed.event
@@ -146,8 +152,6 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             const params = parsed.params ?? []
             const info: InfoEvent = { sender: parsed.sender ?? "", receiver: parsed.receiver }
             handler?.(...params, info)
-            return true
         }
-        return super._dispatchMessage(parsed)
     }
 }
