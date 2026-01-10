@@ -43,7 +43,9 @@ describe("MQTT+ Library", function () {
         await new Promise((resolve) => { setTimeout(resolve, 1000) })
 
         /*  connect with MQTT  */
-        mqtt = MQTT.connect("mqtt://127.0.0.1:1883", {})
+        mqtt = MQTT.connect("mqtt://127.0.0.1:1883", {
+            username: "example", password: "example"
+        })
         await new Promise<void>((resolve, reject) => {
             mqtt.once("connect", ()         => { resolve() })
             mqtt.once("error",   (err: any) => { reject(err) })
@@ -71,6 +73,34 @@ describe("MQTT+ Library", function () {
 
     it("MQTT+ Event Emission", async function () {
         this.timeout(1000)
+    })
+
+    it("MQTT+ Resource Transfer", async function () {
+        this.timeout(2000)
+
+        /*  provide resource  */
+        const mqttp = new MQTTp(mqtt, { timeout: 1000 })
+        const p = await mqttp.provision("example/store", (filename: string) => {
+            if (filename === "foo")
+                return Buffer.from(`the ${filename} content`)
+            else
+                throw new Error("invalid resource")
+        })
+
+        /*  fetch existing resource (valid resource argument)  */
+        const result = await mqttp.fetch("example/store", "foo")
+        const str = result.toString()
+        expect(str).to.be.equal("the foo content")
+
+        /*  fetch non-existing resource (invalid resource argument)  */
+        const result2 = await mqttp.fetch("example/store", "bar").catch((err) => err.message)
+        expect(result2).to.be.equal("invalid resource")
+
+        /*  fetch non-existing resource (invalid resource name)  */
+        const result3 = await mqttp.fetch("example/not-existing", "foo").catch((err) => err.message)
+        expect(result3).to.be.equal("communication timeout")
+
+        await p.unprovision()
     })
 
     after(async function () {

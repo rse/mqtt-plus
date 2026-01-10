@@ -37,18 +37,20 @@ export type TopicMatching = { name: string, peerId?: string }
 
 /*  API option type  */
 export interface APIOptions {
-    id:                        string
-    codec:                     "cbor" | "json"
-    timeout:                   number
-    chunkSize:                 number
-    topicEventNoticeMake:      TopicMake
-    topicStreamChunkMake:      TopicMake
-    topicServiceRequestMake:   TopicMake
-    topicServiceResponseMake:  TopicMake
-    topicEventNoticeMatch:     TopicMatch
-    topicStreamChunkMatch:     TopicMatch
-    topicServiceRequestMatch:  TopicMatch
-    topicServiceResponseMatch: TopicMatch
+    id:                         string
+    codec:                      "cbor" | "json"
+    timeout:                    number
+    chunkSize:                  number
+    topicEventNoticeMake:       TopicMake
+    topicStreamChunkMake:       TopicMake
+    topicServiceRequestMake:    TopicMake
+    topicServiceResponseMake:   TopicMake
+    topicResourceTransferMake:  TopicMake
+    topicEventNoticeMatch:      TopicMatch
+    topicStreamChunkMatch:      TopicMatch
+    topicServiceRequestMatch:   TopicMatch
+    topicServiceResponseMatch:  TopicMatch
+    topicResourceTransferMatch: TopicMatch
 }
 
 /*  Options trait  */
@@ -85,6 +87,11 @@ export class OptionsTrait<T extends APISchema = APISchema> {
                     ? `${name}/service-response/${peerId}`
                     : `${name}/service-response`
             },
+            topicResourceTransferMake: (name, peerId) => {
+                return peerId
+                    ? `${name}/resource-transfer/${peerId}`
+                    : `${name}/resource-transfer`
+            },
             topicEventNoticeMatch: (topic) => {
                 const m = topic.match(/^(.+?)\/event-notice(?:\/(.+))?$/)
                 return m ? { name: m[1], peerId: m[2] } : null
@@ -99,6 +106,10 @@ export class OptionsTrait<T extends APISchema = APISchema> {
             },
             topicServiceResponseMatch: (topic) => {
                 const m = topic.match(/^(.+?)\/service-response\/(.+)$/)
+                return m ? { name: m[1], peerId: m[2] } : null
+            },
+            topicResourceTransferMatch: (topic) => {
+                const m = topic.match(/^(.+?)\/resource-transfer(?:\/(.+))?$/)
                 return m ? { name: m[1], peerId: m[2] } : null
             },
             ...options

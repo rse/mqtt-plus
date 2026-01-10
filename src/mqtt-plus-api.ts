@@ -25,11 +25,22 @@
 /*  utility type for branding  */
 type Brand<T> = T & { readonly __brand: unique symbol }
 
+/*  endpoint types  */
+export type APIEndpoint =
+    APIEndpointEvent   |
+    APIEndpointStream  |
+    APIEndpointService |
+    APIEndpointResource
+export type APIEndpointEvent    = (...args: any[]) => void
+export type APIEndpointStream   = (...args: any[]) => any
+export type APIEndpointService  = (...args: any[]) => any
+export type APIEndpointResource = (...args: any[]) => Promise<Buffer>
+
 /*  API marker types  */
-export type APIEndpoint = ((...args: any[]) => void) | ((...args: any[]) => any)
-export type Event<T extends APIEndpoint>   = Brand<T>
-export type Stream<T extends APIEndpoint>  = Brand<T>
-export type Service<T extends APIEndpoint> = Brand<T>
+export type Event<T    extends APIEndpointEvent>    = Brand<T>
+export type Stream<T   extends APIEndpointStream>   = Brand<T>
+export type Service<T  extends APIEndpointService>  = Brand<T>
+export type Resource<T extends APIEndpointResource> = Brand<T>
 
 /*  type utilities for generic API  */
 export type APISchema = Record<string, APIEndpoint>
@@ -47,4 +58,9 @@ export type StreamKeys<T> = string extends keyof T ? string : {
 /*  extract service keys where type is branded as Service  */
 export type ServiceKeys<T> = string extends keyof T ? string : {
     [ K in keyof T ]: T[K] extends Service<infer _F> ? K : never
+}[ keyof T ]
+
+/*  extract service keys where type is branded as Resource  */
+export type ResourceKeys<T> = string extends keyof T ? string : {
+    [ K in keyof T ]: T[K] extends Resource<infer _F> ? K : never
 }[ keyof T ]

@@ -69,6 +69,15 @@ communication patterns with optional type safety:
   Procedure Call](https://en.wikipedia.org/wiki/Remote_procedure_call)
   (RPC) style communication.
 
+- **Resource Transfer**:
+
+  Resource Transfer is a *bi-directional* communication pattern.
+  A Resource is the combination of a resource name and optionally zero or more arguments.
+  You *provision* for a resource transfer.
+  When a resource is *fetched* or *pushed*, a single particular provisioner (in case
+  of a directed resource transfer) or one arbitrary provisioner is called and
+  sends or receives the resource and its arguments.
+
 > [!Note]
 > **MQTT+** is similar to and derived from
 > [MQTT-JSON-RPC](https://github.com/rse/mqtt-json-rpc) of the same
@@ -267,6 +276,29 @@ The **MQTT+** API provides the following methods:
   `${service}/service-request/${peerId}`) are subscribed. Returns a
   `Registration` object with an `unregister()` method.
 
+- **Resource Provisioning**:<br/>
+
+      /*  (simplified TypeScript API method signature)  */
+      provision(
+          resource: string,
+          options?: MQTT::IClientSubscribeOptions
+          callback: (
+              ...params: any[],
+              info: { sender: string, receiver?: string }
+          ) => any
+      ): Promise<Provisioning>
+
+  Provision a resource.
+  The `resource` has to be a valid MQTT topic name.
+  The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
+  The `callback` is called with the `params` passed to a remote `call()`.
+  The return value of `callback` will resolve the `Promise` returned by the remote `fetch()` call.
+
+  Internally, on the MQTT broker, the topics by
+  `topicResourceTransferMake()` (default: `${resource}/resource-transfer` and
+  `${resource}/resource-transfer/${peerId}`) are subscribed. Returns a
+  `Provisioning` object with an `unprovision()` method.
+
 - **Event Emission**:<br/>
 
       /*  (simplified TypeScript API method signature)  */
@@ -334,6 +366,29 @@ The **MQTT+** API provides the following methods:
 
   Internally, on the MQTT broker, the topic by `topicServiceResponseMake(service, peerId)`
   (default: `${service}/service-response/${peerId}`) is temporarily subscribed
+  for receiving the response.
+
+- **Resource Transfer**:<br/>
+
+      /*  (simplified TypeScript API method signature)  */
+      fetch(
+          blob:      string,
+          receiver?: Receiver,
+          options?:  MQTT::IClientSubscribeOptions,
+          ...params: any[]
+      ): Promise<Buffer>
+
+  Fetches a resource from any resource provisioner or from a specific provisioner.
+  The optional `receiver` directs the call to a specific provisioner only.
+  The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+
+  The remote `provision()` `callback` is called with `params` and its
+  return value resolves the returned `Promise`. If the remote `callback`
+  throws an exception, this rejects the returned `Promise`.
+
+  Internally, on the MQTT broker, the topic by
+  `topicResourceTransferMake(resource, peerId)` (default:
+  `${resource}/resource-transfer/${peerId}`) is temporarily subscribed
   for receiving the response.
 
 - **Receiver Wrapping**:<br/>

@@ -29,8 +29,11 @@ import { MqttClient, IClientPublishOptions,
 /*  internal requirements  */
 import { APISchema, APIEndpoint }            from "./mqtt-plus-api"
 import { EventEmission, StreamChunk,
-    ServiceRequest, ServiceResponseSuccess,
-    ServiceResponseError }                   from "./mqtt-plus-msg"
+    ServiceRequest,
+    ServiceResponseSuccess,
+    ServiceResponseError,
+    ResourceRequest,
+    ResourceResponse }                       from "./mqtt-plus-msg"
 import { APIOptions, TopicMatching }         from "./mqtt-plus-options"
 import { ReceiverTrait }                     from "./mqtt-plus-receiver"
 
@@ -112,26 +115,35 @@ export class BaseTrait<T extends APISchema = APISchema> extends ReceiverTrait<T>
     /*  handle incoming MQTT message  */
     private _onMessage (topic: string, message: Buffer): void {
         /*  ensure we handle only valid messages  */
-        let eventMatch:    TopicMatching | null = null
-        let streamMatch:   TopicMatching | null = null
-        let requestMatch:  TopicMatching | null = null
-        let responseMatch: TopicMatching | null = null
-        if (   (eventMatch    = this.options.topicEventNoticeMatch(topic))     === null
-            && (streamMatch   = this.options.topicStreamChunkMatch(topic))     === null
-            && (requestMatch  = this.options.topicServiceRequestMatch(topic))  === null
-            && (responseMatch = this.options.topicServiceResponseMatch(topic)) === null)
+        let eventNoticeMatch:      TopicMatching | null = null
+        let streamChunkMatch:      TopicMatching | null = null
+        let serviceRequestMatch:   TopicMatching | null = null
+        let serviceResponseMatch:  TopicMatching | null = null
+        let resourceTransferMatch: TopicMatching | null = null
+        if (   (eventNoticeMatch      = this.options.topicEventNoticeMatch(topic))      === null
+            && (streamChunkMatch      = this.options.topicStreamChunkMatch(topic))      === null
+            && (serviceRequestMatch   = this.options.topicServiceRequestMatch(topic))   === null
+            && (serviceResponseMatch  = this.options.topicServiceResponseMatch(topic))  === null
+            && (resourceTransferMatch = this.options.topicResourceTransferMatch(topic)) === null)
             return
 
         /*  ensure we really handle only messages for us  */
-        const peerId = eventMatch?.peerId ??
-            streamMatch?.peerId ??
-            requestMatch?.peerId ??
-            responseMatch?.peerId
+        const peerId = eventNoticeMatch?.peerId ??
+            streamChunkMatch?.peerId ??
+            serviceRequestMatch?.peerId ??
+            serviceResponseMatch?.peerId ??
+            resourceTransferMatch?.peerId
         if (peerId !== undefined && peerId !== this.options.id)
             return
 
         /*  try to parse payload as payload  */
-        let parsed: EventEmission | StreamChunk | ServiceRequest | ServiceResponseSuccess | ServiceResponseError
+        let parsed: EventEmission |
+            StreamChunk |
+            ServiceRequest |
+            ServiceResponseSuccess |
+            ServiceResponseError |
+            ResourceRequest |
+            ResourceResponse
         try {
             let input: Buffer | string = message
             if (this.options.codec === "json")

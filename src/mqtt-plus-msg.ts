@@ -29,6 +29,7 @@ import { CodecTrait } from "./mqtt-plus-codec"
 /*  base class  */
 export class Base {
     constructor (
+        public type:      string,
         public id:        string,
         public sender?:   string,
         public receiver?: string
@@ -43,7 +44,7 @@ export class EventEmission extends Base {
         public params?: any[],
         sender?:        string,
         receiver?:      string,
-    ) { super(id, sender, receiver) }
+    ) { super("event", id, sender, receiver) }
 }
 
 /*  stream chunk  */
@@ -55,7 +56,7 @@ export class StreamChunk extends Base {
         public params?: any[],
         sender?:        string,
         receiver?:      string,
-    ) { super(id, sender, receiver) }
+    ) { super("stream-chunk", id, sender, receiver) }
 }
 
 /*  service request  */
@@ -66,7 +67,7 @@ export class ServiceRequest extends Base {
         public params?: any[],
         sender?:        string,
         receiver?:      string,
-    ) { super(id, sender, receiver) }
+    ) { super("service-request", id, sender, receiver) }
 }
 
 /*  service response success  */
@@ -76,7 +77,7 @@ export class ServiceResponseSuccess extends Base {
         public result:  any,
         sender?:        string,
         receiver?:      string
-    ) { super(id, sender, receiver) }
+    ) { super("service-response-success", id, sender, receiver) }
 }
 
 /*  service response error  */
@@ -86,7 +87,29 @@ export class ServiceResponseError extends Base {
         public error:   string,
         sender?:        string,
         receiver?:      string
-    ) { super(id, sender, receiver) }
+    ) { super("service-response-error", id, sender, receiver) }
+}
+
+/*  resource request  */
+export class ResourceRequest extends Base {
+    constructor (
+        id:              string,
+        public resource: string,
+        public params?:  any[],
+        sender?:         string,
+        receiver?:       string,
+    ) { super("resource-request", id, sender, receiver) }
+}
+
+/*  resource response  */
+export class ResourceResponse extends Base {
+    constructor (
+        id:              string,
+        public chunk:    Buffer | null | undefined,
+        public error:    string | undefined,
+        sender?:         string,
+        receiver?:       string,
+    ) { super("resource-response", id, sender, receiver) }
 }
 
 /*  utility class  */
@@ -145,12 +168,43 @@ export default class Msg {
         return new ServiceResponseError(id, error, sender, receiver)
     }
 
+    /*  factory for resource request  */
+    makeResourceRequest (
+        id:             string,
+        resource:       string,
+        params?:        any[],
+        sender?:        string,
+        receiver?:      string
+    ): ResourceRequest {
+        return new ResourceRequest(id, resource, params, sender, receiver)
+    }
+
+    /*  factory for resource response  */
+    makeResourceResponse (
+        id:             string,
+        chunk?:         Buffer | null,
+        error?:         string,
+        sender?:        string,
+        receiver?:      string
+    ): ResourceResponse {
+        return new ResourceResponse(id, chunk, error, sender, receiver)
+    }
+
     /*  parse any object into typed object  */
-    parse (obj: any): EventEmission | StreamChunk | ServiceRequest | ServiceResponseSuccess | ServiceResponseError {
+    parse (obj: any):
+        EventEmission          |
+        StreamChunk            |
+        ServiceRequest         |
+        ServiceResponseSuccess |
+        ServiceResponseError   |
+        ResourceRequest        |
+        ResourceResponse {
         if (typeof obj !== "object" || obj === null)
             throw new Error("invalid argument: not an object")
 
         /*  validate common fields  */
+        if (!("type" in obj) || typeof obj.type !== "string")
+            throw new Error("invalid object: missing or invalid \"type\" field")
         if (!("id" in obj) || typeof obj.id !== "string")
             throw new Error("invalid object: missing or invalid \"id\" field")
         if ("sender" in obj && typeof obj.sender !== "string")
@@ -161,7 +215,7 @@ export default class Msg {
         /*  dispatch according to type indication by field  */
         const anyFieldsExcept = (obj: object, allowed: string[]) =>
             Object.keys(obj).some((key) => !allowed.includes(key))
-        if ("event" in obj) {
+        if (obj.type === "event") {
             /*  detect and parse event emission  */
             if (typeof obj.event !== "string")
                 throw new Error("invalid EventEmission object: \"event\" field must be a string")
@@ -171,7 +225,7 @@ export default class Msg {
                 throw new Error("invalid EventEmission object: \"params\" field must be an array")
             return this.makeEventEmission(obj.id, obj.event, obj.params, obj.sender, obj.receiver)
         }
-        if ("stream" in obj) {
+        else if (obj.type === "stream-chunk") {
             /*  detect and parse stream chunk  */
             if (typeof obj.stream !== "string")
                 throw new Error("invalid StreamChunk object: \"stream\" field must be a string")
@@ -183,7 +237,7 @@ export default class Msg {
                 throw new Error("invalid StreamChunk object: \"params\" field must be an array")
             return this.makeStreamChunk(obj.id, obj.stream, obj.chunk, obj.params, obj.sender, obj.receiver)
         }
-        else if ("service" in obj) {
+        else if (obj.type === "service-request") {
             /*  detect and parse service request  */
             if (typeof obj.service !== "string")
                 throw new Error("invalid ServiceRequest object: \"service\" field must be a string")
@@ -193,17 +247,34 @@ export default class Msg {
                 throw new Error("invalid ServiceRequest object: \"params\" field must be an array")
             return this.makeServiceRequest(obj.id, obj.service, obj.params, obj.sender, obj.receiver)
         }
-        else if ("result" in obj) {
+        else if (obj.type === "service-response-success") {
             /*  detect and parse service response success  */
             if (anyFieldsExcept(obj, [ "type", "id", "result", "sender", "receiver" ]))
                 throw new Error("invalid ServiceResponseSuccess object: contains unknown fields")
             return this.makeServiceResponseSuccess(obj.id, obj.result, obj.sender, obj.receiver)
         }
-        else if ("error" in obj) {
+        else if (obj.type === "service-response-error") {
             /*  detect and parse service response error  */
             if (anyFieldsExcept(obj, [ "type", "id", "error", "sender", "receiver" ]))
                 throw new Error("invalid ServiceResponseError object: contains unknown fields")
             return this.makeServiceResponseError(obj.id, obj.error, obj.sender, obj.receiver)
+        }
+        else if (obj.type === "resource-request") {
+            /*  detect and parse resource request  */
+            if (anyFieldsExcept(obj, [ "type", "id", "resource", "params", "sender", "receiver" ]))
+                throw new Error("invalid ResourceRequest object: contains unknown fields")
+            if (obj.params !== undefined && (typeof obj.params !== "object" || !Array.isArray(obj.params)))
+                throw new Error("invalid ResourceRequest object: \"params\" field must be an array")
+            return this.makeResourceRequest(obj.id, obj.resource, obj.params, obj.sender, obj.receiver)
+        }
+        else if (obj.type === "resource-response") {
+            if (obj.chunk !== undefined && typeof obj.chunk !== "object")
+                throw new Error("invalid ResourceResponse object: \"chunk\" field must be an object or null")
+            if (obj.error !== undefined && typeof obj.error !== "string")
+                throw new Error("invalid ResourceResponse object: \"error\" field must be a string")
+            if (anyFieldsExcept(obj, [ "type", "id", "chunk", "error", "sender", "receiver" ]))
+                throw new Error("invalid ResourceResponse object: contains unknown fields")
+            return this.makeResourceResponse(obj.id, obj.chunk, obj.error, obj.sender, obj.receiver)
         }
         else
             throw new Error("invalid object: not of any known type")
