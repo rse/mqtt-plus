@@ -108,10 +108,10 @@ pattern of each endpoint:
 import type * as MQTTpt from "mqtt-plus"
 
 export type API = {
-    "example/sample":   MQTTpt.Event<(a1: string, a2: boolean) => void>
-    "example/upload":   MQTTpt.Stream<(a1: string, a2: number) => void>
+    "example/sample":   MQTTpt.Event<(a1: string, a2: number) => void>
+    "example/upload":   MQTTpt.Stream<(name: string) => void>
     "example/hello":    MQTTpt.Service<(a1: string, a2: number) => string>
-    "example/resource": MQTTpt.Resource<(a1: string, a2: number) => Promise<Buffer>>
+    "example/resource": MQTTpt.Resource<(filename: string) => void>
 }
 ```
 
@@ -131,11 +131,11 @@ const mqtt  = MQTT.connect("wss://127.0.0.1:8883", { ... })
 const mqttp = new MQTTp<API>(mqtt)
 
 mqtt.on("connect", async () => {
-    mqttp.subscribe("example/sample", (a1, a2) => {
-        console.log("example/sample: ", a1, a2)
+    await mqttp.subscribe("example/sample", (a1, a2, info) => {
+        console.log("example/sample:", a1, a2, "from:", info.sender)
     })
-    mqttp.register("example/hello", (a1, a2) => {
-        console.log("example/hello: ", a1, a2)
+    await mqttp.register("example/hello", (a1, a2, info) => {
+        console.log("example/hello:", a1, a2, "from:", info.sender)
         return `${a1}:${a2}`
     })
 })
@@ -152,9 +152,9 @@ const mqtt = MQTT.connect("wss://127.0.0.1:8883", { ... })
 const mqttp = new MQTTp<API>(mqtt)
 
 mqtt.on("connect", () => {
-    mqttp.emit("example/sample", "foo", true)
+    mqttp.emit("example/sample", "world", 42)
     mqttp.call("example/hello", "world", 42).then((response) => {
-        console.log("example/hello response: ", response)
+        console.log("example/hello response:", response)
         mqtt.end()
     })
 })
@@ -277,15 +277,15 @@ The **MQTT+** API provides the following methods:
           options?: MQTT::IClientSubscribeOptions
           callback: (
               ...params: any[],
-              info: { sender: string, receiver?: string }
-          ) => any
+              info: { sender: string, receiver?: string, resource: Buffer | null }
+          ) => void
       ): Promise<Provisioning>
 
   Provision a resource.
   The `resource` has to be a valid MQTT topic name.
   The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
-  The `callback` is called with the `params` passed to a remote `call()`.
-  The return value of `callback` will resolve the `Promise` returned by the remote `fetch()` call.
+  The `callback` is called with the `params` passed to a remote `fetch()`.
+  The `callback` should set `info.resource` to a `Buffer` containing the resource data.
 
   Internally, on the MQTT broker, the topics by
   `topicMake(resource, "resource-transfer-request")` (default: `${resource}/resource-transfer-request/any` and
@@ -554,18 +554,18 @@ mqtt.on("close",     ()               => { console.log("CLOSE") })
 mqtt.on("reconnect", ()               => { console.log("RECONNECT") })
 mqtt.on("message",   (topic, message) => { console.log("RECEIVED", topic, message.toString()) })
 
-mqtt.on("connect", () => {
+mqtt.on("connect", async () => {
     console.log("CONNECT")
-    mqttp.register("example/hello", (a1, a2) => {
-        console.log("example/hello: request: ", a1, a2)
+    await mqttp.register("example/hello", (a1, a2, info) => {
+        console.log("example/hello: request:", a1, a2, "from:", info.sender)
         return `${a1}:${a2}`
     })
-    mqttp.call("example/hello", "world", 42).then((result) => {
-        console.log("example/hello success: ", result)
+    mqttp.call("example/hello", "world", 42).then(async (result) => {
+        console.log("example/hello success:", result)
         mqtt.end()
         await mosquitto.stop()
     }).catch((err) => {
-        console.log("example/hello error: ", err)
+        console.log("example/hello error:", err)
     })
 })
 ```
@@ -576,9 +576,9 @@ The output will be:
 $ node sample.ts
 CONNECT
 RECEIVED example/hello/service-call-request/any {"id":"vwLzfQDu2uEeOdOfIlT42","sender":"2IBMSk0NPnrz1AeTERoea","service":"example/hello","params":["world",42]}
-example/hello: request:  world 42 undefined
+example/hello: request: world 42 from: 2IBMSk0NPnrz1AeTERoea
 RECEIVED example/hello/service-call-response/2IBMSk0NPnrz1AeTERoea {"id":"vwLzfQDu2uEeOdOfIlT42","sender":"2IBMSk0NPnrz1AeTERoea","receiver":"2IBMSk0NPnrz1AeTERoea","result":"world:42"}
-example/hello success:  world:42
+example/hello success: world:42
 CLOSE
 ```
 
