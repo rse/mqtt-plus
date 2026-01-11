@@ -86,7 +86,7 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
         })
 
         /*  remember the subscription  */
-        this.subscriptions.set(event, callback)
+        this.subscriptions.set(event, callback as WithInfo<APIEndpointEvent, InfoEvent>)
 
         /*  provide a subscription for subsequent unsubscribing  */
         const self = this

@@ -92,7 +92,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends StreamTrait<T
         })
 
         /*  remember the registration  */
-        this.registrations.set(service, callback)
+        this.registrations.set(service, callback as WithInfo<APIEndpointService, InfoService>)
 
         /*  provide a registration for subsequent unregistering  */
         const self = this
@@ -114,27 +114,27 @@ export class ServiceTrait<T extends APISchema = APISchema> extends StreamTrait<T
     call<K extends ServiceKeys<T> & string> (
         service:   K,
         ...params: Parameters<T[K]>
-    ): Promise<Awaited<ReturnType<T[K]>>>
+    ): Promise<ReturnType<T[K]>>
     call<K extends ServiceKeys<T> & string> (
         service:   K,
         receiver:  Receiver,
         ...params: Parameters<T[K]>
-    ): Promise<Awaited<ReturnType<T[K]>>>
+    ): Promise<ReturnType<T[K]>>
     call<K extends ServiceKeys<T> & string> (
         service:   K,
         options:   IClientPublishOptions,
         ...params: Parameters<T[K]>
-    ): Promise<Awaited<ReturnType<T[K]>>>
+    ): Promise<ReturnType<T[K]>>
     call<K extends ServiceKeys<T> & string> (
         service:   K,
         receiver:  Receiver,
         options:   IClientPublishOptions,
         ...params: Parameters<T[K]>
-    ): Promise<Awaited<ReturnType<T[K]>>>
+    ): Promise<ReturnType<T[K]>>
     call<K extends ServiceKeys<T> & string> (
         service:   K,
         ...args:   any[]
-    ): Promise<Awaited<ReturnType<T[K]>>> {
+    ): Promise<ReturnType<T[K]>> {
         /*  determine actual parameters  */
         const { receiver, options, params } = this._parseCallArgs(args)
 

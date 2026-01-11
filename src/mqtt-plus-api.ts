@@ -32,9 +32,9 @@ export type APIEndpoint =
     APIEndpointService |
     APIEndpointResource
 export type APIEndpointEvent    = (...args: any[]) => void
-export type APIEndpointStream   = (...args: any[]) => any
+export type APIEndpointStream   = (...args: any[]) => void
 export type APIEndpointService  = (...args: any[]) => any
-export type APIEndpointResource = (...args: any[]) => Promise<Buffer>
+export type APIEndpointResource = (...args: any[]) => void
 
 /*  API marker types  */
 export type Event<T    extends APIEndpointEvent>    = Brand<T>

@@ -116,27 +116,27 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         ...params: Parameters<T[K]>
-    ): Promise<Awaited<ReturnType<T[K]>>>
+    ): Promise<Buffer>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         receiver:  Receiver,
         ...params: Parameters<T[K]>
-    ): Promise<Awaited<ReturnType<T[K]>>>
+    ): Promise<Buffer>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         options:   IClientPublishOptions,
         ...params: Parameters<T[K]>
-    ): Promise<Awaited<ReturnType<T[K]>>>
+    ): Promise<Buffer>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         receiver:  Receiver,
         options:   IClientPublishOptions,
         ...params: Parameters<T[K]>
-    ): Promise<Awaited<ReturnType<T[K]>>>
+    ): Promise<Buffer>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         ...args:   any[]
-    ): Promise<Awaited<ReturnType<T[K]>>> {
+    ): Promise<Buffer> {
         /*  determine actual parameters  */
         const { receiver, options, params } = this._parseCallArgs(args)
 
@@ -198,7 +198,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         /*  publish message to MQTT topic  */
         this.mqtt.publish(topic, message, { qos: 2, ...options })
 
-        return resultPromise as Promise<Awaited<ReturnType<T[K]>>>
+        return resultPromise
     }
 
     /*  dispatch message (Resource pattern handling)  */
@@ -217,22 +217,24 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 const params    = parsed.params ?? []
                 const sender    = parsed.sender ?? ""
                 const receiver  = parsed.receiver
-                const info: InfoResource = { sender, receiver }
+                const info: InfoResource = { sender, receiver, resource: null }
                 Promise.resolve()
                     .then(() => handler(...params, info))
-                    .then((result: Buffer) => {
+                    .then(() => {
                         /*  ensure the receiving buffer is really a Buffer also under runtime  */
-                        if (result !== null && !Buffer.isBuffer(result))
-                            result = Buffer.from(result)
+                        if (info.resource === null)
+                            throw new Error("received no buffer into info \"resource\" field")
+                        if (!Buffer.isBuffer(info.resource))
+                            info.resource = Buffer.from(info.resource)
 
                         /*  generate corresponding MQTT topic  */
                         const topic = this.options.topicMake(resource, "resource-transfer-response", sender)
 
                         /*  split Buffer into chunks and send them back  */
                         const chunkSize = this.options.chunkSize
-                        for (let i = 0; i < result.byteLength; i += chunkSize) {
-                            const size = Math.min(result.byteLength - i, chunkSize)
-                            const chunk = result.subarray(i, i + size)
+                        for (let i = 0; i < info.resource.byteLength; i += chunkSize) {
+                            const size = Math.min(info.resource.byteLength - i, chunkSize)
+                            const chunk = info.resource.subarray(i, i + size)
 
                             /*  generate encoded message  */
                             const request = this.msg.makeResourceTransferResponse(requestId, chunk, undefined, this.options.id, sender)
@@ -263,8 +265,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             && parsed instanceof ResourceTransferResponse) {
             /*  handle resource response  */
             const requestId = parsed.id
-            const error     = parsed.error
-            let chunk     = parsed.chunk
+            const error = parsed.error
+            let chunk = parsed.chunk
             if (chunk !== null && chunk !== undefined && !Buffer.isBuffer(chunk))
                 chunk = Buffer.from(chunk)
             const handler   = this.fetchCallback.get(requestId)

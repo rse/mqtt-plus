@@ -34,7 +34,7 @@ export interface InfoBase {
 export interface InfoEvent    extends InfoBase {}
 export interface InfoStream   extends InfoBase { stream: stream.Readable }
 export interface InfoService  extends InfoBase {}
-export interface InfoResource extends InfoBase {}
+export interface InfoResource extends InfoBase { resource: Buffer | null }
 
 /*  type utility: extend function with Info parameter  */
 export type WithInfo<F, I extends InfoBase> =
