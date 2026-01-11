@@ -188,7 +188,7 @@ export default class Msg {
             throw new Error("invalid object: missing or invalid \"type\" field")
         if (!("id" in obj) || typeof obj.id !== "string")
             throw new Error("invalid object: missing or invalid \"id\" field")
-        if (!("sender" in obj) || typeof obj.sender !== "string")
+        if ("sender" in obj && obj.sender !== undefined && typeof obj.sender !== "string")
             throw new Error("invalid object: invalid \"sender\" field")
         if ("receiver" in obj && obj.receiver !== undefined && typeof obj.receiver !== "string")
             throw new Error("invalid object: invalid \"receiver\" field")
