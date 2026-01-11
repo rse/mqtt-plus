@@ -7,11 +7,11 @@ server: "Server"
 
 broker.class: brown
 
-"subscribe(\"foo/bar\")": {
+subscribe("foo/bar"): {
     server -> broker: "op: subscribe\ntopic: foo/bar/event-emission/any"
 }
 
-"emit(\"foo/bar\")": {
+emit("foo/bar"): {
     client -> broker: "op: publish\ntopic: foo/bar/event-emission/any\ndata: Event-Emission"
     broker -> server: "op: publish\ntopic: foo/bar/event-emission/any\ndata: Event-Emission"
 }
