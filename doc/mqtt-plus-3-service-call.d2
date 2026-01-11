@@ -1,21 +1,20 @@
 
-"Service Call": {
-    shape: sequence_diagram
+shape: sequence_diagram
 
-    client: "Client"
-    broker: "Broker"
-    server: "Server"
+client: "Client"
+broker: "Broker"
+server: "Server"
 
-    broker.class: brown
+broker.class: brown
 
-    register("foo/bar") {
-        server -> broker: "subscribe\nfoo/bar/service-call"
-    }
-    call("foo/bar") {
-        client -> broker: "publish\nfoo/bar/service-call-request/any\nService-Request"
-        broker -> server: "publish\nfoo/bar/service-call-request/any\nService-Request"
-        broker <- server: "publish\nfoo/bar/service-call-response/any\nService-Response"
-        client <- broker: "publish\nfoo/bar/service-call-response/any\nService-Response"
-    }
+register("foo/bar") {
+    server -> broker: "subscribe\nfoo/bar/service-call"
+}
+
+call("foo/bar") {
+    client -> broker: "publish\nfoo/bar/service-call-request/any\nService-Request"
+    broker -> server: "publish\nfoo/bar/service-call-request/any\nService-Request"
+    broker <- server: "publish\nfoo/bar/service-call-response/any\nService-Response"
+    client <- broker: "publish\nfoo/bar/service-call-response/any\nService-Response"
 }
 

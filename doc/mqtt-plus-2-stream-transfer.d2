@@ -1,23 +1,22 @@
 
-"Stream Transfer": {
-    shape: sequence_diagram
+shape: sequence_diagram
 
-    client: "Client"
-    broker: "Broker"
-    server: "Server"
+client: "Client"
+broker: "Broker"
+server: "Server"
 
-    broker.class: brown
+broker.class: brown
 
-    attach("foo/bar") {
-        server -> broker: "subscribe\nfoo/bar/stream-chunk"
-    }
-    fetch("foo/bar") {
-        client -> broker: "publish\nfoo/bar/stream-chunk/any\nStream-Chunk 1"
-        broker -> server: "publish\nfoo/bar/stream-chunk/any\nStream-Chunk 1"
-        client -> broker: "publish\nfoo/bar/stream-chunk/any\nStream-Chunk N"
-        broker -> server: "publish\nfoo/bar/stream-chunk/any\nStream-Chunk N"
-        client -> broker: "publish\nfoo/bar/stream-chunk/any\nStream-Chunk EoS"
-        broker -> server: "publish\nfoo/bar/stream-chunk/any\nStream-Chunk EoS"
-    }
+attach("foo/bar") {
+    server -> broker: "op: subscribe\ntopic: foo/bar/stream-chunk"
+}
+
+fetch("foo/bar") {
+    client -> broker: "op: publish\ntopic: foo/bar/stream-chunk/any\ndata: Stream-Transfer #1"
+    broker -> server: "op: publish\ntopic: foo/bar/stream-chunk/any\ndata: Stream-Transfer #1"
+    client -> broker: "op: publish\ntopic: foo/bar/stream-chunk/any\ndata: Stream-Transfer #N"
+    broker -> server: "op: publish\ntopic: foo/bar/stream-chunk/any\ndata: Stream-Transfer #N"
+    client -> broker: "op: publish\ntopic: foo/bar/stream-chunk/any\ndata: Stream-Transfer EoS"
+    broker -> server: "op: publish\ntopic: foo/bar/stream-chunk/any\ndata: Stream-Transfer EoS"
 }
 

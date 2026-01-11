@@ -1,19 +1,18 @@
 
-"Event Emission": {
-    shape: sequence_diagram
+shape: sequence_diagram
 
-    client: "Client"
-    broker: "Broker"
-    server: "Server"
+client: "Client"
+broker: "Broker"
+server: "Server"
 
-    broker.class: brown
+broker.class: brown
 
-    "subscribe(\"foo/bar\")": {
-        server -> broker: "subscribe\nfoo/bar/event-emission/any"
-    }
-    "emit(\"foo/bar\")": {
-        client -> broker: "publish\nfoo/bar/event-emission/any\nEvent-Emission"
-        broker -> server: "publish\nfoo/bar/event-emission/any\nEvent-Emission"
-    }
+"subscribe(\"foo/bar\")": {
+    server -> broker: "op: subscribe\ntopic: foo/bar/event-emission/any"
+}
+
+"emit(\"foo/bar\")": {
+    client -> broker: "op: publish\ntopic: foo/bar/event-emission/any\ndata: Event-Emission"
+    broker -> server: "op: publish\ntopic: foo/bar/event-emission/any\ndata: Event-Emission"
 }
 

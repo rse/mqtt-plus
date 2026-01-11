@@ -1,25 +1,24 @@
 
-"Resource Transfer": {
-    shape: sequence_diagram
+shape: sequence_diagram
 
-    client: "Client"
-    broker: "Broker"
-    server: "Server"
+client: "Client"
+broker: "Broker"
+server: "Server"
 
-    broker.class: brown
+broker.class: brown
 
-    provision("foo/bar") {
-        server -> broker: "subscribe\nfoo/bar/resource-transfer"
-    }
-    transfer("foo/bar") {
-        client -> broker: "publish\nfoo/bar/resource-transfer/any\nResource-Request"
-        broker -> server: "publish\nfoo/bar/resource-transfer/any\nResource-Request"
-        broker <- server: "publish\nfoo/bar/resource-response/XXX\nResource-Response 1"
-        client <- broker: "publish\nfoo/bar/resource-response/XXX\nResource-Response 1"
-        broker <- server: "publish\nfoo/bar/resource-response/XXX\nResource-Response N"
-        client <- broker: "publish\nfoo/bar/resource-response/XXX\nResource-Response N"
-        broker <- server: "publish\nfoo/bar/resource-response/XXX\nResource-Response null"
-        client <- broker: "publish\nfoo/bar/resource-response/XXX\nResource-Response null"
-    }
+provision("foo/bar") {
+    server -> broker: "subscribe\nfoo/bar/resource-transfer"
+}
+
+transfer("foo/bar") {
+    client -> broker: "publish\nfoo/bar/resource-transfer/any\nResource-Request"
+    broker -> server: "publish\nfoo/bar/resource-transfer/any\nResource-Request"
+    broker <- server: "publish\nfoo/bar/resource-response/XXX\nResource-Response #1"
+    client <- broker: "publish\nfoo/bar/resource-response/XXX\nResource-Response #1"
+    broker <- server: "publish\nfoo/bar/resource-response/XXX\nResource-Response #N"
+    client <- broker: "publish\nfoo/bar/resource-response/XXX\nResource-Response #N"
+    broker <- server: "publish\nfoo/bar/resource-response/XXX\nResource-Response EoS"
+    client <- broker: "publish\nfoo/bar/resource-response/XXX\nResource-Response EoS"
 }
 
