@@ -1,9 +1,12 @@
 
 import fs               from "node:fs"
+import stream           from "stream"
 import Mosquitto        from "mosquitto"
 import MQTT             from "mqtt"
 import MQTTp            from "mqtt-plus"
-import type * as MQTTpt from "mqtt-plus"
+import type { Event,
+    Stream, Service,
+    Resource }          from "mqtt-plus"
 
 const mosquitto = new Mosquitto({
     listen: [ { protocol: "wss", address: "127.0.0.1", port: 8443 } ]
@@ -25,10 +28,10 @@ const mqtt = MQTT.connect("wss://127.0.0.1:8443", {
 })
 
 type API = {
-    "example/sample":   MQTTpt.Event<(a1: string, a2: number) => void>
-    "example/upload":   MQTTpt.Stream<(a1: string, a2: number) => void>
-    "example/hello":    MQTTpt.Service<(a1: string, a2: number) => string>
-    "example/resource": MQTTpt.Resource<(a1: string, a2: number) => Promise<Buffer>>
+    "example/sample":   Event<(a1: string, a2: number) => void>
+    "example/upload":   Stream<(name: string) => void>
+    "example/hello":    Service<(a1: string, a2: number) => string>
+    "example/resource": Resource<(filename: string) => void>
 }
 
 const mqttp = new MQTTp<API>(mqtt, { codec: "json" })
@@ -44,40 +47,42 @@ mqtt.on("connect", async () => {
 
     /*  events  */
     const s = await mqttp.subscribe("example/sample", (a1, a2, info) => {
-        console.log("example/sample: info: ", a1, a2, info.sender)
+        console.log("example/sample: received:", a1, a2, "from:", info.sender)
     })
     mqttp.emit("example/sample", "world", 42)
+    await new Promise((resolve) => { setTimeout(resolve, 100) })
     await s.unsubscribe()
 
     /*  streaming  */
-    const a = await mqttp.attach("example/upload", (a1, a2, info) => {
-        console.log("example/upload: info: ", a1, a2, info.sender)
+    const a = await mqttp.attach("example/upload", (name, info) => {
+        console.log("example/upload: received:", name, "from:", info.sender)
         const x = fs.createWriteStream("x.txt")
         info.stream.pipe(x)
     })
     const readable = fs.createReadStream("README.md")
-    mqttp.transfer("example/upload", readable, "filename", 42)
+    await mqttp.transfer("example/upload", readable, "filename")
+    await new Promise((resolve) => { setTimeout(resolve, 100) })
     await a.unattach()
 
     /*  service  */
     const r = await mqttp.register("example/hello", (a1, a2, info) => {
-        console.log("example/hello: request: ", a1, a2, info.sender)
+        console.log("example/hello: request:", a1, a2, "from:", info.sender)
         return `${a1}:${a2}`
     })
     await mqttp.call("example/hello", "world", 42).then(async (result) => {
-        console.log("example/hello success: ", result)
+        console.log("example/hello: success:", result)
     }).catch((err) => {
-        console.log("example/hello error: ", err)
+        console.log("example/hello: error:", err)
     })
     await r.unregister()
 
     /*  resource  */
-    const p = await mqttp.provision("example/resource", async (a1, a2, info) => {
-        console.log("example/resource: info: ", a1, a2, info)
-        return Buffer.from(`the ${a1} content`)
+    const p = await mqttp.provision("example/resource", async (filename, info) => {
+        console.log("example/resource: request:", filename, "from:", info.sender)
+        info.resource = Buffer.from(`the ${filename} content`)
     })
-    const foo = await mqttp.fetch("example/resource", "foo", 42)
-    console.log("FOO", foo.toString())
+    const foo = await mqttp.fetch("example/resource", "foo")
+    console.log("example/resource: result:", foo.toString())
     await p.unprovision()
 
     console.log("DISCONNECT")
