@@ -60,7 +60,7 @@ export type ServiceKeys<T> = string extends keyof T ? string : {
     [ K in keyof T ]: T[K] extends Service<infer _F> ? K : never
 }[ keyof T ]
 
-/*  extract service keys where type is branded as Resource  */
+/*  extract resource keys where type is branded as Resource  */
 export type ResourceKeys<T> = string extends keyof T ? string : {
     [ K in keyof T ]: T[K] extends Resource<infer _F> ? K : never
 }[ keyof T ]
