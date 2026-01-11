@@ -48,7 +48,7 @@ export class EventEmission extends Base {
 }
 
 /*  stream chunk  */
-export class StreamChunk extends Base {
+export class StreamTransfer extends Base {
     constructor (
         id:             string,
         public stream:  string,
@@ -56,7 +56,7 @@ export class StreamChunk extends Base {
         public params?: any[],
         sender?:        string,
         receiver?:      string
-    ) { super("stream-chunk", id, sender, receiver) }
+    ) { super("stream-transfer", id, sender, receiver) }
 }
 
 /*  service request  */
@@ -117,15 +117,15 @@ export default class Msg {
     }
 
     /*  factory for stream chunk  */
-    makeStreamChunk (
+    makeStreamTransfer (
         id:             string,
         stream:         string,
         chunk:          Buffer | null,
         params?:        any[],
         sender?:        string,
         receiver?:      string
-    ): StreamChunk {
-        return new StreamChunk(id, stream, chunk, params, sender, receiver)
+    ): StreamTransfer {
+        return new StreamTransfer(id, stream, chunk, params, sender, receiver)
     }
 
     /*  factory for service request  */
@@ -175,7 +175,7 @@ export default class Msg {
     /*  parse any object into typed object  */
     parse (obj: any):
         EventEmission    |
-        StreamChunk      |
+        StreamTransfer   |
         ServiceRequest   |
         ServiceResponse  |
         ResourceRequest  |
@@ -206,17 +206,17 @@ export default class Msg {
                 throw new Error("invalid EventEmission object: \"params\" field must be an array")
             return this.makeEventEmission(obj.id, obj.event, obj.params, obj.sender, obj.receiver)
         }
-        else if (obj.type === "stream-chunk") {
+        else if (obj.type === "stream-transfer") {
             /*  detect and parse stream chunk  */
             if (typeof obj.stream !== "string")
-                throw new Error("invalid StreamChunk object: \"stream\" field must be a string")
+                throw new Error("invalid StreamTransfer object: \"stream\" field must be a string")
             if (anyFieldsExcept(obj, [ "type", "id", "stream", "chunk", "params", "sender", "receiver" ]))
-                throw new Error("invalid StreamChunk object: contains unknown fields")
+                throw new Error("invalid StreamTransfer object: contains unknown fields")
             if (obj.chunk !== undefined && typeof obj.chunk !== "object")
-                throw new Error("invalid StreamChunk object: \"chunk\" field must be an object or null")
+                throw new Error("invalid StreamTransfer object: \"chunk\" field must be an object or null")
             if (obj.params !== undefined && (typeof obj.params !== "object" || !Array.isArray(obj.params)))
-                throw new Error("invalid StreamChunk object: \"params\" field must be an array")
-            return this.makeStreamChunk(obj.id, obj.stream, obj.chunk, obj.params, obj.sender, obj.receiver)
+                throw new Error("invalid StreamTransfer object: \"params\" field must be an array")
+            return this.makeStreamTransfer(obj.id, obj.stream, obj.chunk, obj.params, obj.sender, obj.receiver)
         }
         else if (obj.type === "service-request") {
             /*  detect and parse service request  */

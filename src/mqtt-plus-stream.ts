@@ -31,7 +31,7 @@ import { IClientPublishOptions,
 import { nanoid }                    from "nanoid"
 
 /*  internal requirements  */
-import { StreamChunk }               from "./mqtt-plus-msg"
+import { StreamTransfer }            from "./mqtt-plus-msg"
 import { APISchema,
     APIEndpointStream, StreamKeys }  from "./mqtt-plus-api"
 import type { WithInfo, InfoStream } from "./mqtt-plus-info"
@@ -78,8 +78,8 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
             throw new Error(`attach: stream "${streamName}" already attached`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topicB = this.options.topicMake(streamName, "stream-transfer-chunk")
-        const topicD = this.options.topicMake(streamName, "stream-transfer-chunk", this.options.id)
+        const topicB = this.options.topicMake(streamName, "stream-transfer")
+        const topicD = this.options.topicMake(streamName, "stream-transfer", this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([
@@ -147,7 +147,7 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
         const rid = nanoid()
 
         /*  generate corresponding MQTT topic  */
-        const topic = this.options.topicMake(streamName, "stream-transfer-chunk", receiver)
+        const topic = this.options.topicMake(streamName, "stream-transfer", receiver)
 
         /*  utility function for converting a chunk to a Buffer  */
         const chunkToBuffer = (chunk: any) => {
@@ -172,7 +172,7 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
                     const buffer = chunkToBuffer(chunk)
 
                     /*  generate encoded message  */
-                    const request = this.msg.makeStreamChunk(rid, streamName, buffer, params, this.options.id, receiver)
+                    const request = this.msg.makeStreamTransfer(rid, streamName, buffer, params, this.options.id, receiver)
                     const message = this.codec.encode(request)
 
                     /*  publish message to MQTT topic  */
@@ -181,7 +181,7 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
             })
             readable.on("end", () => {
                 /*  send "null" chunk to signal end of stream  */
-                const request = this.msg.makeStreamChunk(rid, streamName, null, params, this.options.id, receiver)
+                const request = this.msg.makeStreamTransfer(rid, streamName, null, params, this.options.id, receiver)
                 const message = this.codec.encode(request)
                 this.mqtt.publish(topic, message, { qos: 2, ...options })
                 resolve()
@@ -197,8 +197,8 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
         super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
         if (topicMatch !== null
-            && topicMatch.operation === "stream-transfer-chunk"
-            && parsed instanceof StreamChunk) {
+            && topicMatch.operation === "stream-transfer"
+            && parsed instanceof StreamTransfer) {
             /*  just handle stream chunk  */
             const id  = parsed.id
             let chunk = parsed.chunk
