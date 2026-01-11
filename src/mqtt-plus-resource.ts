@@ -31,8 +31,8 @@ import { IClientPublishOptions,
 import { nanoid }                      from "nanoid"
 
 /*  internal requirements  */
-import { ResourceRequest,
-    ResourceResponse }                 from "./mqtt-plus-msg"
+import { ResourceTransferRequest,
+    ResourceTransferResponse }                 from "./mqtt-plus-msg"
 import { APISchema, ResourceKeys,
     APIEndpointResource }              from "./mqtt-plus-api"
 import type { WithInfo,
@@ -192,7 +192,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         })
 
         /*  generate encoded message  */
-        const request = this.msg.makeResourceRequest(requestId, resource, params, this.options.id, receiver)
+        const request = this.msg.makeResourceTransferRequest(requestId, resource, params, this.options.id, receiver)
         const message = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
@@ -210,7 +210,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         const topicMatch = this.options.topicMatch(topic)
         if (topicMatch !== null
             && topicMatch.operation === "resource-transfer-request"
-            && parsed instanceof ResourceRequest) {
+            && parsed instanceof ResourceTransferRequest) {
             /*  handle resource request  */
             const name = parsed.resource
             const handler = this.provisionings.get(name)
@@ -238,7 +238,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                             const chunk = result.subarray(i, i + size)
 
                             /*  generate encoded message  */
-                            const request = this.msg.makeResourceResponse(requestId, chunk, undefined, this.options.id, sender)
+                            const request = this.msg.makeResourceTransferResponse(requestId, chunk, undefined, this.options.id, sender)
                             const message = this.codec.encode(request)
 
                             /*  publish message to MQTT topic  */
@@ -246,7 +246,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                         }
 
                         /*  send "null" chunk to signal end of stream  */
-                        const request = this.msg.makeResourceResponse(requestId, null, undefined, this.options.id, sender)
+                        const request = this.msg.makeResourceTransferResponse(requestId, null, undefined, this.options.id, sender)
                         const message = this.codec.encode(request)
                         this.mqtt.publish(topic, message, { qos: 2 })
                     })
@@ -255,7 +255,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                         const topic = this.options.topicMake(resource, "resource-transfer-response", sender)
 
                         /*  send error  */
-                        const request = this.msg.makeResourceResponse(requestId, null, err.message, this.options.id, sender)
+                        const request = this.msg.makeResourceTransferResponse(requestId, null, err.message, this.options.id, sender)
                         const message = this.codec.encode(request)
                         this.mqtt.publish(topic, message, { qos: 2 })
                     })
@@ -263,7 +263,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         }
         else if (topicMatch !== null
             && topicMatch.operation === "resource-transfer-response"
-            && parsed instanceof ResourceResponse) {
+            && parsed instanceof ResourceTransferResponse) {
             /*  handle resource response  */
             const requestId = parsed.id
             const error     = parsed.error

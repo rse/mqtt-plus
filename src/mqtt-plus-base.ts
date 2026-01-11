@@ -31,10 +31,10 @@ import { MqttClient, IClientPublishOptions,
 import { APISchema }                         from "./mqtt-plus-api"
 import { EventEmission,
     StreamTransfer,
-    ServiceRequest,
-    ServiceResponse,
-    ResourceRequest,
-    ResourceResponse }                       from "./mqtt-plus-msg"
+    ServiceCallRequest,
+    ServiceCallResponse,
+    ResourceTransferRequest,
+    ResourceTransferResponse }               from "./mqtt-plus-msg"
 import { APIOptions }                        from "./mqtt-plus-options"
 import { ReceiverTrait }                     from "./mqtt-plus-receiver"
 
@@ -122,12 +122,12 @@ export class BaseTrait<T extends APISchema = APISchema> extends ReceiverTrait<T>
     private _onMessage (topic: string, message: Buffer, packet: IPublishPacket): void {
         /*  try to parse payload as payload  */
         let parsed:
-            EventEmission     |
-            StreamTransfer    |
-            ServiceRequest    |
-            ServiceResponse   |
-            ResourceRequest   |
-            ResourceResponse
+            EventEmission             |
+            StreamTransfer            |
+            ServiceCallRequest        |
+            ServiceCallResponse       |
+            ResourceTransferRequest   |
+            ResourceTransferResponse
         try {
             let input: Buffer | string = message
             if (this.options.codec === "json")

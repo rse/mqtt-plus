@@ -28,8 +28,8 @@ import { IClientPublishOptions,
 import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
-import { ServiceRequest,
-    ServiceResponse }                 from "./mqtt-plus-msg"
+import { ServiceCallRequest,
+    ServiceCallResponse }                 from "./mqtt-plus-msg"
 import { APISchema,
     APIEndpointService, ServiceKeys } from "./mqtt-plus-api"
 import type { WithInfo, InfoService } from "./mqtt-plus-info"
@@ -166,7 +166,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends StreamTrait<T
         })
 
         /*  generate encoded message  */
-        const request = this.msg.makeServiceRequest(rid, service, params, this.options.id, receiver)
+        const request = this.msg.makeServiceCallRequest(rid, service, params, this.options.id, receiver)
         const message = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
@@ -228,7 +228,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends StreamTrait<T
         const topicMatch = this.options.topicMatch(topic)
         if (topicMatch !== null
             && topicMatch.operation === "service-call-request"
-            && parsed instanceof ServiceRequest) {
+            && parsed instanceof ServiceCallRequest) {
             /*  deliver service request and send response  */
             const rid = parsed.id
             const name = parsed.service
@@ -244,7 +244,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends StreamTrait<T
                 response = Promise.reject(new Error(`method not found: ${name}`))
             response.then((result: any) => {
                 /*  create success response  */
-                return this.msg.makeServiceResponse(rid, result, undefined, this.options.id, parsed.sender)
+                return this.msg.makeServiceCallResponse(rid, result, undefined, this.options.id, parsed.sender)
             }, (result: any) => {
                 /*  determine error message and build error response  */
                 let errorMessage: string
@@ -256,7 +256,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends StreamTrait<T
                     errorMessage = result.message
                 else
                     errorMessage = String(result)
-                return this.msg.makeServiceResponse(rid, undefined, errorMessage, this.options.id, parsed.sender)
+                return this.msg.makeServiceCallResponse(rid, undefined, errorMessage, this.options.id, parsed.sender)
             }).then((rpcResponse) => {
                 /*  send response message  */
                 const senderPeerId = parsed.sender
@@ -272,7 +272,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends StreamTrait<T
         else if (topicMatch !== null
             && topicMatch.operation === "service-call-response"
             && topicMatch.peerId === this.options.id
-            && parsed instanceof ServiceResponse) {
+            && parsed instanceof ServiceCallResponse) {
             /*  handle service response  */
             const rid = parsed.id
             const request = this.responseCallback.get(rid)
