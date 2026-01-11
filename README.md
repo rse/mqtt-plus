@@ -24,8 +24,8 @@ About
 
 This is **MQTT+**, a companion addon API for the excellent
 [MQTT](http://mqtt.org/) client TypeScript/JavaScript API
-[MQTT.js](https://www.npmjs.com/package/mqtt), provoding additional
-communication patterns with optional type safety:
+[MQTT.js](https://www.npmjs.com/package/mqtt), providing additional
+communication patterns with type safety:
 
 - **Event Emission**:
 
