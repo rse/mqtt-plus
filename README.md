@@ -40,6 +40,8 @@ communication patterns with optional type safety:
   pattern allows to direct the event to particular subscribers and
   provides optional information about the sender and receiver to subscribers.
 
+  ![Event Emission](doc/mqtt-plus-1-event-emission.svg)
+
 - **Stream Transfer**:
 
   Stream Transfer is a *uni-directional* communication pattern.
@@ -53,6 +55,8 @@ communication patterns with optional type safety:
   In contrast to the regular MQTT message publish/subscribe, this
   pattern allows to transfer arbitrary amounts of arbitrary data by
   chunking the data via a stream.
+
+  ![Stream Transfer](doc/mqtt-plus-2-stream-transfer.svg)
 
 - **Service Call**:
 
@@ -69,6 +73,8 @@ communication patterns with optional type safety:
   Procedure Call](https://en.wikipedia.org/wiki/Remote_procedure_call)
   (RPC) style communication.
 
+  ![Service Call](doc/mqtt-plus-3-service-call.svg)
+
 - **Resource Transfer**:
 
   Resource Transfer is a *bi-directional* communication pattern.
@@ -77,6 +83,8 @@ communication patterns with optional type safety:
   When a resource is *fetched* or *pushed*, a single particular provisioner (in case
   of a directed resource transfer) or one arbitrary provisioner is called and
   sends or receives the resource and its arguments.
+
+  ![Resource Transfer](doc/mqtt-plus-4-resource-transfer.svg)
 
 > [!Note]
 > **MQTT+** is similar to and derived from
