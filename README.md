@@ -40,7 +40,7 @@ communication patterns with optional type safety:
   pattern allows to direct the event to particular subscribers and
   provides optional information about the sender and receiver to subscribers.
 
-  <img alt="Event Emission" src="doc/mqtt-plus-1-event-emission.svg" style="margin: 0px auto;"/>
+  ![Event Emission](doc/mqtt-plus-1-event-emission.svg)
 
 - **Stream Transfer**:
 
