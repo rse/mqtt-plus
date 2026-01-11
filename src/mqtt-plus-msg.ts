@@ -196,13 +196,15 @@ export default class Msg {
         /*  dispatch according to type indication by field  */
         const anyFieldsExcept = (obj: object, allowed: string[]) =>
             Object.keys(obj).some((key) => !allowed.includes(key))
+        const validParams = (obj: any) =>
+            obj.params === undefined || (typeof obj.params === "object" && Array.isArray(obj.params))
         if (obj.type === "event-emission") {
             /*  detect and parse event emission  */
             if (typeof obj.event !== "string")
                 throw new Error("invalid EventEmission object: \"event\" field must be a string")
             if (anyFieldsExcept(obj, [ "type", "id", "event", "params", "sender", "receiver" ]))
                 throw new Error("invalid EventEmission object: contains unknown fields")
-            if (obj.params !== undefined && (typeof obj.params !== "object" || !Array.isArray(obj.params)))
+            if (!validParams(obj))
                 throw new Error("invalid EventEmission object: \"params\" field must be an array")
             return this.makeEventEmission(obj.id, obj.event, obj.params, obj.sender, obj.receiver)
         }
@@ -214,7 +216,7 @@ export default class Msg {
                 throw new Error("invalid StreamTransfer object: contains unknown fields")
             if (obj.chunk !== undefined && typeof obj.chunk !== "object")
                 throw new Error("invalid StreamTransfer object: \"chunk\" field must be an object or null")
-            if (obj.params !== undefined && (typeof obj.params !== "object" || !Array.isArray(obj.params)))
+            if (!validParams(obj))
                 throw new Error("invalid StreamTransfer object: \"params\" field must be an array")
             return this.makeStreamTransfer(obj.id, obj.stream, obj.chunk, obj.params, obj.sender, obj.receiver)
         }
@@ -224,7 +226,7 @@ export default class Msg {
                 throw new Error("invalid ServiceCallRequest object: \"service\" field must be a string")
             if (anyFieldsExcept(obj, [ "type", "id", "service", "params", "sender", "receiver" ]))
                 throw new Error("invalid ServiceCallRequest object: contains unknown fields")
-            if (obj.params !== undefined && (typeof obj.params !== "object" || !Array.isArray(obj.params)))
+            if (!validParams(obj))
                 throw new Error("invalid ServiceCallRequest object: \"params\" field must be an array")
             return this.makeServiceCallRequest(obj.id, obj.service, obj.params, obj.sender, obj.receiver)
         }
@@ -240,7 +242,7 @@ export default class Msg {
                 throw new Error("invalid ResourceTransferRequest object: \"resource\" field must be a string")
             if (anyFieldsExcept(obj, [ "type", "id", "resource", "params", "sender", "receiver" ]))
                 throw new Error("invalid ResourceTransferRequest object: contains unknown fields")
-            if (obj.params !== undefined && (typeof obj.params !== "object" || !Array.isArray(obj.params)))
+            if (!validParams(obj))
                 throw new Error("invalid ResourceTransferRequest object: \"params\" field must be an array")
             return this.makeResourceTransferRequest(obj.id, obj.resource, obj.params, obj.sender, obj.receiver)
         }
