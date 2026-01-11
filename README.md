@@ -22,7 +22,7 @@ $ npm install mqtt mqtt-plus
 About
 -----
 
-This is **MQTT+**, an companion addon API for the excellent
+This is **MQTT+**, a companion addon API for the excellent
 [MQTT](http://mqtt.org/) client TypeScript/JavaScript API
 [MQTT.js](https://www.npmjs.com/package/mqtt), provoding additional
 communication patterns with optional type safety:
@@ -38,7 +38,7 @@ communication patterns with optional type safety:
 
   In contrast to the regular MQTT message publish/subscribe, this
   pattern allows to direct the event to particular subscribers and
-  provides optional information about the sender to subscribers.
+  provides optional information about the sender and receiver to subscribers.
 
 - **Stream Transfer**:
 
