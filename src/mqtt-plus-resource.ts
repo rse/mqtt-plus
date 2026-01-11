@@ -22,9 +22,6 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/*  built-in requirements  */
-import stream                          from "stream"
-
 /*  external requirements  */
 import { IClientPublishOptions,
     IClientSubscribeOptions }          from "mqtt"
@@ -32,7 +29,7 @@ import { nanoid }                      from "nanoid"
 
 /*  internal requirements  */
 import { ResourceTransferRequest,
-    ResourceTransferResponse }                 from "./mqtt-plus-msg"
+    ResourceTransferResponse }         from "./mqtt-plus-msg"
 import { APISchema, ResourceKeys,
     APIEndpointResource }              from "./mqtt-plus-api"
 import type { WithInfo,

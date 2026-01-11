@@ -29,7 +29,7 @@ import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
 import { ServiceCallRequest,
-    ServiceCallResponse }                 from "./mqtt-plus-msg"
+    ServiceCallResponse }             from "./mqtt-plus-msg"
 import { APISchema,
     APIEndpointService, ServiceKeys } from "./mqtt-plus-api"
 import type { WithInfo, InfoService } from "./mqtt-plus-info"
