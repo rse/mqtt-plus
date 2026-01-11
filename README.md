@@ -108,9 +108,10 @@ pattern of each endpoint:
 import type * as MQTTpt from "mqtt-plus"
 
 export type API = {
-    "example/sample": MQTTpt.Event<(a1: string, a2: boolean) => void>    /*  event   */
-    "example/upload": MQTTpt.Stream<(a1: string, a2: number) => void>    /*  stream  */
-    "example/hello":  MQTTpt.Service<(a1: string, a2: number) => string> /*  service */
+    "example/sample":   MQTTpt.Event<(a1: string, a2: boolean) => void>
+    "example/upload":   MQTTpt.Stream<(a1: string, a2: number) => void>
+    "example/hello":    MQTTpt.Service<(a1: string, a2: number) => string>
+    "example/resource": MQTTpt.Resource<(a1: string, a2: number) => Promise<Buffer>>
 }
 ```
 
@@ -415,15 +416,16 @@ mqttp.call("example/hello", "world", 42).then((result) => {
 ```
 
 ...the following message is sent to the permanent MQTT topic
-`example/hello/service-call/any` (the shown NanoIDs are just pseudo
+`example/hello/service-call-request/any` (the shown NanoIDs are just pseudo
 ones):
 
 ```json
 {
+    "type":    "service-call-request",
     "id":      "vwLzfQDu2uEeOdOfIlT42",
-    "sender":  "2IBMSk0NPnrz1AeTERoea",
-    "method":  "example/hello",
-    "params":  [ "world", 42 ]
+    "service": "example/hello",
+    "params":  [ "world", 42 ],
+    "sender":  "2IBMSk0NPnrz1AeTERoea"
 }
 ```
 
@@ -438,13 +440,15 @@ mqttp.register("example/hello", (a1, a2) => {
 ...and then its result, in the above `mqttp.call()` example `"world:42"`, is then
 sent back as the following success response
 message to the temporary (client-specific) MQTT topic
-`example/hello/service-call/2IBMSk0NPnrz1AeTERoea`:
+`example/hello/service-call-response/2IBMSk0NPnrz1AeTERoea`:
 
 ```json
 {
-    "id":      "vwLzfQDu2uEeOdOfIlT42",
-    "sender":  "2IBMSk0NPnrz1AeTERoea",
-    "result":  "world:42"
+    "type":     "service-call-response",
+    "id":       "vwLzfQDu2uEeOdOfIlT42",
+    "result":   "world:42",
+    "sender":   "2IBMSk0NPnrz1AeTERoea",
+    "receiver": "2IBMSk0NPnrz1AeTERoea"
 }
 ```
 
