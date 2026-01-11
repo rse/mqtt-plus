@@ -19,7 +19,5 @@ transfer("foo/bar") {
     client <- broker: "op: publish\ntopic: foo/bar/resource-response/XXX\ndata: Resource-Transfer-Response #1"
     broker <- server: "op: publish\ntopic: foo/bar/resource-response/XXX\ndata: Resource-Transfer-Response #N"
     client <- broker: "op: publish\ntopic: foo/bar/resource-response/XXX\ndata: Resource-Transfer-Response #N"
-    broker <- server: "op: publish\ntopic: foo/bar/resource-response/XXX\ndata: Resource-Transfer-Response EoS"
-    client <- broker: "op: publish\ntopic: foo/bar/resource-response/XXX\ndata: Resource-Transfer-Response EoS"
 }
 

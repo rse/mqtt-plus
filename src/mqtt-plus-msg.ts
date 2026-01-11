@@ -96,8 +96,9 @@ export class ResourceTransferRequest extends Base {
 export class ResourceTransferResponse extends Base {
     constructor (
         id:              string,
-        public chunk:    Buffer | null | undefined,
+        public chunk:    Buffer | undefined,
         public error:    string | undefined,
+        public final:    boolean | undefined,
         sender?:         string,
         receiver?:       string
     ) { super("resource-transfer-response", id, sender, receiver) }
@@ -164,12 +165,13 @@ export default class Msg {
     /*  factory for resource response  */
     makeResourceTransferResponse (
         id:             string,
-        chunk?:         Buffer | null,
+        chunk?:         Buffer,
         error?:         string,
+        final?:         boolean,
         sender?:        string,
         receiver?:      string
     ): ResourceTransferResponse {
-        return new ResourceTransferResponse(id, chunk, error, sender, receiver)
+        return new ResourceTransferResponse(id, chunk, error, final, sender, receiver)
     }
 
     /*  parse any object into typed object  */
@@ -248,12 +250,14 @@ export default class Msg {
         }
         else if (obj.type === "resource-transfer-response") {
             if (obj.chunk !== undefined && typeof obj.chunk !== "object")
-                throw new Error("invalid ResourceTransferResponse object: \"chunk\" field must be an object or null")
+                throw new Error("invalid ResourceTransferResponse object: \"chunk\" field must be an object")
             if (obj.error !== undefined && typeof obj.error !== "string")
                 throw new Error("invalid ResourceTransferResponse object: \"error\" field must be a string")
-            if (anyFieldsExcept(obj, [ "type", "id", "chunk", "error", "sender", "receiver" ]))
+            if (obj.final !== undefined && typeof obj.final !== "boolean")
+                throw new Error("invalid ResourceTransferResponse object: \"final\" field must be a boolean")
+            if (anyFieldsExcept(obj, [ "type", "id", "chunk", "error", "final", "sender", "receiver" ]))
                 throw new Error("invalid ResourceTransferResponse object: contains unknown fields")
-            return this.makeResourceTransferResponse(obj.id, obj.chunk, obj.error, obj.sender, obj.receiver)
+            return this.makeResourceTransferResponse(obj.id, obj.chunk, obj.error, obj.final, obj.sender, obj.receiver)
         }
         else
             throw new Error("invalid object: not of any known type")

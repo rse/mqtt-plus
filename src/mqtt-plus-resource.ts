@@ -50,7 +50,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
     private fetchCallback =
         new Map<string, {
             resource: string,
-            callback: (error: Error | undefined, chunk: Buffer | null | undefined) => void
+            callback: (error: Error | undefined, chunk: Buffer | undefined, final: boolean | undefined) => void
         }>()
 
     /*  provision an RPC resource  */
@@ -171,15 +171,15 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             const chunks: Buffer[] = []
             this.fetchCallback.set(requestId, {
                 resource,
-                callback: (error: Error | undefined, chunk: Buffer | null | undefined) => {
+                callback: (error: Error | undefined, chunk: Buffer | undefined, final: boolean | undefined) => {
                     if (error !== undefined) {
                         cleanup()
                         reject(error)
                     }
-                    else if (chunk !== undefined) {
-                        if (chunk !== null)
+                    else {
+                        if (chunk !== undefined)
                             chunks.push(chunk)
-                        else {
+                        if (final) {
                             cleanup()
                             resolve(Buffer.concat(chunks))
                         }
@@ -233,28 +233,24 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                         /*  split Buffer into chunks and send them back  */
                         const chunkSize = this.options.chunkSize
                         for (let i = 0; i < info.resource.byteLength; i += chunkSize) {
-                            const size = Math.min(info.resource.byteLength - i, chunkSize)
+                            const size  = Math.min(info.resource.byteLength - i, chunkSize)
                             const chunk = info.resource.subarray(i, i + size)
+                            const final = (i + size >= info.resource.byteLength)
 
                             /*  generate encoded message  */
-                            const request = this.msg.makeResourceTransferResponse(requestId, chunk, undefined, this.options.id, sender)
+                            const request = this.msg.makeResourceTransferResponse(requestId, chunk, undefined, final, this.options.id, sender)
                             const message = this.codec.encode(request)
 
                             /*  publish message to MQTT topic  */
                             this.mqtt.publish(topic, message, { qos: 2 })
                         }
-
-                        /*  send "null" chunk to signal end of stream  */
-                        const request = this.msg.makeResourceTransferResponse(requestId, null, undefined, this.options.id, sender)
-                        const message = this.codec.encode(request)
-                        this.mqtt.publish(topic, message, { qos: 2 })
                     })
                     .catch((err: Error) => {
                         /*  generate corresponding MQTT topic  */
                         const topic = this.options.topicMake(resource, "resource-transfer-response", sender)
 
                         /*  send error  */
-                        const request = this.msg.makeResourceTransferResponse(requestId, null, err.message, this.options.id, sender)
+                        const request = this.msg.makeResourceTransferResponse(requestId, undefined, err.message, true, this.options.id, sender)
                         const message = this.codec.encode(request)
                         this.mqtt.publish(topic, message, { qos: 2 })
                     })
@@ -265,12 +261,13 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             && parsed instanceof ResourceTransferResponse) {
             /*  handle resource response  */
             const requestId = parsed.id
-            const error = parsed.error
+            const error     = parsed.error
+            const final     = parsed.final
             let chunk = parsed.chunk
-            if (chunk !== null && chunk !== undefined && !Buffer.isBuffer(chunk))
+            if (chunk !== undefined && !Buffer.isBuffer(chunk))
                 chunk = Buffer.from(chunk)
-            const handler   = this.fetchCallback.get(requestId)
-            handler?.callback(error ? new Error(error) : undefined, chunk)
+            const handler = this.fetchCallback.get(requestId)
+            handler?.callback(error ? new Error(error) : undefined, chunk, final)
         }
     }
 }
