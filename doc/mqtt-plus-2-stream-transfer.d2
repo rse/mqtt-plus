@@ -1,0 +1,23 @@
+
+"Stream Transfer": {
+    shape: sequence_diagram
+
+    client: "Client"
+    broker: "Broker"
+    server: "Server"
+
+    broker.class: brown
+
+    attach("foo/bar") {
+        server -> broker: "subscribe\nfoo/bar/stream-chunk"
+    }
+    fetch("foo/bar") {
+        client -> broker: "publish\nfoo/bar/stream-chunk/any\nStream-Chunk 1"
+        broker -> server: "publish\nfoo/bar/stream-chunk/any\nStream-Chunk 1"
+        client -> broker: "publish\nfoo/bar/stream-chunk/any\nStream-Chunk N"
+        broker -> server: "publish\nfoo/bar/stream-chunk/any\nStream-Chunk N"
+        client -> broker: "publish\nfoo/bar/stream-chunk/any\nStream-Chunk EoS"
+        broker -> server: "publish\nfoo/bar/stream-chunk/any\nStream-Chunk EoS"
+    }
+}
+

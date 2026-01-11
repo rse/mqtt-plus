@@ -47,6 +47,8 @@
         "vite-plugin-singlefile":     "2.3.0",
         "vite-plugin-node-polyfills": "0.24.0",
         "@wroud/vite-plugin-tsc":     "0.12.2",
+        "@terrastruct/d2":            "0.1.33",
+
         "@types/node":                "25.0.6",
         "@types/mocha":               "10.0.10",
         "@types/chai":                "5.2.3",
