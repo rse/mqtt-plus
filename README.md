@@ -86,15 +86,6 @@ communication patterns with type safety:
 
   ![Resource Transfer](doc/mqtt-plus-4-resource-transfer.svg)
 
-> [!Note]
-> **MQTT+** is similar to and derived from
-> [MQTT-JSON-RPC](https://github.com/rse/mqtt-json-rpc) of the same
-> author, but instead of just JSON, MQTT+ encodes packets as JSON
-> or CBOR (default), uses an own packet format (allowing sender and
-> receiver information), uses shorter NanoIDs instead of longer UUIDs
-> for identification of sender, receiver and requests, and additionally
-> provides stream transfer and resource transfer support.
-
 Usage
 -----
 
@@ -581,6 +572,18 @@ RECEIVED example/hello/service-call-response/2IBMSk0NPnrz1AeTERoea {"id":"vwLzfQ
 example/hello success: world:42
 CLOSE
 ```
+
+Notice
+------
+
+> [!Note]
+> **MQTT+** is somewhat similar to and originally derived from
+> [MQTT-JSON-RPC](https://github.com/rse/mqtt-json-rpc) of the same
+> author, but instead of just JSON, MQTT+ encodes packets as JSON
+> or CBOR (default), uses an own packet format (allowing sender and
+> receiver information), uses shorter NanoIDs instead of longer UUIDs
+> for identification of sender, receiver and requests, and additionally
+> provides stream transfer and resource transfer support.
 
 License
 -------
