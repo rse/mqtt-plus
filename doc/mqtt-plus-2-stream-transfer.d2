@@ -8,15 +8,15 @@ server: "Server"
 broker.class: brown
 
 attach("foo/bar") {
-    server -> broker: "op: subscribe\ntopic: foo/bar/stream-chunk"
+    server -> broker: "op: subscribe\ntopic: foo/bar/stream-transfer"
 }
 
 fetch("foo/bar") {
-    client -> broker: "op: publish\ntopic: foo/bar/stream-chunk/any\ndata: Stream-Transfer #1"
-    broker -> server: "op: publish\ntopic: foo/bar/stream-chunk/any\ndata: Stream-Transfer #1"
-    client -> broker: "op: publish\ntopic: foo/bar/stream-chunk/any\ndata: Stream-Transfer #N"
-    broker -> server: "op: publish\ntopic: foo/bar/stream-chunk/any\ndata: Stream-Transfer #N"
-    client -> broker: "op: publish\ntopic: foo/bar/stream-chunk/any\ndata: Stream-Transfer EoS"
-    broker -> server: "op: publish\ntopic: foo/bar/stream-chunk/any\ndata: Stream-Transfer EoS"
+    client -> broker: "op: publish\ntopic: foo/bar/stream-transfer/any\ndata: Stream-Transfer #1"
+    broker -> server: "op: publish\ntopic: foo/bar/stream-transfer/any\ndata: Stream-Transfer #1"
+    client -> broker: "op: publish\ntopic: foo/bar/stream-transfer/any\ndata: Stream-Transfer #N"
+    broker -> server: "op: publish\ntopic: foo/bar/stream-transfer/any\ndata: Stream-Transfer #N"
+    client -> broker: "op: publish\ntopic: foo/bar/stream-transfer/any\ndata: Stream-Transfer EoS"
+    broker -> server: "op: publish\ntopic: foo/bar/stream-transfer/any\ndata: Stream-Transfer EoS"
 }
 

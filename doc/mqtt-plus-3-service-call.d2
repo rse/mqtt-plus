@@ -8,13 +8,14 @@ server: "Server"
 broker.class: brown
 
 register("foo/bar") {
-    server -> broker: "subscribe\nfoo/bar/service-call"
+    server -> broker: "op: subscribe\ntopic: foo/bar/service-call-request/any"
 }
 
 call("foo/bar") {
-    client -> broker: "publish\nfoo/bar/service-call-request/any\nService-Request"
-    broker -> server: "publish\nfoo/bar/service-call-request/any\nService-Request"
-    broker <- server: "publish\nfoo/bar/service-call-response/any\nService-Response"
-    client <- broker: "publish\nfoo/bar/service-call-response/any\nService-Response"
+    client -> broker: "op: subscribe\ntopic: foo/bar/service-call-response/XXX"
+    client -> broker: "op: publish\ntopic: foo/bar/service-call-request/any\ndata: Service-Call-Request"
+    broker -> server: "op: publish\ntopic: foo/bar/service-call-request/any\ndata: Service-Call-Request"
+    broker <- server: "op: publish\ntopic: foo/bar/service-call-response/XXX\ndata: Service-Call-Response"
+    client <- broker: "op: publish\ntopic: foo/bar/service-call-response/XXX\ndata: Service-Call-Response"
 }
 
