@@ -28,17 +28,14 @@ type Brand<T> = T & { readonly __brand: unique symbol }
 /*  endpoint types  */
 export type APIEndpoint =
     APIEndpointEvent   |
-    APIEndpointStream  |
     APIEndpointService |
     APIEndpointResource
 export type APIEndpointEvent    = (...args: any[]) => void
-export type APIEndpointStream   = (...args: any[]) => void
 export type APIEndpointService  = (...args: any[]) => any
 export type APIEndpointResource = (...args: any[]) => void
 
 /*  API marker types  */
 export type Event<T    extends APIEndpointEvent>    = Brand<T>
-export type Stream<T   extends APIEndpointStream>   = Brand<T>
 export type Service<T  extends APIEndpointService>  = Brand<T>
 export type Resource<T extends APIEndpointResource> = Brand<T>
 
@@ -48,11 +45,6 @@ export type APISchema = Record<string, APIEndpoint>
 /*  extract event keys where type is branded as Event  */
 export type EventKeys<T> = string extends keyof T ? string : {
     [ K in keyof T ]: T[K] extends Event<infer _F> ? K : never
-}[ keyof T ]
-
-/*  extract stream keys where type is branded as Stream  */
-export type StreamKeys<T> = string extends keyof T ? string : {
-    [ K in keyof T ]: T[K] extends Stream<infer _F> ? K : never
 }[ keyof T ]
 
 /*  extract service keys where type is branded as Service  */

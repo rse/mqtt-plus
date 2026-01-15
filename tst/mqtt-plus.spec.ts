@@ -39,8 +39,8 @@ import MQTT             from "mqtt"
 /*  internal dependencies  */
 import MQTTp            from "mqtt-plus"
 import type { Event,
-    Stream, Service,
-    Resource }          from "mqtt-plus"
+    Service, Resource,
+    InfoResource }      from "mqtt-plus"
 
 /*  setup test suite infrastructure  */
 chai.config.includeStack = true
@@ -50,7 +50,7 @@ const { expect } = chai
 /*  example API  */
 type API = {
     "example/sample":        Event<(a1: string, a2: number) => void>
-    "example/upload":        Stream<(name: string) => void>
+    "example/upload":        Resource<(name: string) => void>
     "example/hello":         Service<(a1: string, a2: number) => string>
     "example/store":         Resource<(filename: string) => void>
     "example/store-invalid": Resource<(filename: string) => void>
@@ -90,13 +90,14 @@ describe("MQTT+ Library", function () {
         expect(mqttp).to.respondTo("receiver")
 
         expect(mqttp).to.respondTo("subscribe")
-        expect(mqttp).to.respondTo("attach")
-
-        expect(mqttp).to.respondTo("register")
         expect(mqttp).to.respondTo("emit")
 
-        expect(mqttp).to.respondTo("transfer")
+        expect(mqttp).to.respondTo("register")
         expect(mqttp).to.respondTo("call")
+
+        expect(mqttp).to.respondTo("provision")
+        expect(mqttp).to.respondTo("fetch")
+        expect(mqttp).to.respondTo("push")
 
         mqttp.destroy()
     })
@@ -121,55 +122,6 @@ describe("MQTT+ Library", function () {
 
         /*  destroy service  */
         await subscription.unsubscribe()
-        mqttp.destroy()
-    })
-
-    /*  test case: Stream Transfer  */
-    it("MQTT+ Stream Transfer", async function () {
-        /*  setup  */
-        this.timeout(2000)
-        const spy = sinon.spy()
-
-        /*  generate random data  */
-        const data = Buffer.from(crypto.randomBytes(16 * 1024))
-
-        /*  attach to stream  */
-        const mqttp = new MQTTp<API>(mqtt)
-        const attachment = await mqttp.attach("example/upload", (name, info) => {
-            spy("attach")
-            if (name !== "foo")
-                throw new Error("invalid stream transfer")
-            expect(name).to.be.equal("foo")
-            expect(info).to.be.of.an("object")
-            expect(info.stream).to.be.instanceOf(stream.Readable)
-            const chunks: Buffer[] = []
-            info.stream.on("data", (chunk: Buffer) => {
-                chunks.push(chunk)
-            })
-            info.stream.on("end", () => {
-                spy("end")
-                const result = Buffer.concat(chunks)
-                expect(result).to.deep.equal(data)
-            })
-        })
-
-        /*  transfer stream  */
-        const readable = new stream.Readable({
-            read () {}
-        })
-        readable.push(data)
-        readable.push(null)
-        await mqttp.transfer("example/upload", readable, "foo").then(() => {
-            spy("transfer-success")
-        }).catch((err: Error) => {
-            spy("transfer-error")
-        })
-        await new Promise((resolve) => { setTimeout(resolve, 1000) })
-        expect(spy.getCalls().map((call) => call.firstArg))
-            .to.be.same.deep.members([ "attach", "transfer-success", "end" ])
-
-        /*  destroy service  */
-        await attachment.unattach()
         mqttp.destroy()
     })
 
@@ -216,8 +168,57 @@ describe("MQTT+ Library", function () {
         mqttp.destroy()
     })
 
+    /*  test case: Resource Transfer (Push)  */
+    it("MQTT+ Resource Transfer (Push)", async function () {
+        /*  setup  */
+        this.timeout(2000)
+        const spy = sinon.spy()
+
+        /*  generate random data  */
+        const data = Buffer.from(crypto.randomBytes(16 * 1024))
+
+        /*  attach to resource  */
+        const mqttp = new MQTTp<API>(mqtt)
+        const attachment = await mqttp.provision("example/upload", (name: string, info: InfoResource) => {
+            spy("provision")
+            if (name !== "foo")
+                throw new Error("invalid resource transfer")
+            expect(name).to.be.equal("foo")
+            expect(info).to.be.of.an("object")
+            expect(info.stream).to.be.instanceOf(stream.Readable)
+            const chunks: Buffer[] = []
+            info.stream!.on("data", (chunk: Buffer) => {
+                chunks.push(chunk)
+            })
+            info.stream!.on("end", () => {
+                spy("end")
+                const result = Buffer.concat(chunks)
+                expect(result).to.deep.equal(data)
+            })
+        })
+
+        /*  transfer stream  */
+        const readable = new stream.Readable({
+            read () {}
+        })
+        readable.push(data)
+        readable.push(null)
+        await mqttp.push("example/upload", readable, "foo").then(() => {
+            spy("transfer-success")
+        }).catch((err: Error) => {
+            spy("transfer-error")
+        })
+        await new Promise((resolve) => { setTimeout(resolve, 1000) })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.same.deep.members([ "provision", "transfer-success", "end" ])
+
+        /*  destroy service  */
+        await attachment.unprovision()
+        mqttp.destroy()
+    })
+
     /*  test case: Resource Transfer  */
-    it("MQTT+ Resource Transfer", async function () {
+    it("MQTT+ Resource Transfer (Fetch)", async function () {
         this.timeout(3000)
 
         /*  provide resource  */

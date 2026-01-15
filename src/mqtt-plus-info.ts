@@ -30,11 +30,13 @@ export interface InfoBase {
     sender:    string,
     receiver?: string
 }
-
-export interface InfoEvent    extends InfoBase {}
-export interface InfoStream   extends InfoBase { stream: Readable, buffer: Promise<Buffer> }
-export interface InfoService  extends InfoBase {}
-export interface InfoResource extends InfoBase { resource: Buffer | null }
+export interface InfoEvent   extends InfoBase {}
+export interface InfoService extends InfoBase {}
+export interface InfoResource extends InfoBase {
+    resource: Buffer | Readable | null,
+    stream?:  Readable,
+    buffer?:  Promise<Buffer>
+}
 
 /*  type utility: extend function with Info parameter  */
 export type WithInfo<F, I extends InfoBase> =

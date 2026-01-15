@@ -41,23 +41,24 @@ import type { WithInfo,
 import type { Receiver }               from "./mqtt-plus-receiver"
 import { ServiceTrait }                from "./mqtt-plus-service"
 
-/*  the registration result type  */
+/*  the provisioning result type  */
 export interface Provisioning {
     unprovision (): Promise<void>
 }
 
 /*  Resource Communication Trait  */
 export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
-    /*  resource state  */
+    /*  resource provisioning state  */
     private provisionings =
         new Map<string, WithInfo<APIEndpointResource, InfoResource>>()
-    private fetchCallback =
+    private callbacks =
         new Map<string, {
             resource: string,
             callback: (error: Error | undefined, chunk: Buffer | undefined, final: boolean | undefined) => void
         }>()
+    private pushStreams = new Map<string, Readable>()
 
-    /*  provision an RPC resource  */
+    /*  provision a resource (for both fetch requests and pushed data)  */
     async provision<K extends ResourceKeys<T> & string> (
         resource: K,
         callback: WithInfo<T[K], InfoResource>
@@ -84,23 +85,29 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             throw new Error(`provision: resource "${resource}" already provisioned`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topicB = this.options.topicMake(resource, "resource-transfer-request")
-        const topicD = this.options.topicMake(resource, "resource-transfer-request", this.options.id)
+        const topicReqB = this.options.topicMake(resource, "resource-transfer-request")
+        const topicReqD = this.options.topicMake(resource, "resource-transfer-request", this.options.id)
+        const topicResB = this.options.topicMake(resource, "resource-transfer-response")
+        const topicResD = this.options.topicMake(resource, "resource-transfer-response", this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([
-            this._subscribeTopic(topicB, { qos: 2, ...options }),
-            this._subscribeTopic(topicD, { qos: 2, ...options })
+            this._subscribeTopic(topicReqB, { qos: 2, ...options }),
+            this._subscribeTopic(topicReqD, { qos: 2, ...options }),
+            this._subscribeTopic(topicResB, { qos: 2, ...options }),
+            this._subscribeTopic(topicResD, { qos: 2, ...options })
         ]).catch((err: Error) => {
-            this._unsubscribeTopic(topicB).catch(() => {})
-            this._unsubscribeTopic(topicD).catch(() => {})
+            this._unsubscribeTopic(topicReqB).catch(() => {})
+            this._unsubscribeTopic(topicReqD).catch(() => {})
+            this._unsubscribeTopic(topicResB).catch(() => {})
+            this._unsubscribeTopic(topicResD).catch(() => {})
             throw err
         })
 
         /*  remember the provisioning  */
         this.provisionings.set(resource, callback as WithInfo<APIEndpointResource, InfoResource>)
 
-        /*  provide a provisioning for subsequent unprovisioning  */
+        /*  provide a provisioning object for subsequent unprovisioning  */
         const self = this
         const provisioning: Provisioning = {
             async unprovision (): Promise<void> {
@@ -108,12 +115,169 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                     throw new Error(`unprovision: resource "${resource}" not provisioned`)
                 self.provisionings.delete(resource)
                 return Promise.all([
-                    self._unsubscribeTopic(topicB),
-                    self._unsubscribeTopic(topicD)
+                    self._unsubscribeTopic(topicReqB),
+                    self._unsubscribeTopic(topicReqD),
+                    self._unsubscribeTopic(topicResB),
+                    self._unsubscribeTopic(topicResD)
                 ]).then(() => {})
             }
         }
         return provisioning
+    }
+
+    /*  utility function for collecting stream chunks into a Buffer  */
+    private _collectStreamToBuffer (stream: Readable): Promise<Buffer> {
+        return new PLazy<Buffer>((resolve, reject) => {
+            const chunks: Buffer[] = []
+            stream.on("data", (data: Buffer) => {
+                chunks.push(data)
+            })
+            stream.on("end", () => {
+                resolve(Buffer.concat(chunks))
+            })
+            stream.on("error", (err: Error) => {
+                reject(err)
+            })
+        })
+    }
+
+    /*  utility function for converting a chunk to a Buffer  */
+    private _chunkToBuffer (chunk: unknown): Buffer {
+        let buffer: Buffer
+        if (Buffer.isBuffer(chunk))
+            buffer = chunk
+        else if (typeof chunk === "string")
+            buffer = Buffer.from(chunk)
+        else if (chunk instanceof Uint8Array)
+            buffer = Buffer.from(chunk)
+        else
+            buffer = Buffer.from(String(chunk))
+        return buffer
+    }
+
+    /*  push resource ("chunked content")  */
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        stream:    Readable,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        stream:    Readable,
+        receiver:  Receiver,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        stream:    Readable,
+        options:   IClientPublishOptions,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        stream:    Readable,
+        receiver:  Receiver,
+        options:   IClientPublishOptions,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        buffer:    Buffer,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        buffer:    Buffer,
+        receiver:  Receiver,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        buffer:    Buffer,
+        options:   IClientPublishOptions,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        buffer:    Buffer,
+        receiver:  Receiver,
+        options:   IClientPublishOptions,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:       K,
+        streamOrBuffer: Readable | Buffer,
+        ...args:        any[]
+    ): Promise<void> {
+        /*  determine actual parameters  */
+        const { receiver, options, params } = this._parseCallArgs(args)
+
+        /*  generate unique request id  */
+        const rid = nanoid()
+
+        /*  generate corresponding MQTT topic  */
+        const topic = this.options.topicMake(resource, "resource-transfer-response", receiver)
+
+        /*  iterate over all chunks of the buffer  */
+        return new Promise((resolve, reject) => {
+            const chunkSize = this.options.chunkSize
+            if (streamOrBuffer instanceof Readable) {
+                /*  attach to the readable  */
+                const readable = streamOrBuffer
+                readable.on("readable", () => {
+                    let chunk: unknown
+                    while ((chunk = readable.read(chunkSize)) !== null) {
+                        /*  ensure data is a Buffer  */
+                        const buffer = this._chunkToBuffer(chunk)
+
+                        /*  generate encoded message  */
+                        const request = this.msg.makeResourceTransferResponse(rid, resource, params, buffer, undefined, false, this.options.id, receiver)
+                        const message = this.codec.encode(request)
+
+                        /*  publish message to MQTT topic  */
+                        this.mqtt.publish(topic, message, { qos: 2, ...options })
+                    }
+                })
+                readable.on("end", () => {
+                    /*  send final chunk to signal end of stream  */
+                    const request = this.msg.makeResourceTransferResponse(rid, resource, params, undefined, undefined, true, this.options.id, receiver)
+                    const message = this.codec.encode(request)
+                    this.mqtt.publish(topic, message, { qos: 2, ...options })
+                    resolve()
+                })
+                readable.on("error", (err: Error) => {
+                    const request = this.msg.makeResourceTransferResponse(rid, resource, params, undefined, err.message, true, this.options.id, receiver)
+                    const message = this.codec.encode(request)
+                    this.mqtt.publish(topic, message, { qos: 2, ...options })
+                    reject(err)
+                })
+            }
+            else if (streamOrBuffer instanceof Buffer) {
+                /*  split buffer into chunks and send them  */
+                const buffer = streamOrBuffer
+                if (buffer.byteLength === 0) {
+                    /*  handle empty buffer by sending final chunk  */
+                    const request = this.msg.makeResourceTransferResponse(rid, resource, params, undefined, undefined, true, this.options.id, receiver)
+                    const message = this.codec.encode(request)
+                    this.mqtt.publish(topic, message, { qos: 2, ...options })
+                }
+                else {
+                    for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+                        const size  = Math.min(buffer.byteLength - i, chunkSize)
+                        const chunk = buffer.subarray(i, i + size)
+                        const final = (i + size >= buffer.byteLength)
+
+                        /*  generate encoded message  */
+                        const request = this.msg.makeResourceTransferResponse(rid, resource, params, chunk, undefined, final, this.options.id, receiver)
+                        const message = this.codec.encode(request)
+
+                        /*  publish message to MQTT topic  */
+                        this.mqtt.publish(topic, message, { qos: 2, ...options })
+                    }
+                }
+                resolve()
+            }
+        })
     }
 
     /*  fetch resource  */
@@ -155,18 +319,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         const stream = new Readable({ read (_size) {} })
 
         /*  create promise for collecting stream chunks  */
-        const buffer = new PLazy<Buffer>((resolve, reject) => {
-            const chunks: Buffer[] = []
-            stream.on("data", (data: Buffer) => {
-                chunks.push(data)
-            })
-            stream.on("end", () => {
-                resolve(Buffer.concat(chunks))
-            })
-            stream.on("error", (err: Error) => {
-                reject(err)
-            })
-        })
+        const buffer = this._collectStreamToBuffer(stream)
 
         /*  define timer  */
         let timer: ReturnType<typeof setTimeout> | null = null
@@ -178,7 +331,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 timer = null
             }
             this._unsubscribeTopic(responseTopic).catch(() => {})
-            this.fetchCallback.delete(requestId)
+            this.callbacks.delete(requestId)
         }
 
         /*  start timeout handler  */
@@ -188,7 +341,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         }, this.options.timeout)
 
         /*  register stream handler to collect chunks  */
-        this.fetchCallback.set(requestId, {
+        this.callbacks.set(requestId, {
             resource,
             callback: (error: Error | undefined, chunk: Buffer | undefined, final: boolean | undefined) => {
                 if (error !== undefined) {
@@ -224,69 +377,141 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
     protected _dispatchMessage (topic: string, parsed: any) {
         super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
+
+        /*  ==== handle resource request (on server-side for fetch) ====  */
         if (topicMatch !== null
             && topicMatch.operation === "resource-transfer-request"
             && parsed instanceof ResourceTransferRequest) {
-            /*  handle resource request  */
             const name = parsed.resource
             const handler = this.provisionings.get(name)
             if (handler !== undefined) {
+                /*  determine information  */
                 const requestId = parsed.id
                 const resource  = parsed.resource
                 const params    = parsed.params ?? []
                 const sender    = parsed.sender ?? ""
                 const receiver  = parsed.receiver
                 const info: InfoResource = { sender, receiver, resource: null }
+
+                /*  generate corresponding MQTT topic  */
+                const topic = this.options.topicMake(resource, "resource-transfer-response", sender)
+                const chunkSize = this.options.chunkSize
+
+                /*  call the handler callback  */
                 Promise.resolve()
                     .then(() => handler(...params, info))
                     .then(() => {
-                        /*  ensure the receiving buffer is really a Buffer also under runtime  */
+                        /*  ensure the resource field is filled  */
                         if (info.resource === null)
-                            throw new Error("received no buffer into info \"resource\" field")
-                        if (!Buffer.isBuffer(info.resource))
-                            info.resource = Buffer.from(info.resource)
+                            throw new Error("received no data in info \"resource\" field")
 
-                        /*  generate corresponding MQTT topic  */
-                        const topic = this.options.topicMake(resource, "resource-transfer-response", sender)
+                        /*  handle Readable stream result  */
+                        if (info.resource instanceof Readable) {
+                            const readable = info.resource
+                            readable.on("readable", () => {
+                                let chunk: unknown
+                                while ((chunk = readable.read(chunkSize)) !== null) {
+                                    const buffer = this._chunkToBuffer(chunk)
+                                    const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, buffer, undefined, false, this.options.id, sender)
+                                    const message = this.codec.encode(request)
+                                    this.mqtt.publish(topic, message, { qos: 2 })
+                                }
+                            })
+                            readable.on("end", () => {
+                                const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, undefined, undefined, true, this.options.id, sender)
+                                const message = this.codec.encode(request)
+                                this.mqtt.publish(topic, message, { qos: 2 })
+                            })
+                            readable.on("error", (err: Error) => {
+                                const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, undefined, err.message, true, this.options.id, sender)
+                                const message = this.codec.encode(request)
+                                this.mqtt.publish(topic, message, { qos: 2 })
+                            })
+                        }
 
-                        /*  split Buffer into chunks and send them back  */
-                        const chunkSize = this.options.chunkSize
-                        for (let i = 0; i < info.resource.byteLength; i += chunkSize) {
-                            const size  = Math.min(info.resource.byteLength - i, chunkSize)
-                            const chunk = info.resource.subarray(i, i + size)
-                            const final = (i + size >= info.resource.byteLength)
+                        /*  handle Buffer result  */
+                        else if (info.resource instanceof Buffer) {
+                            const buffer = info.resource
 
-                            /*  generate encoded message  */
-                            const request = this.msg.makeResourceTransferResponse(requestId, chunk, undefined, final, this.options.id, sender)
-                            const message = this.codec.encode(request)
-
-                            /*  publish message to MQTT topic  */
-                            this.mqtt.publish(topic, message, { qos: 2 })
+                            /*  split Buffer into chunks and send them back  */
+                            if (buffer.byteLength === 0) {
+                                /*  handle empty buffer by sending final chunk  */
+                                const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, undefined, undefined, true, this.options.id, sender)
+                                const message = this.codec.encode(request)
+                                this.mqtt.publish(topic, message, { qos: 2 })
+                            }
+                            else {
+                                for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+                                    const size  = Math.min(buffer.byteLength - i, chunkSize)
+                                    const chunk = buffer.subarray(i, i + size)
+                                    const final = (i + size >= buffer.byteLength)
+                                    const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, chunk, undefined, final, this.options.id, sender)
+                                    const message = this.codec.encode(request)
+                                    this.mqtt.publish(topic, message, { qos: 2 })
+                                }
+                            }
                         }
                     })
                     .catch((err: Error) => {
-                        /*  generate corresponding MQTT topic  */
-                        const topic = this.options.topicMake(resource, "resource-transfer-response", sender)
-
                         /*  send error  */
-                        const request = this.msg.makeResourceTransferResponse(requestId, undefined, err.message, true, this.options.id, sender)
+                        const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, undefined, err.message, true, this.options.id, sender)
                         const message = this.codec.encode(request)
                         this.mqtt.publish(topic, message, { qos: 2 })
                     })
             }
         }
+
+        /*  ==== handle resource response (on server-side for push) ====  */
         else if (topicMatch !== null
             && topicMatch.operation === "resource-transfer-response"
             && parsed instanceof ResourceTransferResponse) {
-            /*  handle resource response  */
+            /*  determine information  */
             const requestId = parsed.id
             const error     = parsed.error
             const final     = parsed.final
-            let chunk = parsed.chunk
+            let chunk       = parsed.chunk
             if (chunk !== undefined && !Buffer.isBuffer(chunk))
                 chunk = Buffer.from(chunk)
-            const handler = this.fetchCallback.get(requestId)
-            handler?.callback(error ? new Error(error) : undefined, chunk, final)
+
+            /*  case 1: response on fetch  */
+            const handler = this.callbacks.get(requestId)
+            if (handler !== undefined)
+                handler.callback(error ? new Error(error) : undefined, chunk, final)
+
+            /*  case 2: response on push  */
+            else if (parsed.resource !== undefined) {
+                const name = parsed.resource
+                const handler = this.provisionings.get(name)
+                if (handler !== undefined) {
+                    let readable = this.pushStreams.get(requestId)
+                    if (readable === undefined) {
+                        readable = new Readable({ read (_size) {} })
+                        this.pushStreams.set(requestId, readable)
+                        const promise = this._collectStreamToBuffer(readable)
+                        const params = parsed.params ?? []
+                        const info: InfoResource = {
+                            sender:   parsed.sender ?? "",
+                            receiver: parsed.receiver,
+                            resource: null,
+                            stream:   readable,
+                            buffer:   promise
+                        }
+                        handler(...params, info)
+                    }
+                    if (error !== undefined) {
+                        readable.destroy(new Error(error))
+                        this.pushStreams.delete(requestId)
+                    }
+                    else {
+                        if (chunk !== undefined)
+                            readable.push(chunk)
+                        if (final) {
+                            readable.push(null)
+                            this.pushStreams.delete(requestId)
+                        }
+                    }
+                }
+            }
         }
     }
 }

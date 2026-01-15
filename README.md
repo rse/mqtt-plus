@@ -42,22 +42,6 @@ communication patterns with type safety:
 
   ![Event Emission](doc/mqtt-plus-1-event-emission.svg)
 
-- **Stream Transfer**:
-
-  Stream Transfer is a *uni-directional* communication pattern.
-  A stream is the combination of a stream name, a `Readable` stream object and optionally zero or more arguments.
-  You *attach* to a stream.
-  When a stream is *transferred*, either a single particular attacher (in case of
-  a directed stream transfer) or all attachers are called and receive the
-  arguments as extra information. The `Readable` stream is available via
-  `info.stream` in the attacher callback.
-
-  In contrast to the regular MQTT message publish/subscribe, this
-  pattern allows to transfer arbitrary amounts of arbitrary data by
-  chunking the data via a stream.
-
-  ![Stream Transfer](doc/mqtt-plus-2-stream-transfer.svg)
-
 - **Service Call**:
 
   Service Call is a *bi-directional* communication pattern.
@@ -80,9 +64,15 @@ communication patterns with type safety:
   Resource Transfer is a *bi-directional* communication pattern.
   A Resource is the combination of a resource name and optionally zero or more arguments.
   You *provision* for a resource transfer.
-  When a resource is *fetched* or *pushed*, a single particular provisioner (in case
+  When a resource is *fetched*, a single particular provisioner (in case
   of a directed resource transfer) or one arbitrary provisioner is called and
-  sends or receives the resource and its arguments.
+  sends the resource and its arguments.
+  When a resource is *pushed*, the provisioner receives the resource data
+  as a stream with arguments.
+
+  In contrast to the regular MQTT message publish/subscribe, this
+  pattern allows to transfer arbitrary amounts of arbitrary data by
+  chunking the data via a stream.
 
   ![Resource Transfer](doc/mqtt-plus-4-resource-transfer.svg)
 
@@ -92,7 +82,7 @@ Usage
 ### API:
 
 The API type defines the available endpoints. Use the marker types
-`Event<T>`, `Stream<T>`, and `Service<T>` to declare the communication
+`Event<T>`, `Service<T>`, and `Resource<T>` to declare the communication
 pattern of each endpoint:
 
 ```ts
@@ -100,16 +90,15 @@ import type * as MQTTpt from "mqtt-plus"
 
 export type API = {
     "example/sample":   MQTTpt.Event<(a1: string, a2: number) => void>
-    "example/upload":   MQTTpt.Stream<(name: string) => void>
     "example/hello":    MQTTpt.Service<(a1: string, a2: number) => string>
     "example/resource": MQTTpt.Resource<(filename: string) => void>
 }
 ```
 
 The marker types ensure that `subscribe()` and `emit()` only accept
-`Event<T>` endpoints, `attach()` and `transfer()` only accept
-`Stream<T>` endpoints, and `register()` and `call()` only accept
-`Service<T>` endpoints.
+`Event<T>` endpoints, `register()` and `call()` only accept
+`Service<T>` endpoints, and `provision()`, `fetch()` and `push()` only
+accept `Resource<T>` endpoints.
 
 ### Server:
 
@@ -178,17 +167,26 @@ The **MQTT+** API provides the following methods:
   The `mqtt` is the [MQTT.js](https://www.npmjs.com/package/mqtt) instance,
   which has to be established separately.
 
+  Use `destroy()` to clean up when the instance is no longer needed.
+
   The optional `options` object supports the following fields:
   - `id`: Custom MQTT peer identifier (default: auto-generated NanoID).
   - `codec`: Encoding format (default: `cbor`).
   - `timeout`: Communication timeout in milliseconds (default: `10000`).
-  - `chunkSize`: Chunk size in bytes for stream transfers (default: `16384`).
+  - `chunkSize`: Chunk size in bytes for resource transfers (default: `16384`).
   - `topicMake`: Custom topic generation function.
-    The `operation` parameter is one of: `event-emission`, `stream-transfer`, `service-call-request`, `service-call-response`, `resource-transfer-request`, `resource-transfer-response`.
+    The `operation` parameter is one of: `event-emission`, `service-call-request`, `service-call-response`, `resource-transfer-request`, `resource-transfer-response`.
     (default: `` (name, operation, peerId) => `${name}/${operation}` + (peerId ? `/${peerId}` : "/any") ``)
   - `topicMatch`: Custom topic matching function.
     Returns `{ name, operation, peerId? }` or `null` if no match. The `peerId` is `undefined` for broadcast topics (ending with `/any`).
     (default: `` (topic) => { const m = topic.match(/^(.+)\/([^/]+)\/([^/]+)$/); return m ? { name: m[1], operation: m[2], peerId: m[3] === "any" ? undefined : m[3] } : null } ``)
+
+- **Destruction**:<br/>
+
+      destroy(): void
+
+  Clean up the MQTT+ instance by removing all event listeners.
+  Call this method when the instance is no longer needed.
 
 - **Event Subscription**:<br/>
 
@@ -212,31 +210,6 @@ The **MQTT+** API provides the following methods:
   `topicMake(event, "event-emission")` (default: `${event}/event-emission/any` and
   `${event}/event-emission/${peerId}`) are subscribed. Returns a
   `Subscription` object with an `unsubscribe()` method.
-
-- **Stream Attachment**:<br/>
-
-      /*  (simplified TypeScript API method signature)  */
-      attach(
-          stream:   string,
-          options?: MQTT::IClientSubscribeOptions
-          callback: (
-              ...params: any[],
-              info: { sender: string, receiver?: string, stream: Readable, buffer: Promise<Buffer> }
-          ) => void
-      ): Promise<Attachment>
-
-  Attach to (observe) a stream.
-  The `stream` has to be a valid MQTT topic name.
-  The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
-  The `callback` is called with the `params` passed to a remote `transfer()`.
-  The `info.stream` provides a Node.js `Readable` stream for consuming the transferred data.
-  The `info.buffer` provides a lazy `Promise<Buffer>` that resolves to the complete data once the stream ends.
-  There is no return value of `callback`.
-
-  Internally, on the MQTT broker, the topics generated by
-  `topicMake(stream, "stream-transfer")` (default: `${stream}/stream-transfer/any` and
-  `${stream}/stream-transfer/${peerId}`) are subscribed. Returns an
-  `Attachment` object with an `unattach()` method.
 
 - **Service Registration**:<br/>
 
@@ -269,20 +242,32 @@ The **MQTT+** API provides the following methods:
           options?: MQTT::IClientSubscribeOptions
           callback: (
               ...params: any[],
-              info: { sender: string, receiver?: string, resource: Buffer | null }
+              info: {
+                  sender: string,
+                  receiver?: string,
+                  resource: Buffer | Readable | null,
+                  stream?: Readable,
+                  buffer?: Promise<Buffer>
+              }
           ) => void
       ): Promise<Provisioning>
 
-  Provision a resource.
+  Provision a resource for both fetch requests and pushed data.
   The `resource` has to be a valid MQTT topic name.
   The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
-  The `callback` is called with the `params` passed to a remote `fetch()`.
-  The `callback` should set `info.resource` to a `Buffer` containing the resource data.
+
+  For **fetch requests**: The `callback` is called with the `params` passed to a remote `fetch()`.
+  The `callback` should set `info.resource` to a `Buffer` or `Readable` containing the resource data.
+
+  For **pushed data**: The `callback` is called with the `params` passed to a remote `push()`.
+  The `info.stream` provides a Node.js `Readable` stream for consuming the pushed data.
+  The `info.buffer` provides a lazy `Promise<Buffer>` that resolves to the complete data once the stream ends.
 
   Internally, on the MQTT broker, the topics by
-  `topicMake(resource, "resource-transfer-request")` (default: `${resource}/resource-transfer-request/any` and
-  `${resource}/resource-transfer-request/${peerId}`) are subscribed. Returns a
-  `Provisioning` object with an `unprovision()` method.
+  `topicMake(resource, "resource-transfer-request")` and `topicMake(resource, "resource-transfer-response")`
+  (default: `${resource}/resource-transfer-request/any`, `${resource}/resource-transfer-request/${peerId}`,
+  `${resource}/resource-transfer-response/any`, and `${resource}/resource-transfer-response/${peerId}`)
+  are subscribed. Returns a `Provisioning` object with an `unprovision()` method.
 
 - **Event Emission**:<br/>
 
@@ -303,34 +288,6 @@ The **MQTT+** API provides the following methods:
 
   Internally, publishes to the MQTT topic by `topicMake(event, "event-emission", peerId)`
   (default: `${event}/event-emission/any` or `${event}/event-emission/${peerId}`).
-
-- **Stream Transfer**:<br/>
-
-      /*  (simplified TypeScript API method signature)  */
-      transfer(
-          stream:           string,
-          readableOrBuffer: Readable | Buffer,
-          receiver?:        Receiver,
-          options?:         MQTT::IClientPublishOptions,
-          ...params:        any[]
-      ): Promise<void>
-
-  Transfer a stream to all attachers or a specific attacher.
-  The `readableOrBuffer` is either a Node.js `Readable` stream or a `Buffer` providing the data to transfer.
-  The optional `receiver` directs the transfer to a specific attacher only.
-  The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
-
-  The data is read from `readableOrBuffer` in chunks (default: 16KB,
-  configurable via `chunkSize` option) and sent over MQTT until the
-  stream is closed or the buffer is fully transferred.
-  The returned `Promise` resolves when the entire data has been transferred.
-
-  The remote `attach()` `callback` is called with `params` and an `info` object
-  containing a `Readable` for consuming the transferred data and
-  a lazy `Promise<Buffer>` that resolves to the complete data once the stream ends.
-
-  Internally, publishes to the MQTT topic by `topicMake(stream, "stream-transfer", peerId)`
-  (default: `${stream}/stream-transfer/any` or `${stream}/stream-transfer/${peerId}`).
 
 - **Service Call**:<br/>
 
@@ -354,7 +311,7 @@ The **MQTT+** API provides the following methods:
   (default: `${service}/service-call-response/${peerId}`) is temporarily subscribed
   for receiving the response.
 
-- **Resource Transfer**:<br/>
+- **Resource Fetch**:<br/>
 
       /*  (simplified TypeScript API method signature)  */
       fetch(
@@ -372,7 +329,7 @@ The **MQTT+** API provides the following methods:
   and a lazy `buffer` (`Promise<Buffer>`) that resolves to the complete data once the stream ends.
 
   The remote `provision()` `callback` is called with `params` and
-  should set `info.resource` to a `Buffer` containing the resource data.
+  should set `info.resource` to a `Buffer` or `Readable` containing the resource data.
   If the remote `callback` throws an exception, this destroys the stream with the error.
 
   Internally, on the MQTT broker, the topic by
@@ -380,13 +337,41 @@ The **MQTT+** API provides the following methods:
   `${resource}/resource-transfer-response/${peerId}`) is temporarily subscribed
   for receiving the response.
 
+- **Resource Push**:<br/>
+
+      /*  (simplified TypeScript API method signature)  */
+      push(
+          resource:       string,
+          streamOrBuffer: Readable | Buffer,
+          receiver?:      Receiver,
+          options?:       MQTT::IClientPublishOptions,
+          ...params:      any[]
+      ): Promise<void>
+
+  Pushes a resource to all provisioners or a specific provisioner.
+  The `streamOrBuffer` is either a Node.js `Readable` stream or a `Buffer` providing the data to push.
+  The optional `receiver` directs the push to a specific provisioner only.
+  The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+
+  The data is read from `streamOrBuffer` in chunks (default: 16KB,
+  configurable via `chunkSize` option) and sent over MQTT until the
+  stream is closed or the buffer is fully transferred.
+  The returned `Promise` resolves when the entire data has been pushed.
+
+  The remote `provision()` `callback` is called with `params` and an `info` object
+  containing `stream` (`Readable`) for consuming the pushed data and
+  `buffer` (lazy `Promise<Buffer>`) that resolves to the complete data once the stream ends.
+
+  Internally, publishes to the MQTT topic by `topicMake(resource, "resource-transfer-response", peerId)`
+  (default: `${resource}/resource-transfer-response/any` or `${resource}/resource-transfer-response/${peerId}`).
+
 - **Receiver Wrapping**:<br/>
 
       receiver(
           id: string
       ): Receiver
 
-  Wrap a receiver ID string for use with `emit()` or `call()` to direct the
+  Wrap a receiver ID string for use with `emit()`, `call()`, `fetch()` or `push()` to direct the
   message to a specific receiver. Returns a `Receiver` object.
 
 Internals
@@ -588,7 +573,7 @@ Notice
 > or CBOR (default), uses an own packet format (allowing sender and
 > receiver information), uses shorter NanoIDs instead of longer UUIDs
 > for identification of sender, receiver and requests, and additionally
-> provides stream transfer and resource transfer support.
+> provides resource transfer support (with fetch and push capabilities).
 
 License
 -------

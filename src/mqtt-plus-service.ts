@@ -34,7 +34,7 @@ import { APISchema,
     APIEndpointService, ServiceKeys } from "./mqtt-plus-api"
 import type { WithInfo, InfoService } from "./mqtt-plus-info"
 import type { Receiver }              from "./mqtt-plus-receiver"
-import { StreamTrait }                from "./mqtt-plus-stream"
+import { EventTrait }                 from "./mqtt-plus-event"
 
 /*  the registration result type  */
 export interface Registration {
@@ -42,7 +42,7 @@ export interface Registration {
 }
 
 /*  Service Communication Trait  */
-export class ServiceTrait<T extends APISchema = APISchema> extends StreamTrait<T> {
+export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
     /*  internal state  */
     private registrations =
         new Map<string, WithInfo<APIEndpointService, InfoService>>()

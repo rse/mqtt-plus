@@ -30,7 +30,6 @@ import { MqttClient, IClientPublishOptions,
 /*  internal requirements  */
 import { APISchema }                         from "./mqtt-plus-api"
 import { EventEmission,
-    StreamTransfer,
     ServiceCallRequest,
     ServiceCallResponse,
     ResourceTransferRequest,
@@ -123,7 +122,6 @@ export class BaseTrait<T extends APISchema = APISchema> extends ReceiverTrait<T>
         /*  try to parse payload as payload  */
         let parsed:
             EventEmission             |
-            StreamTransfer            |
             ServiceCallRequest        |
             ServiceCallResponse       |
             ResourceTransferRequest   |

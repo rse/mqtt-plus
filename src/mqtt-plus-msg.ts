@@ -47,18 +47,6 @@ export class EventEmission extends Base {
     ) { super("event-emission", id, sender, receiver) }
 }
 
-/*  stream chunk  */
-export class StreamTransfer extends Base {
-    constructor (
-        id:             string,
-        public stream:  string,
-        public chunk:   Buffer | null,
-        public params?: any[],
-        sender?:        string,
-        receiver?:      string
-    ) { super("stream-transfer", id, sender, receiver) }
-}
-
 /*  service request  */
 export class ServiceCallRequest extends Base {
     constructor (
@@ -95,12 +83,14 @@ export class ResourceTransferRequest extends Base {
 /*  resource response  */
 export class ResourceTransferResponse extends Base {
     constructor (
-        id:              string,
-        public chunk:    Buffer | undefined,
-        public error:    string | undefined,
-        public final:    boolean | undefined,
-        sender?:         string,
-        receiver?:       string
+        id:               string,
+        public resource?: string,
+        public params?:   any[],
+        public chunk?:    Buffer,
+        public error?:    string,
+        public final?:    boolean,
+        sender?:          string,
+        receiver?:        string
     ) { super("resource-transfer-response", id, sender, receiver) }
 }
 
@@ -115,18 +105,6 @@ export default class Msg {
         receiver?:      string
     ): EventEmission {
         return new EventEmission(id, event, params, sender, receiver)
-    }
-
-    /*  factory for stream chunk  */
-    makeStreamTransfer (
-        id:             string,
-        stream:         string,
-        chunk:          Buffer | null,
-        params?:        any[],
-        sender?:        string,
-        receiver?:      string
-    ): StreamTransfer {
-        return new StreamTransfer(id, stream, chunk, params, sender, receiver)
     }
 
     /*  factory for service request  */
@@ -165,19 +143,20 @@ export default class Msg {
     /*  factory for resource response  */
     makeResourceTransferResponse (
         id:             string,
+        resource?:      string,
+        params?:        any[],
         chunk?:         Buffer,
         error?:         string,
         final?:         boolean,
         sender?:        string,
         receiver?:      string
     ): ResourceTransferResponse {
-        return new ResourceTransferResponse(id, chunk, error, final, sender, receiver)
+        return new ResourceTransferResponse(id, resource, params, chunk, error, final, sender, receiver)
     }
 
     /*  parse any object into typed object  */
     parse (obj: any):
         EventEmission            |
-        StreamTransfer           |
         ServiceCallRequest       |
         ServiceCallResponse      |
         ResourceTransferRequest  |
@@ -210,18 +189,6 @@ export default class Msg {
                 throw new Error("invalid EventEmission object: \"params\" field must be an array")
             return this.makeEventEmission(obj.id, obj.event, obj.params, obj.sender, obj.receiver)
         }
-        else if (obj.type === "stream-transfer") {
-            /*  detect and parse stream chunk  */
-            if (typeof obj.stream !== "string")
-                throw new Error("invalid StreamTransfer object: \"stream\" field must be a string")
-            if (anyFieldsExcept(obj, [ "type", "id", "stream", "chunk", "params", "sender", "receiver" ]))
-                throw new Error("invalid StreamTransfer object: contains unknown fields")
-            if (obj.chunk !== undefined && typeof obj.chunk !== "object")
-                throw new Error("invalid StreamTransfer object: \"chunk\" field must be an object or null")
-            if (!validParams(obj))
-                throw new Error("invalid StreamTransfer object: \"params\" field must be an array")
-            return this.makeStreamTransfer(obj.id, obj.stream, obj.chunk, obj.params, obj.sender, obj.receiver)
-        }
         else if (obj.type === "service-call-request") {
             /*  detect and parse service request  */
             if (typeof obj.service !== "string")
@@ -249,15 +216,19 @@ export default class Msg {
             return this.makeResourceTransferRequest(obj.id, obj.resource, obj.params, obj.sender, obj.receiver)
         }
         else if (obj.type === "resource-transfer-response") {
+            if (obj.resource !== undefined && typeof obj.resource !== "string")
+                throw new Error("invalid ResourceTransferResponse object: \"resource\" field must be a string")
             if (obj.chunk !== undefined && typeof obj.chunk !== "object")
                 throw new Error("invalid ResourceTransferResponse object: \"chunk\" field must be an object")
             if (obj.error !== undefined && typeof obj.error !== "string")
                 throw new Error("invalid ResourceTransferResponse object: \"error\" field must be a string")
             if (obj.final !== undefined && typeof obj.final !== "boolean")
                 throw new Error("invalid ResourceTransferResponse object: \"final\" field must be a boolean")
-            if (anyFieldsExcept(obj, [ "type", "id", "chunk", "error", "final", "sender", "receiver" ]))
+            if (!validParams(obj))
+                throw new Error("invalid ResourceTransferResponse object: \"params\" field must be an array")
+            if (anyFieldsExcept(obj, [ "type", "id", "resource", "params", "chunk", "error", "final", "sender", "receiver" ]))
                 throw new Error("invalid ResourceTransferResponse object: contains unknown fields")
-            return this.makeResourceTransferResponse(obj.id, obj.chunk, obj.error, obj.final, obj.sender, obj.receiver)
+            return this.makeResourceTransferResponse(obj.id, obj.resource, obj.params, obj.chunk, obj.error, obj.final, obj.sender, obj.receiver)
         }
         else
             throw new Error("invalid object: not of any known type")

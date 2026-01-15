@@ -1,0 +1,32 @@
+
+shape: sequence_diagram
+
+client: "Client"
+broker: "Broker"
+server: "Server"
+
+broker.class: brown
+
+provision("foo/bar") {
+    server -> broker: "op: subscribe\ntopic: foo/bar/resource-transfer-request/any"
+    server -> broker: "op: subscribe\ntopic: foo/bar/resource-transfer-response/any"
+}
+
+push("foo/bar") {
+    client -> broker: "op: publish\ntopic: foo/bar/resource-transfer-response/any\ndata: Resource-Transfer-Response #1"
+    broker -> server: "op: publish\ntopic: foo/bar/resource-transfer-response/any\ndata: Resource-Transfer-Response #1"
+    client -> broker: "op: publish\ntopic: foo/bar/resource-transfer-response/any\ndata: Resource-Transfer-Response #N"
+    broker -> server: "op: publish\ntopic: foo/bar/resource-transfer-response/any\ndata: Resource-Transfer-Response #N"
+    client -> broker: "op: publish\ntopic: foo/bar/resource-transfer-response/any\ndata: Resource-Transfer-Response EoS"
+    broker -> server: "op: publish\ntopic: foo/bar/resource-transfer-response/any\ndata: Resource-Transfer-Response EoS"
+}
+
+fetch("foo/bar") {
+    client -> broker: "op: subscribe\ntopic: foo/bar/resource-transfer-response/XXX"
+    client -> broker: "op: publish\ntopic: foo/bar/resource-transfer-request/any\ndata: Resource-Transfer-Request"
+    broker -> server: "op: publish\ntopic: foo/bar/resource-transfer-request/any\ndata: Resource-Transfer-Request"
+    broker <- server: "op: publish\ntopic: foo/bar/resource-transfer-response/XXX\ndata: Resource-Transfer-Response #1"
+    client <- broker: "op: publish\ntopic: foo/bar/resource-transfer-response/XXX\ndata: Resource-Transfer-Response #1"
+    broker <- server: "op: publish\ntopic: foo/bar/resource-transfer-response/XXX\ndata: Resource-Transfer-Response #N"
+    client <- broker: "op: publish\ntopic: foo/bar/resource-transfer-response/XXX\ndata: Resource-Transfer-Response #N"
+}
