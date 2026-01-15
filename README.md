@@ -57,7 +57,7 @@ communication patterns with type safety:
   Procedure Call](https://en.wikipedia.org/wiki/Remote_procedure_call)
   (RPC) style communication.
 
-  ![Service Call](doc/mqtt-plus-3-service-call.svg)
+  ![Service Call](doc/mqtt-plus-2-service-call.svg)
 
 - **Resource Transfer**:
 
@@ -74,7 +74,7 @@ communication patterns with type safety:
   pattern allows to transfer arbitrary amounts of arbitrary data by
   chunking the data via a stream.
 
-  ![Resource Transfer](doc/mqtt-plus-4-resource-transfer.svg)
+  ![Resource Transfer](doc/mqtt-plus-3-resource-transfer.svg)
 
 Usage
 -----
