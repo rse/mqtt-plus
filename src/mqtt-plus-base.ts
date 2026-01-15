@@ -146,7 +146,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends ReceiverTrait<T>
     }
 
     /*  dispatch parsed message to appropriate handler
-        (base implementation, to be overridden in super-traits)  */
+        (base implementation, to be overridden in sub-traits)  */
     protected _dispatchMessage (
         _topic:  string,
         _parsed: any
