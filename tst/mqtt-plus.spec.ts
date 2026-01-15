@@ -231,16 +231,23 @@ describe("MQTT+ Library", function () {
 
         /*  fetch existing resource (valid resource argument)  */
         const result = await mqttp.fetch("example/store", "foo")
-        const str = result.toString()
+        const buffer = await result.buffer
+        const str = buffer.toString()
         expect(str).to.be.equal("the foo content")
 
         /*  fetch non-existing resource (invalid resource argument)  */
-        const result2 = await mqttp.fetch("example/store", "bar").catch((err) => err.message)
-        expect(result2).to.be.equal("invalid resource")
+        const result2 = await mqttp.fetch("example/store", "bar")
+        const error2 = await result2.buffer.catch((err: Error) => {
+            return err.message
+        })
+        expect(error2).to.be.equal("invalid resource")
 
         /*  fetch non-existing resource (invalid resource name)  */
         const result3 = await mqttp.fetch("example/store-invalid", "foo").catch((err) => err.message)
-        expect(result3).to.be.equal("communication timeout")
+        const error3 = await result3.buffer.catch((err: Error) => {
+            return err.message
+        })
+        expect(error3).to.be.equal("communication timeout")
 
         await provisioning.unprovision()
         mqttp.destroy()

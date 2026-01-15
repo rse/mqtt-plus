@@ -22,10 +22,14 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/*  built-in requirements  */
+import { Readable }                    from "stream"
+
 /*  external requirements  */
 import { IClientPublishOptions,
     IClientSubscribeOptions }          from "mqtt"
 import { nanoid }                      from "nanoid"
+import PLazy                           from "p-lazy"
 
 /*  internal requirements  */
 import { ResourceTransferRequest,
@@ -116,27 +120,27 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         ...params: Parameters<T[K]>
-    ): Promise<Buffer>
+    ): Promise<{ stream: Readable, buffer: Promise<Buffer> }>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         receiver:  Receiver,
         ...params: Parameters<T[K]>
-    ): Promise<Buffer>
+    ): Promise<{ stream: Readable, buffer: Promise<Buffer> }>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         options:   IClientPublishOptions,
         ...params: Parameters<T[K]>
-    ): Promise<Buffer>
+    ): Promise<{ stream: Readable, buffer: Promise<Buffer> }>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         receiver:  Receiver,
         options:   IClientPublishOptions,
         ...params: Parameters<T[K]>
-    ): Promise<Buffer>
+    ): Promise<{ stream: Readable, buffer: Promise<Buffer> }>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         ...args:   any[]
-    ): Promise<Buffer> {
+    ): Promise<{ stream: Readable, buffer: Promise<Buffer> }> {
         /*  determine actual parameters  */
         const { receiver, options, params } = this._parseCallArgs(args)
 
@@ -147,45 +151,59 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         const responseTopic = this.options.topicMake(resource, "resource-transfer-response", this.options.id)
         await this._subscribeTopic(responseTopic, { qos: 2 })
 
+        /*  establish readable for buffering received chunks  */
+        const stream = new Readable({ read (_size) {} })
+
         /*  create promise for collecting stream chunks  */
-        const resultPromise = new Promise<Buffer>((resolve, reject) => {
-            let timer: ReturnType<typeof setTimeout> | null = null
-
-            /*  utility function for cleanup  */
-            const cleanup = () => {
-                if (timer !== null) {
-                    clearTimeout(timer)
-                    timer = null
-                }
-                this._unsubscribeTopic(responseTopic).catch(() => {})
-                this.fetchCallback.delete(requestId)
-            }
-
-            /*  start timeout handler  */
-            timer = setTimeout(() => {
-                cleanup()
-                reject(new Error("communication timeout"))
-            }, this.options.timeout)
-
-            /*  register stream handler to collect chunks  */
+        const buffer = new PLazy<Buffer>((resolve, reject) => {
             const chunks: Buffer[] = []
-            this.fetchCallback.set(requestId, {
-                resource,
-                callback: (error: Error | undefined, chunk: Buffer | undefined, final: boolean | undefined) => {
-                    if (error !== undefined) {
+            stream.on("data", (data: Buffer) => {
+                chunks.push(data)
+            })
+            stream.on("end", () => {
+                resolve(Buffer.concat(chunks))
+            })
+            stream.on("error", (err: Error) => {
+                reject(err)
+            })
+        })
+
+        /*  define timer  */
+        let timer: ReturnType<typeof setTimeout> | null = null
+
+        /*  utility function for cleanup  */
+        const cleanup = () => {
+            if (timer !== null) {
+                clearTimeout(timer)
+                timer = null
+            }
+            this._unsubscribeTopic(responseTopic).catch(() => {})
+            this.fetchCallback.delete(requestId)
+        }
+
+        /*  start timeout handler  */
+        timer = setTimeout(() => {
+            cleanup()
+            stream.destroy(new Error("communication timeout"))
+        }, this.options.timeout)
+
+        /*  register stream handler to collect chunks  */
+        this.fetchCallback.set(requestId, {
+            resource,
+            callback: (error: Error | undefined, chunk: Buffer | undefined, final: boolean | undefined) => {
+                if (error !== undefined) {
+                    cleanup()
+                    stream.destroy(error)
+                }
+                else {
+                    if (chunk !== undefined)
+                        stream.push(chunk)
+                    if (final) {
                         cleanup()
-                        reject(error)
-                    }
-                    else {
-                        if (chunk !== undefined)
-                            chunks.push(chunk)
-                        if (final) {
-                            cleanup()
-                            resolve(Buffer.concat(chunks))
-                        }
+                        stream.push(null)
                     }
                 }
-            })
+            }
         })
 
         /*  generate encoded message  */
@@ -198,7 +216,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         /*  publish message to MQTT topic  */
         this.mqtt.publish(topic, message, { qos: 2, ...options })
 
-        return resultPromise
+        /*  produce result  */
+        return { stream, buffer }
     }
 
     /*  dispatch message (Resource pattern handling)  */

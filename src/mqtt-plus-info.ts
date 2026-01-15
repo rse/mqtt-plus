@@ -23,7 +23,7 @@
 */
 
 /*  external requirements  */
-import stream from "stream"
+import { Readable } from "stream"
 
 /*  info types  */
 export interface InfoBase {
@@ -32,7 +32,7 @@ export interface InfoBase {
 }
 
 export interface InfoEvent    extends InfoBase {}
-export interface InfoStream   extends InfoBase { stream: stream.Readable }
+export interface InfoStream   extends InfoBase { stream: Readable, buffer: Promise<Buffer> }
 export interface InfoService  extends InfoBase {}
 export interface InfoResource extends InfoBase { resource: Buffer | null }
 

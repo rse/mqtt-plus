@@ -29,6 +29,7 @@ import stream                        from "stream"
 import { IClientPublishOptions,
     IClientSubscribeOptions }        from "mqtt"
 import { nanoid }                    from "nanoid"
+import PLazy                         from "p-lazy"
 
 /*  internal requirements  */
 import { StreamTransfer }            from "./mqtt-plus-msg"
@@ -137,8 +138,32 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
     ): Promise<void>
     transfer<K extends StreamKeys<T> & string> (
         streamName: K,
-        readable:   stream.Readable,
-        ...args:    any[]
+        buffer:     Buffer,
+        ...params:  Parameters<T[K]>
+    ): Promise<void>
+    transfer<K extends StreamKeys<T> & string> (
+        streamName: K,
+        buffer:     Buffer,
+        receiver:   Receiver,
+        ...params:  Parameters<T[K]>
+    ): Promise<void>
+    transfer<K extends StreamKeys<T> & string> (
+        streamName: K,
+        buffer:     Buffer,
+        options:    IClientPublishOptions,
+        ...params:  Parameters<T[K]>
+    ): Promise<void>
+    transfer<K extends StreamKeys<T> & string> (
+        streamName: K,
+        buffer:     Buffer,
+        receiver:   Receiver,
+        options:    IClientPublishOptions,
+        ...params:  Parameters<T[K]>
+    ): Promise<void>
+    transfer<K extends StreamKeys<T> & string> (
+        streamName:       K,
+        readableOrBuffer: stream.Readable | Buffer,
+        ...args:          any[]
     ): Promise<void> {
         /*  determine actual parameters  */
         const { receiver, options, params } = this._parseCallArgs(args)
@@ -165,30 +190,57 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
 
         /*  iterate over all chunks of the buffer  */
         return new Promise((resolve, reject) => {
-            readable.on("readable", () => {
-                let chunk: any
-                while ((chunk = readable.read(this.options.chunkSize)) !== null) {
-                    /*  ensure data is a Buffer  */
-                    const buffer = chunkToBuffer(chunk)
+            const chunkSize = this.options.chunkSize
+            if (readableOrBuffer instanceof stream.Readable) {
+                const readable = readableOrBuffer
+                readable.on("readable", () => {
+                    let chunk: any
+                    while ((chunk = readable.read(chunkSize)) !== null) {
+                        /*  ensure data is a Buffer  */
+                        const buffer = chunkToBuffer(chunk)
+
+                        /*  generate encoded message  */
+                        const request = this.msg.makeStreamTransfer(rid, streamName, buffer, params, this.options.id, receiver)
+                        const message = this.codec.encode(request)
+
+                        /*  publish message to MQTT topic  */
+                        this.mqtt.publish(topic, message, { qos: 2, ...options })
+                    }
+                })
+                readable.on("end", () => {
+                    /*  send "null" chunk to signal end of stream  */
+                    const request = this.msg.makeStreamTransfer(rid, streamName, null, params, this.options.id, receiver)
+                    const message = this.codec.encode(request)
+                    this.mqtt.publish(topic, message, { qos: 2, ...options })
+                    resolve()
+                })
+                readable.on("error", () => {
+                    reject(new Error("readable stream error"))
+                })
+            }
+            else if (readableOrBuffer instanceof Buffer) {
+                const buffer = readableOrBuffer
+
+                /*  split buffer into chunks and send them  */
+                for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+                    const size  = Math.min(buffer.byteLength - i, chunkSize)
+                    const chunk = buffer.subarray(i, i + size)
+                    const final = (i + size >= buffer.byteLength)
 
                     /*  generate encoded message  */
-                    const request = this.msg.makeStreamTransfer(rid, streamName, buffer, params, this.options.id, receiver)
+                    const request = this.msg.makeStreamTransfer(rid, streamName, chunk, params, this.options.id, receiver)
                     const message = this.codec.encode(request)
 
                     /*  publish message to MQTT topic  */
-                    this.mqtt.publish(topic, message, { qos: 2, ...options })
+                    this.mqtt.publish(topic, message, { qos: 2 })
                 }
-            })
-            readable.on("end", () => {
+
                 /*  send "null" chunk to signal end of stream  */
                 const request = this.msg.makeStreamTransfer(rid, streamName, null, params, this.options.id, receiver)
                 const message = this.codec.encode(request)
                 this.mqtt.publish(topic, message, { qos: 2, ...options })
                 resolve()
-            })
-            readable.on("error", () => {
-                reject(new Error("readable stream error"))
-            })
+            }
         })
     }
 
@@ -208,7 +260,22 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
                 const params  = parsed.params ?? []
                 readable = new stream.Readable({ read (_size) {} })
                 this.streams.set(id, readable)
-                const info: InfoStream = { sender: parsed.sender ?? "", receiver: parsed.receiver, stream: readable }
+                const promise = new PLazy<Buffer>((resolve, _reject) => {
+                    const stream = readable!
+                    const chunks: Buffer[] = []
+                    stream.on("data", (data: Buffer) => {
+                        chunks.push(data)
+                    })
+                    stream.on("end", () => {
+                        resolve(Buffer.concat(chunks))
+                    })
+                })
+                const info: InfoStream = {
+                    sender:   parsed.sender ?? "",
+                    receiver: parsed.receiver,
+                    stream:   readable,
+                    buffer:   promise
+                }
                 const handler = this.attachments.get(name)
                 handler?.(...params, info)
             }
