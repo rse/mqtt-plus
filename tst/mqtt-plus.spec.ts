@@ -201,7 +201,7 @@ describe("MQTT+ Library", function () {
             .to.be.deep.equal([ "register", "call-success" ])
         spy.resetHistory()
 
-        /*  call service (successfully)  */
+        /*  call service (with error)  */
         await mqttp.call("example/hello", "bad-arg", 42).then(async (result) => {
             spy("call-success")
         }).catch((err: Error) => {
