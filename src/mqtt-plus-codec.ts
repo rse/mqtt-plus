@@ -67,7 +67,7 @@ export class CodecTrait<T extends APISchema = APISchema> extends OptionsTrait<T>
     protected codec: Codec
 
     /*  construct API class  */
-    constructor(
+    constructor (
         options: Partial<APIOptions> = {}
     ) {
         super(options)
