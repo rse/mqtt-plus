@@ -155,6 +155,71 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         return buffer
     }
 
+    /*  utility function for sending a Buffer as chunks  */
+    private _sendBufferAsChunks (
+        buffer:    Buffer,
+        requestId: string,
+        resource:  string,
+        params:    any[] | undefined,
+        receiver:  string | undefined,
+        topic:     string,
+        options:   IClientPublishOptions
+    ): void {
+        const chunkSize = this.options.chunkSize
+        if (buffer.byteLength === 0) {
+            /*  handle empty buffer by sending final chunk  */
+            const request = this.msg.makeResourceTransferResponse(requestId, resource, params, undefined, undefined, true, this.options.id, receiver)
+            const message = this.codec.encode(request)
+            this.mqtt.publish(topic, message, { qos: 2, ...options })
+        }
+        else {
+            for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+                const size  = Math.min(buffer.byteLength - i, chunkSize)
+                const chunk = buffer.subarray(i, i + size)
+                const final = (i + size >= buffer.byteLength)
+                const request = this.msg.makeResourceTransferResponse(requestId, resource, params, chunk, undefined, final, this.options.id, receiver)
+                const message = this.codec.encode(request)
+                this.mqtt.publish(topic, message, { qos: 2, ...options })
+            }
+        }
+    }
+
+    /*  utility function for sending a Readable stream as chunks  */
+    private _sendStreamAsChunks (
+        readable:  Readable,
+        requestId: string,
+        resource:  string,
+        params:    any[] | undefined,
+        receiver:  string | undefined,
+        topic:     string,
+        options:   IClientPublishOptions,
+        onEnd:     () => void,
+        onError:   (err: Error) => void
+    ): void {
+        const chunkSize = this.options.chunkSize
+        readable.on("readable", () => {
+            let chunk: unknown
+            while ((chunk = readable.read(chunkSize)) !== null) {
+                const buffer  = this._chunkToBuffer(chunk)
+                const request = this.msg.makeResourceTransferResponse(requestId, resource, params, buffer, undefined, false, this.options.id, receiver)
+                const message = this.codec.encode(request)
+                this.mqtt.publish(topic, message, { qos: 2, ...options })
+            }
+        })
+        readable.on("end", () => {
+            const request = this.msg.makeResourceTransferResponse(requestId, resource, params, undefined, undefined, true, this.options.id, receiver)
+            const message = this.codec.encode(request)
+            this.mqtt.publish(topic, message, { qos: 2, ...options })
+            onEnd()
+        })
+        readable.on("error", (err: Error) => {
+            const request = this.msg.makeResourceTransferResponse(requestId, resource, params, undefined, err.message, true, this.options.id, receiver)
+            const message = this.codec.encode(request)
+            this.mqtt.publish(topic, message, { qos: 2, ...options })
+            onError(err)
+        })
+    }
+
     /*  push resource ("chunked content")  */
     push<K extends ResourceKeys<T> & string> (
         resource:  K,
@@ -220,61 +285,17 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
         /*  iterate over all chunks of the buffer  */
         return new Promise((resolve, reject) => {
-            const chunkSize = this.options.chunkSize
             if (streamOrBuffer instanceof Readable) {
                 /*  attach to the readable  */
-                const readable = streamOrBuffer
-                readable.on("readable", () => {
-                    let chunk: unknown
-                    while ((chunk = readable.read(chunkSize)) !== null) {
-                        /*  ensure data is a Buffer  */
-                        const buffer = this._chunkToBuffer(chunk)
-
-                        /*  generate encoded message  */
-                        const request = this.msg.makeResourceTransferResponse(rid, resource, params, buffer, undefined, false, this.options.id, receiver)
-                        const message = this.codec.encode(request)
-
-                        /*  publish message to MQTT topic  */
-                        this.mqtt.publish(topic, message, { qos: 2, ...options })
-                    }
-                })
-                readable.on("end", () => {
-                    /*  send final chunk to signal end of stream  */
-                    const request = this.msg.makeResourceTransferResponse(rid, resource, params, undefined, undefined, true, this.options.id, receiver)
-                    const message = this.codec.encode(request)
-                    this.mqtt.publish(topic, message, { qos: 2, ...options })
-                    resolve()
-                })
-                readable.on("error", (err: Error) => {
-                    const request = this.msg.makeResourceTransferResponse(rid, resource, params, undefined, err.message, true, this.options.id, receiver)
-                    const message = this.codec.encode(request)
-                    this.mqtt.publish(topic, message, { qos: 2, ...options })
-                    reject(err)
-                })
+                this._sendStreamAsChunks(
+                    streamOrBuffer, rid, resource, params, receiver, topic, options,
+                    () => resolve(),
+                    (err) => reject(err)
+                )
             }
             else if (streamOrBuffer instanceof Buffer) {
                 /*  split buffer into chunks and send them  */
-                const buffer = streamOrBuffer
-                if (buffer.byteLength === 0) {
-                    /*  handle empty buffer by sending final chunk  */
-                    const request = this.msg.makeResourceTransferResponse(rid, resource, params, undefined, undefined, true, this.options.id, receiver)
-                    const message = this.codec.encode(request)
-                    this.mqtt.publish(topic, message, { qos: 2, ...options })
-                }
-                else {
-                    for (let i = 0; i < buffer.byteLength; i += chunkSize) {
-                        const size  = Math.min(buffer.byteLength - i, chunkSize)
-                        const chunk = buffer.subarray(i, i + size)
-                        const final = (i + size >= buffer.byteLength)
-
-                        /*  generate encoded message  */
-                        const request = this.msg.makeResourceTransferResponse(rid, resource, params, chunk, undefined, final, this.options.id, receiver)
-                        const message = this.codec.encode(request)
-
-                        /*  publish message to MQTT topic  */
-                        this.mqtt.publish(topic, message, { qos: 2, ...options })
-                    }
-                }
+                this._sendBufferAsChunks(streamOrBuffer, rid, resource, params, receiver, topic, options)
                 resolve()
             }
         })
@@ -394,8 +415,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 const info: InfoResource = { sender, receiver, resource: null }
 
                 /*  generate corresponding MQTT topic  */
-                const topic = this.options.topicMake(resource, "resource-transfer-response", sender)
-                const chunkSize = this.options.chunkSize
+                const responseTopic = this.options.topicMake(resource, "resource-transfer-response", sender)
 
                 /*  call the handler callback  */
                 Promise.resolve()
@@ -407,56 +427,22 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
                         /*  handle Readable stream result  */
                         if (info.resource instanceof Readable) {
-                            const readable = info.resource
-                            readable.on("readable", () => {
-                                let chunk: unknown
-                                while ((chunk = readable.read(chunkSize)) !== null) {
-                                    const buffer = this._chunkToBuffer(chunk)
-                                    const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, buffer, undefined, false, this.options.id, sender)
-                                    const message = this.codec.encode(request)
-                                    this.mqtt.publish(topic, message, { qos: 2 })
-                                }
-                            })
-                            readable.on("end", () => {
-                                const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, undefined, undefined, true, this.options.id, sender)
-                                const message = this.codec.encode(request)
-                                this.mqtt.publish(topic, message, { qos: 2 })
-                            })
-                            readable.on("error", (err: Error) => {
-                                const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, undefined, err.message, true, this.options.id, sender)
-                                const message = this.codec.encode(request)
-                                this.mqtt.publish(topic, message, { qos: 2 })
-                            })
+                            this._sendStreamAsChunks(
+                                info.resource, requestId, resource, undefined, sender, responseTopic, {},
+                                () => {},
+                                () => {}
+                            )
                         }
 
                         /*  handle Buffer result  */
-                        else if (info.resource instanceof Buffer) {
-                            const buffer = info.resource
-
-                            /*  split Buffer into chunks and send them back  */
-                            if (buffer.byteLength === 0) {
-                                /*  handle empty buffer by sending final chunk  */
-                                const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, undefined, undefined, true, this.options.id, sender)
-                                const message = this.codec.encode(request)
-                                this.mqtt.publish(topic, message, { qos: 2 })
-                            }
-                            else {
-                                for (let i = 0; i < buffer.byteLength; i += chunkSize) {
-                                    const size  = Math.min(buffer.byteLength - i, chunkSize)
-                                    const chunk = buffer.subarray(i, i + size)
-                                    const final = (i + size >= buffer.byteLength)
-                                    const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, chunk, undefined, final, this.options.id, sender)
-                                    const message = this.codec.encode(request)
-                                    this.mqtt.publish(topic, message, { qos: 2 })
-                                }
-                            }
-                        }
+                        else if (info.resource instanceof Buffer)
+                            this._sendBufferAsChunks(info.resource, requestId, resource, undefined, sender, responseTopic, {})
                     })
                     .catch((err: Error) => {
                         /*  send error  */
                         const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, undefined, err.message, true, this.options.id, sender)
                         const message = this.codec.encode(request)
-                        this.mqtt.publish(topic, message, { qos: 2 })
+                        this.mqtt.publish(responseTopic, message, { qos: 2 })
                     })
             }
         }
@@ -469,7 +455,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             const requestId = parsed.id
             const error     = parsed.error
             const final     = parsed.final
-            let chunk       = parsed.chunk
+            let   chunk     = parsed.chunk
             if (chunk !== undefined && !Buffer.isBuffer(chunk))
                 chunk = Buffer.from(chunk)
 
