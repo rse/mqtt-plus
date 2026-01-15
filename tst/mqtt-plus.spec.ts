@@ -49,11 +49,11 @@ const { expect } = chai
 
 /*  example API  */
 type API = {
-    "example/sample":        Event<(a1: string, a2: number) => void>
-    "example/upload":        Resource<(name: string) => void>
-    "example/hello":         Service<(a1: string, a2: number) => string>
-    "example/store":         Resource<(filename: string) => void>
-    "example/store-invalid": Resource<(filename: string) => void>
+    "example/sample":           Event<(a1: string, a2: number) => void>
+    "example/hello":            Service<(a1: string, a2: number) => string>
+    "example/upload":           Resource<(name: string) => void>
+    "example/download":         Resource<(filename: string) => void>
+    "example/download-invalid": Resource<(filename: string) => void>
 }
 
 /*  test suite  */
@@ -223,7 +223,7 @@ describe("MQTT+ Library", function () {
 
         /*  provide resource  */
         const mqttp = new MQTTp<API>(mqtt, { timeout: 1000 })
-        const provisioning = await mqttp.provision("example/store", async (filename, info) => {
+        const provisioning = await mqttp.provision("example/download", async (filename, info) => {
             if (filename === "foo")
                 info.resource = Buffer.from(`the ${filename} content`)
             else
@@ -231,20 +231,20 @@ describe("MQTT+ Library", function () {
         })
 
         /*  fetch existing resource (valid resource argument)  */
-        const result = await mqttp.fetch("example/store", "foo")
+        const result = await mqttp.fetch("example/download", "foo")
         const buffer = await result.buffer
         const str = buffer.toString()
         expect(str).to.be.equal("the foo content")
 
         /*  fetch non-existing resource (invalid resource argument)  */
-        const result2 = await mqttp.fetch("example/store", "bar")
+        const result2 = await mqttp.fetch("example/download", "bar")
         const error2 = await result2.buffer.catch((err: Error) => {
             return err.message
         })
         expect(error2).to.be.equal("invalid resource")
 
         /*  fetch non-existing resource (invalid resource name)  */
-        const result3 = await mqttp.fetch("example/store-invalid", "foo").catch((err) => err.message)
+        const result3 = await mqttp.fetch("example/download-invalid", "foo").catch((err) => err.message)
         const error3 = await result3.buffer.catch((err: Error) => {
             return err.message
         })
