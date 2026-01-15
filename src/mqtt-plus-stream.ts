@@ -225,14 +225,13 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
                 for (let i = 0; i < buffer.byteLength; i += chunkSize) {
                     const size  = Math.min(buffer.byteLength - i, chunkSize)
                     const chunk = buffer.subarray(i, i + size)
-                    const final = (i + size >= buffer.byteLength)
 
                     /*  generate encoded message  */
                     const request = this.msg.makeStreamTransfer(rid, streamName, chunk, params, this.options.id, receiver)
                     const message = this.codec.encode(request)
 
                     /*  publish message to MQTT topic  */
-                    this.mqtt.publish(topic, message, { qos: 2 })
+                    this.mqtt.publish(topic, message, { qos: 2, ...options })
                 }
 
                 /*  send "null" chunk to signal end of stream  */
