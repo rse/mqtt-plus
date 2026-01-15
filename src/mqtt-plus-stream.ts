@@ -23,7 +23,7 @@
 */
 
 /*  built-in requirements  */
-import stream                        from "stream"
+import { Readable }                  from "stream"
 
 /*  external requirements  */
 import { IClientPublishOptions,
@@ -50,7 +50,7 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
     private attachments = new Map<string, WithInfo<APIEndpointStream, InfoStream>>()
 
     /*  stream state  */
-    private streams = new Map<string, stream.Readable>()
+    private streams = new Map<string, Readable>()
 
     /*  attach to a stream  */
     async attach<K extends StreamKeys<T> & string> (
@@ -114,24 +114,24 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
     /*  transfer stream ("chunked content")  */
     transfer<K extends StreamKeys<T> & string> (
         streamName: K,
-        readable:   stream.Readable,
+        readable:   Readable,
         ...params:  Parameters<T[K]>
     ): Promise<void>
     transfer<K extends StreamKeys<T> & string> (
         streamName: K,
-        readable:   stream.Readable,
+        readable:   Readable,
         receiver:   Receiver,
         ...params:  Parameters<T[K]>
     ): Promise<void>
     transfer<K extends StreamKeys<T> & string> (
         streamName: K,
-        readable:   stream.Readable,
+        readable:   Readable,
         options:    IClientPublishOptions,
         ...params:  Parameters<T[K]>
     ): Promise<void>
     transfer<K extends StreamKeys<T> & string> (
         streamName: K,
-        readable:   stream.Readable,
+        readable:   Readable,
         receiver:   Receiver,
         options:    IClientPublishOptions,
         ...params:  Parameters<T[K]>
@@ -162,7 +162,7 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
     ): Promise<void>
     transfer<K extends StreamKeys<T> & string> (
         streamName:       K,
-        readableOrBuffer: stream.Readable | Buffer,
+        readableOrBuffer: Readable | Buffer,
         ...args:          any[]
     ): Promise<void> {
         /*  determine actual parameters  */
@@ -191,7 +191,7 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
         /*  iterate over all chunks of the buffer  */
         return new Promise((resolve, reject) => {
             const chunkSize = this.options.chunkSize
-            if (readableOrBuffer instanceof stream.Readable) {
+            if (readableOrBuffer instanceof Readable) {
                 const readable = readableOrBuffer
                 readable.on("readable", () => {
                     let chunk: any
@@ -257,7 +257,7 @@ export class StreamTrait<T extends APISchema> extends EventTrait<T> {
             if (readable === undefined) {
                 const name    = parsed.stream
                 const params  = parsed.params ?? []
-                readable = new stream.Readable({ read (_size) {} })
+                readable = new Readable({ read (_size) {} })
                 this.streams.set(id, readable)
                 const promise = new PLazy<Buffer>((resolve, _reject) => {
                     const stream = readable!
