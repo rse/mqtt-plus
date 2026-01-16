@@ -174,12 +174,14 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
         /*  publish message to MQTT topic  */
         this.mqtt.publish(topic, message, { qos: 2, ...options }, (err?: Error) => {
-            /*  handle request failure  */
-            const pendingRequest = this.responseCallback.get(rid)
-            if (err && pendingRequest !== undefined) {
-                this.responseCallback.delete(rid)
-                this._responseUnsubscribe(service)
-                pendingRequest.callback(err, undefined)
+            /*  handle request failure (only if not already handled)  */
+            if (err) {
+                const pendingRequest = this.responseCallback.get(rid)
+                if (pendingRequest !== undefined) {
+                    this.responseCallback.delete(rid)
+                    this._responseUnsubscribe(service)
+                    pendingRequest.callback(err, undefined)
+                }
             }
         })
 
@@ -278,10 +280,10 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             const request = this.responseCallback.get(rid)
             if (request !== undefined) {
                 /*  call callback function  */
-                if (parsed.result !== undefined && parsed.error === undefined)
-                    request.callback(undefined, parsed.result)
-                else if (parsed.result === undefined && parsed.error !== undefined)
+                if (parsed.error !== undefined)
                     request.callback(new Error(parsed.error), undefined)
+                else
+                    request.callback(undefined, parsed.result)
 
                 /*  unsubscribe from response  */
                 this.responseCallback.delete(rid)
