@@ -556,9 +556,9 @@ The output will be:
 ```
 $ node sample.ts
 CONNECT
-RECEIVED example/hello/service-call-request/any {"id":"vwLzfQDu2uEeOdOfIlT42","sender":"2IBMSk0NPnrz1AeTERoea","service":"example/hello","params":["world",42]}
+RECEIVED example/hello/service-call-request/any {"type":"service-call-request","id":"vwLzfQDu2uEeOdOfIlT42","sender":"2IBMSk0NPnrz1AeTERoea","service":"example/hello","params":["world",42]}
 example/hello: request: world 42 from: 2IBMSk0NPnrz1AeTERoea
-RECEIVED example/hello/service-call-response/2IBMSk0NPnrz1AeTERoea {"id":"vwLzfQDu2uEeOdOfIlT42","sender":"2IBMSk0NPnrz1AeTERoea","receiver":"2IBMSk0NPnrz1AeTERoea","result":"world:42"}
+RECEIVED example/hello/service-call-response/2IBMSk0NPnrz1AeTERoea {"type":"service-call-response","id":"vwLzfQDu2uEeOdOfIlT42","sender":"2IBMSk0NPnrz1AeTERoea","receiver":"2IBMSk0NPnrz1AeTERoea","result":"world:42"}
 example/hello success: world:42
 CLOSE
 ```
