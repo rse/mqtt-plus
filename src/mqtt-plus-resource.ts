@@ -348,7 +348,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
                         /*  handle Readable stream result  */
                         if (info.resource instanceof Readable)
-                            sendStreamAsChunks(info.resource, this.options.chunkSize, sendChunk, () => {}, () => {})
+                            sendStreamAsChunks(info.resource, this.options.chunkSize, sendChunk, () => {}, (err) => sendChunk(undefined, err.message, true))
 
                         /*  handle Buffer result  */
                         else if (info.resource instanceof Buffer)
