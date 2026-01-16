@@ -119,7 +119,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends ReceiverTrait<T>
 
     /*  handle incoming MQTT message  */
     private _onMessage (topic: string, message: Buffer, packet: IPublishPacket): void {
-        /*  try to parse payload as payload  */
+        /*  try to parse message as payload  */
         let parsed:
             EventEmission             |
             ServiceCallRequest        |
