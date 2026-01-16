@@ -58,4 +58,55 @@ export function chunkToBuffer (chunk: unknown): Buffer {
     return buffer
 }
 
+/*  callback type for sending chunks  */
+export type SendChunkCallback = (
+    chunk: Buffer | undefined,
+    error: string | undefined,
+    final: boolean
+) => void
+
+/*  utility function for sending a Buffer as chunks  */
+export function sendBufferAsChunks (
+    buffer:    Buffer,
+    chunkSize: number,
+    sendChunk: SendChunkCallback
+): void {
+    if (buffer.byteLength === 0) {
+        /*  handle empty buffer by sending final chunk  */
+        sendChunk(undefined, undefined, true)
+    }
+    else {
+        for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+            const size  = Math.min(buffer.byteLength - i, chunkSize)
+            const chunk = buffer.subarray(i, i + size)
+            const final = (i + size >= buffer.byteLength)
+            sendChunk(chunk, undefined, final)
+        }
+    }
+}
+
+/*  utility function for sending a Readable stream as chunks  */
+export function sendStreamAsChunks (
+    readable:  Readable,
+    chunkSize: number,
+    sendChunk: SendChunkCallback,
+    onEnd:     () => void,
+    onError:   (err: Error) => void
+): void {
+    readable.on("readable", () => {
+        let chunk: unknown
+        while ((chunk = readable.read(chunkSize)) !== null) {
+            const buffer = chunkToBuffer(chunk)
+            sendChunk(buffer, undefined, false)
+        }
+    })
+    readable.on("end", () => {
+        sendChunk(undefined, undefined, true)
+        onEnd()
+    })
+    readable.on("error", (err: Error) => {
+        sendChunk(undefined, err.message, true)
+        onError(err)
+    })
+}
 
