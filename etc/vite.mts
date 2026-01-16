@@ -24,7 +24,6 @@
 
 import * as Vite             from "vite"
 import { tscPlugin }         from "@wroud/vite-plugin-tsc"
-import { viteSingleFile }    from "vite-plugin-singlefile"
 import { nodePolyfills }     from "vite-plugin-node-polyfills"
 
 const formats = process.env.VITE_BUILD_FORMATS ?? "esm"
@@ -40,8 +39,7 @@ export default Vite.defineConfig(({ command, mode }) => ({
             packageManager: "npx",
             prebuild:       true
         }),
-        ...(formats === "umd" ? [ nodePolyfills() ] : []),
-        viteSingleFile()
+        ...(formats === "umd" ? [ nodePolyfills() ] : [])
     ],
     build: {
         rollupOptions: {
