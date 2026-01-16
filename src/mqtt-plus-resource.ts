@@ -29,9 +29,10 @@ import { Readable }                    from "stream"
 import { IClientPublishOptions,
     IClientSubscribeOptions }          from "mqtt"
 import { nanoid }                      from "nanoid"
-import PLazy                           from "p-lazy"
 
 /*  internal requirements  */
+import { streamToBuffer,
+    chunkToBuffer }                    from "./mqtt-plus-util"
 import { ResourceTransferRequest,
     ResourceTransferResponse }         from "./mqtt-plus-msg"
 import { APISchema, ResourceKeys,
@@ -125,36 +126,6 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         return provisioning
     }
 
-    /*  utility function for collecting stream chunks into a Buffer  */
-    private _collectStreamToBuffer (stream: Readable): Promise<Buffer> {
-        return new PLazy<Buffer>((resolve, reject) => {
-            const chunks: Buffer[] = []
-            stream.on("data", (data: Buffer) => {
-                chunks.push(data)
-            })
-            stream.on("end", () => {
-                resolve(Buffer.concat(chunks))
-            })
-            stream.on("error", (err: Error) => {
-                reject(err)
-            })
-        })
-    }
-
-    /*  utility function for converting a chunk to a Buffer  */
-    private _chunkToBuffer (chunk: unknown): Buffer {
-        let buffer: Buffer
-        if (Buffer.isBuffer(chunk))
-            buffer = chunk
-        else if (typeof chunk === "string")
-            buffer = Buffer.from(chunk)
-        else if (chunk instanceof Uint8Array)
-            buffer = Buffer.from(chunk)
-        else
-            buffer = Buffer.from(String(chunk))
-        return buffer
-    }
-
     /*  utility function for sending a Buffer as chunks  */
     private _sendBufferAsChunks (
         buffer:    Buffer,
@@ -200,7 +171,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         readable.on("readable", () => {
             let chunk: unknown
             while ((chunk = readable.read(chunkSize)) !== null) {
-                const buffer  = this._chunkToBuffer(chunk)
+                const buffer  = chunkToBuffer(chunk)
                 const request = this.msg.makeResourceTransferResponse(requestId, resource, params, buffer, undefined, false, this.options.id, receiver)
                 const message = this.codec.encode(request)
                 this.mqtt.publish(topic, message, { qos: 2, ...options })
@@ -340,7 +311,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         const stream = new Readable({ read (_size) {} })
 
         /*  create promise for collecting stream chunks  */
-        const buffer = this._collectStreamToBuffer(stream)
+        const buffer = streamToBuffer(stream)
 
         /*  define timer  */
         let timer: ReturnType<typeof setTimeout> | null = null
@@ -473,7 +444,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                     if (readable === undefined) {
                         readable = new Readable({ read (_size) {} })
                         this.pushStreams.set(requestId, readable)
-                        const promise = this._collectStreamToBuffer(readable)
+                        const promise = streamToBuffer(readable)
                         const params = parsed.params ?? []
                         const info: InfoResource = {
                             sender:   parsed.sender ?? "",
