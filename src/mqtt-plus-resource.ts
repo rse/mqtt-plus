@@ -23,25 +23,19 @@
 */
 
 /*  built-in requirements  */
-import { Readable }                    from "stream"
+import { Readable }                                               from "stream"
 
 /*  external requirements  */
-import { IClientPublishOptions,
-    IClientSubscribeOptions }          from "mqtt"
-import { nanoid }                      from "nanoid"
+import { IClientPublishOptions, IClientSubscribeOptions }         from "mqtt"
+import { nanoid }                                                 from "nanoid"
 
 /*  internal requirements  */
-import { streamToBuffer,
-    sendBufferAsChunks,
-    sendStreamAsChunks }               from "./mqtt-plus-util"
-import { ResourceTransferRequest,
-    ResourceTransferResponse }         from "./mqtt-plus-msg"
-import { APISchema, ResourceKeys,
-    APIEndpointResource }              from "./mqtt-plus-api"
-import type { WithInfo,
-    InfoResource }                     from "./mqtt-plus-info"
-import type { Receiver }               from "./mqtt-plus-receiver"
-import { ServiceTrait }                from "./mqtt-plus-service"
+import { streamToBuffer, sendBufferAsChunks, sendStreamAsChunks } from "./mqtt-plus-util"
+import { ResourceTransferRequest, ResourceTransferResponse }      from "./mqtt-plus-msg"
+import { APISchema, ResourceKeys, APIEndpointResource }           from "./mqtt-plus-api"
+import type { WithInfo, InfoResource }                            from "./mqtt-plus-info"
+import type { Receiver }                                          from "./mqtt-plus-receiver"
+import { ServiceTrait }                                           from "./mqtt-plus-service"
 
 /*  the provisioning result type  */
 export interface Provisioning {
@@ -56,7 +50,11 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
     private callbacks =
         new Map<string, {
             resource: string,
-            callback: (error: Error | undefined, chunk: Buffer | undefined, final: boolean | undefined) => void
+            callback: (
+                error: Error   | undefined,
+                chunk: Buffer  | undefined,
+                final: boolean | undefined
+            ) => void
         }>()
     private pushStreams = new Map<string, Readable>()
 
@@ -192,7 +190,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
         /*  callback for creating and sending a chunk message  */
         const sendChunk = (chunk: Buffer | undefined, error: string | undefined, final: boolean) => {
-            const request = this.msg.makeResourceTransferResponse(rid, resource, params, chunk, error, final, this.options.id, receiver)
+            const request = this.msg.makeResourceTransferResponse(rid, resource,
+                params, chunk, error, final, this.options.id, receiver)
             const message = this.codec.encode(request)
             this.mqtt.publish(topic, message, { qos: 2, ...options })
         }
@@ -278,7 +277,11 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         /*  register stream handler to collect chunks  */
         this.callbacks.set(requestId, {
             resource,
-            callback: (error: Error | undefined, chunk: Buffer | undefined, final: boolean | undefined) => {
+            callback: (
+                error: Error   | undefined,
+                chunk: Buffer  | undefined,
+                final: boolean | undefined
+            ) => {
                 if (error !== undefined) {
                     cleanup()
                     stream.destroy(error)
@@ -295,7 +298,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         })
 
         /*  generate encoded message  */
-        const request = this.msg.makeResourceTransferRequest(requestId, resource, params, this.options.id, receiver)
+        const request = this.msg.makeResourceTransferRequest(requestId,
+            resource, params, this.options.id, receiver)
         const message = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
@@ -333,7 +337,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
                 /*  callback for creating and sending a chunk message  */
                 const sendChunk = (chunk: Buffer | undefined, error: string | undefined, final: boolean) => {
-                    const request = this.msg.makeResourceTransferResponse(requestId, resource, undefined, chunk, error, final, this.options.id, sender)
+                    const request = this.msg.makeResourceTransferResponse(requestId,
+                        resource, undefined, chunk, error, final, this.options.id, sender)
                     const message = this.codec.encode(request)
                     this.mqtt.publish(responseTopic, message, { qos: 2 })
                 }
@@ -348,7 +353,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
                         /*  handle Readable stream result  */
                         if (info.resource instanceof Readable)
-                            sendStreamAsChunks(info.resource, this.options.chunkSize, sendChunk, () => {}, (err) => sendChunk(undefined, err.message, true))
+                            sendStreamAsChunks(info.resource, this.options.chunkSize, sendChunk,
+                                () => {}, (err) => sendChunk(undefined, err.message, true))
 
                         /*  handle Buffer result  */
                         else if (info.resource instanceof Buffer)
