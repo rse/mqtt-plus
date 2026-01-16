@@ -143,7 +143,7 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
         const topic = this.options.topicMake(event, "event-emission", receiver)
 
         /*  publish message to MQTT topic  */
-        this.mqtt.publish(topic, message, { qos: 2, ...options })
+        this.mqtt.publish(topic, message, { qos: 0, ...options })
     }
 
     /*  dispatch message (Event pattern handling)  */
