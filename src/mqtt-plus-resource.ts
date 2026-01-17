@@ -281,27 +281,47 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         ...params: Parameters<T[K]>
-    ): Promise<{ stream: Readable, buffer: Promise<Buffer>, meta: Promise<Record<string, any> | undefined> }>
+    ): Promise<{
+        stream: Readable,
+        buffer: Promise<Buffer>,
+        meta:   Promise<Record<string, any> | undefined>
+    }>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         receiver:  Receiver,
         ...params: Parameters<T[K]>
-    ): Promise<{ stream: Readable, buffer: Promise<Buffer>, meta: Promise<Record<string, any> | undefined> }>
+    ): Promise<{
+        stream: Readable,
+        buffer: Promise<Buffer>,
+        meta:   Promise<Record<string, any> | undefined>
+    }>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         options:   IClientPublishOptions,
         ...params: Parameters<T[K]>
-    ): Promise<{ stream: Readable, buffer: Promise<Buffer>, meta: Promise<Record<string, any> | undefined> }>
+    ): Promise<{
+        stream: Readable,
+        buffer: Promise<Buffer>,
+        meta:   Promise<Record<string, any> | undefined>
+    }>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         receiver:  Receiver,
         options:   IClientPublishOptions,
         ...params: Parameters<T[K]>
-    ): Promise<{ stream: Readable, buffer: Promise<Buffer>, meta: Promise<Record<string, any> | undefined> }>
+    ): Promise<{
+        stream: Readable,
+        buffer: Promise<Buffer>,
+        meta:   Promise<Record<string, any> | undefined>
+    }>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         ...args:   any[]
-    ): Promise<{ stream: Readable, buffer: Promise<Buffer>, meta: Promise<Record<string, any> | undefined> }> {
+    ): Promise<{
+        stream: Readable,
+        buffer: Promise<Buffer>,
+        meta:   Promise<Record<string, any> | undefined>
+    }> {
         /*  determine actual parameters  */
         const { receiver, options, params } = this._parseCallArgs(args)
 
