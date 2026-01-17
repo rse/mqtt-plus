@@ -58,6 +58,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         ) => void
     }>()
     private pushStreams = new Map<string, Readable>()
+    private pushTimers  = new Map<string, ReturnType<typeof setTimeout>>()
 
     /*  provision a resource (for both fetch requests and pushed data)  */
     async provision<K extends ResourceKeys<T> & string> (
@@ -471,6 +472,18 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                     if (readable === undefined) {
                         readable = new Readable({ read (_size) {} })
                         this.pushStreams.set(requestId, readable)
+
+                        /*  start timeout for push stream cleanup  */
+                        const timer = setTimeout(() => {
+                            const stream = this.pushStreams.get(requestId)
+                            if (stream !== undefined) {
+                                stream.destroy(new Error("push stream timeout"))
+                                this.pushStreams.delete(requestId)
+                                this.pushTimers.delete(requestId)
+                            }
+                        }, this.options.timeout)
+                        this.pushTimers.set(requestId, timer)
+
                         const promise = streamToBuffer(readable)
                         const params = parsed.params ?? []
                         const info: InfoResource = {
@@ -483,7 +496,18 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                         }
                         handler(...params, info)
                     }
+
+                    /*  utility to cleanup timer  */
+                    const clearPushTimer = () => {
+                        const timer = this.pushTimers.get(requestId)
+                        if (timer !== undefined) {
+                            clearTimeout(timer)
+                            this.pushTimers.delete(requestId)
+                        }
+                    }
+
                     if (error !== undefined) {
+                        clearPushTimer()
                         readable.destroy(new Error(error))
                         this.pushStreams.delete(requestId)
                     }
@@ -491,6 +515,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                         if (chunk !== undefined)
                             readable.push(chunk)
                         if (final) {
+                            clearPushTimer()
                             readable.push(null)
                             this.pushStreams.delete(requestId)
                         }
