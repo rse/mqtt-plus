@@ -25,9 +25,8 @@
 import type { APISchema } from "./mqtt-plus-api"
 import { ResourceTrait }  from "./mqtt-plus-resource"
 
-export *                  from "./mqtt-plus-api"
-export *                  from "./mqtt-plus-base"
-export *                  from "./mqtt-plus-info"
+export type *             from "./mqtt-plus-api"
+export type *             from "./mqtt-plus-info"
 
 export default class MQTTp<T extends APISchema = APISchema>
     extends ResourceTrait<T> {}
