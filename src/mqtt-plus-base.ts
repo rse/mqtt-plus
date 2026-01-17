@@ -40,6 +40,7 @@ import { ReceiverTrait }                     from "./mqtt-plus-receiver"
 /*  MQTTp Base class with shared infrastructure  */
 export class BaseTrait<T extends APISchema = APISchema> extends ReceiverTrait<T> {
     protected mqtt: MqttClient
+    private _messageHandler: (topic: string, message: Buffer, packet: IPublishPacket) => void
 
     /*  construct API class  */
     constructor (
@@ -52,14 +53,15 @@ export class BaseTrait<T extends APISchema = APISchema> extends ReceiverTrait<T>
         this.mqtt = mqtt
 
         /*  hook into the MQTT message processing  */
-        this.mqtt.on("message", (topic, message, packet) => {
+        this._messageHandler = (topic, message, packet) => {
             this._onMessage(topic, message, packet)
-        })
+        }
+        this.mqtt.on("message", this._messageHandler)
     }
 
     /*  destroy API class  */
     destroy () {
-        this.mqtt.removeAllListeners()
+        this.mqtt.off("message", this._messageHandler)
     }
 
     /*  subscribe to an MQTT topic (Promise-based)  */
