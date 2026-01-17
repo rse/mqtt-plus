@@ -43,7 +43,8 @@ export default Vite.defineConfig(({ command, mode }) => ({
     ],
     build: {
         rollupOptions: {
-            external: formats === "umd" ? [] : [ "stream" ]
+            external: formats === "umd" ? [] : [ "stream" ],
+            output: { exports: "named" }
         },
         lib: {
             entry:    "dst-stage1/mqtt-plus.js",
