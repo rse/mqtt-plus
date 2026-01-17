@@ -393,7 +393,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
 
-        /*  ==== handle resource request (on server-side for fetch) ====  */
+        /*  handle resource request (on server-side for fetch)  */
         if (topicMatch !== null
             && topicMatch.operation === "resource-transfer-request"
             && parsed instanceof ResourceTransferRequest) {
@@ -446,7 +446,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             }
         }
 
-        /*  ==== handle resource response (on server-side for push) ====  */
+        /*  handle resource response (on server-side for push)  */
         else if (topicMatch !== null
             && topicMatch.operation === "resource-transfer-response"
             && parsed instanceof ResourceTransferResponse) {
