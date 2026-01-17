@@ -226,16 +226,18 @@ export default class Msg {
                 throw new Error("invalid ResourceTransferResponse object: \"final\" field must be a boolean")
             if (!validParams(obj))
                 throw new Error("invalid ResourceTransferResponse object: \"params\" field must be an array")
-            if (anyFieldsExcept(obj, [ "type", "id", "resource", "params", "chunk", "error", "final", "sender", "receiver" ]))
+            if (anyFieldsExcept(obj, [ "type", "id", "resource", "params",
+                "chunk", "error", "final", "sender", "receiver" ]))
                 throw new Error("invalid ResourceTransferResponse object: contains unknown fields")
-            return this.makeResourceTransferResponse(obj.id, obj.resource, obj.params, obj.chunk, obj.error, obj.final, obj.sender, obj.receiver)
+            return this.makeResourceTransferResponse(obj.id, obj.resource, obj.params,
+                obj.chunk, obj.error, obj.final, obj.sender, obj.receiver)
         }
         else
             throw new Error("invalid object: not of any known type")
     }
 }
 
-/*  Msg trait  */
+/*  message trait  */
 export class MsgTrait<T extends APISchema = APISchema> extends CodecTrait<T> {
     protected msg = new Msg()
 }
