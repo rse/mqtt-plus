@@ -62,7 +62,11 @@ export class OptionsTrait<T extends APISchema = APISchema> {
             },
             topicMatch: (topic) => {
                 const m = topic.match(/^(.+)\/([^/]+)\/([^/]+)$/)
-                return m ? { name: m[1], operation: m[2], peerId: m[3] === "any" ? undefined : m[3] } : null
+                return m ? {
+                    name:      m[1],
+                    operation: m[2],
+                    peerId:    m[3] === "any" ? undefined : m[3]
+                } : null
             },
             ...options
         }

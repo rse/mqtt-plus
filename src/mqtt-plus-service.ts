@@ -246,7 +246,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 response = Promise.reject(new Error(`method not found: ${name}`))
             response.then((result: any) => {
                 /*  create success response  */
-                return this.msg.makeServiceCallResponse(rid, result, undefined, this.options.id, parsed.sender)
+                return this.msg.makeServiceCallResponse(rid, result,
+                    undefined, this.options.id, parsed.sender)
             }, (result: any) => {
                 /*  determine error message and build error response  */
                 let errorMessage: string
@@ -258,7 +259,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     errorMessage = result.message
                 else
                     errorMessage = String(result)
-                return this.msg.makeServiceCallResponse(rid, undefined, errorMessage, this.options.id, parsed.sender)
+                return this.msg.makeServiceCallResponse(rid, undefined,
+                    errorMessage, this.options.id, parsed.sender)
             }).then((rpcResponse) => {
                 /*  send response message  */
                 const senderPeerId = parsed.sender
