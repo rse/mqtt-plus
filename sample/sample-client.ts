@@ -19,11 +19,24 @@ mqtt.on("message",   (topic, message) => { console.log("RECEIVED", topic, messag
 
 mqtt.on("connect", () => {
     console.log("CONNECT")
+
+    /*  emit an event (fire and forget)  */
     mqttp.emit("example/sample", "world", 42)
+
+    /*  call a service (request and response)  */
     mqttp.call("example/hello", "world", 42).then((result) => {
         console.log("example/hello success: ", result)
     }).catch((err) => {
         console.log("example/hello error: ", err)
+    })
+
+    /*  fetch a resource (chunked content)  */
+    mqttp.fetch("example/data", "foo").then(async ({ buffer, meta }) => {
+        const data = await buffer
+        const info = await meta
+        console.log("example/data success: ", data.toString(), info)
+    }).catch((err) => {
+        console.log("example/data error: ", err)
     })
 })
 
