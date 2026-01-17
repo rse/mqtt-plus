@@ -22,12 +22,15 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/*  import necessary types  */
 import type { APISchema } from "./mqtt-plus-api"
 import { ResourceTrait }  from "./mqtt-plus-resource"
 
+/*  re-export most important types  */
 export type *             from "./mqtt-plus-api"
 export type *             from "./mqtt-plus-info"
 
+/*  export the default API class  */
 export default class MQTTp<T extends APISchema = APISchema>
     extends ResourceTrait<T> {}
 
