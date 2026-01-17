@@ -72,7 +72,8 @@ communication patterns with type safety:
 
   In contrast to the regular MQTT message publish/subscribe, this
   pattern allows to transfer arbitrary amounts of arbitrary data by
-  chunking the data via a stream.
+  chunking the data via a stream. Additionally, it supports optional
+  metadata transfer alongside the resource data.
 
   ![Resource Transfer](doc/mqtt-plus-3-resource-transfer.svg)
 
@@ -246,6 +247,7 @@ The **MQTT+** API provides the following methods:
                   sender: string,
                   receiver?: string,
                   resource: Buffer | Readable | null,
+                  meta?: Record<string, any>,
                   stream?: Readable,
                   buffer?: Promise<Buffer>
               }
@@ -258,10 +260,12 @@ The **MQTT+** API provides the following methods:
 
   For **fetch requests**: The `callback` is called with the `params` passed to a remote `fetch()`.
   The `callback` should set `info.resource` to a `Buffer` or `Readable` containing the resource data.
+  Optionally, the `callback` can set `info.meta` to a `Record<string, any>` to send metadata back with the response.
 
   For **pushed data**: The `callback` is called with the `params` passed to a remote `push()`.
   The `info.stream` provides a Node.js `Readable` stream for consuming the pushed data.
   The `info.buffer` provides a lazy `Promise<Buffer>` that resolves to the complete data once the stream ends.
+  The `info.meta` contains optional metadata sent by the pusher via `push()`.
 
   Internally, on the MQTT broker, the topics by
   `topicMake(resource, "resource-transfer-request")` and `topicMake(resource, "resource-transfer-response")`
@@ -319,17 +323,20 @@ The **MQTT+** API provides the following methods:
           receiver?: Receiver,
           options?:  MQTT::IClientSubscribeOptions,
           ...params: any[]
-      ): Promise<{ stream: Readable, buffer: Promise<Buffer> }>
+      ): Promise<{ stream: Readable, buffer: Promise<Buffer>, meta: Promise<Record<string, any> | undefined> }>
 
   Fetches a resource from any resource provisioner or from a specific provisioner.
   The optional `receiver` directs the call to a specific provisioner only.
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
 
-  Returns an object with a `stream` (`Readable`) for consuming the transferred data
-  and a lazy `buffer` (`Promise<Buffer>`) that resolves to the complete data once the stream ends.
+  Returns an object with a `stream` (`Readable`) for consuming the transferred data,
+  a lazy `buffer` (`Promise<Buffer>`) that resolves to the complete data once the stream ends,
+  and a `meta` (`Promise<Record<string, any> | undefined>`) that resolves to optional metadata
+  sent by the provisioner when the first chunk arrives.
 
   The remote `provision()` `callback` is called with `params` and
   should set `info.resource` to a `Buffer` or `Readable` containing the resource data.
+  Optionally, the `callback` can set `info.meta` to send metadata back with the response.
   If the remote `callback` throws an exception, this destroys the stream with the error.
 
   Internally, on the MQTT broker, the topic by
@@ -343,6 +350,7 @@ The **MQTT+** API provides the following methods:
       push(
           resource:       string,
           streamOrBuffer: Readable | Buffer,
+          meta?:          Meta,
           receiver?:      Receiver,
           options?:       MQTT::IClientPublishOptions,
           ...params:      any[]
@@ -350,6 +358,8 @@ The **MQTT+** API provides the following methods:
 
   Pushes a resource to all provisioners or a specific provisioner.
   The `streamOrBuffer` is either a Node.js `Readable` stream or a `Buffer` providing the data to push.
+  The optional `meta` (wrapped via `meta()`) sends metadata alongside the resource data,
+  which becomes available on the provisioner side via `info.meta`.
   The optional `receiver` directs the push to a specific provisioner only.
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
 
@@ -359,8 +369,9 @@ The **MQTT+** API provides the following methods:
   The returned `Promise` resolves when the entire data has been pushed.
 
   The remote `provision()` `callback` is called with `params` and an `info` object
-  containing `stream` (`Readable`) for consuming the pushed data and
-  `buffer` (lazy `Promise<Buffer>`) that resolves to the complete data once the stream ends.
+  containing `stream` (`Readable`) for consuming the pushed data,
+  `buffer` (lazy `Promise<Buffer>`) that resolves to the complete data once the stream ends,
+  and `meta` (`Record<string, any> | undefined`) containing the metadata sent by the pusher.
 
   Internally, publishes to the MQTT topic by `topicMake(resource, "resource-transfer-response", peerId)`
   (default: `${resource}/resource-transfer-response/any` or `${resource}/resource-transfer-response/${peerId}`).
@@ -373,6 +384,16 @@ The **MQTT+** API provides the following methods:
 
   Wrap a receiver ID string for use with `emit()`, `call()`, `fetch()` or `push()` to direct the
   message to a specific receiver. Returns a `Receiver` object.
+
+- **Meta Wrapping**:<br/>
+
+      meta(
+          data: Record<string, any>
+      ): Meta
+
+  Wrap a metadata object for use with `push()` to send metadata alongside the resource data.
+  The metadata is transferred with the first chunk and becomes available on the provisioner
+  side via `info.meta`. Returns a `Meta` object.
 
 Internals
 ---------

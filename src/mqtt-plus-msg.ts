@@ -87,6 +87,7 @@ export class ResourceTransferResponse extends Base {
         public resource?: string,
         public params?:   any[],
         public chunk?:    Buffer,
+        public meta?:     Record<string, any>,
         public error?:    string,
         public final?:    boolean,
         sender?:          string,
@@ -146,12 +147,13 @@ export default class Msg {
         resource?:      string,
         params?:        any[],
         chunk?:         Buffer,
+        meta?:          Record<string, any>,
         error?:         string,
         final?:         boolean,
         sender?:        string,
         receiver?:      string
     ): ResourceTransferResponse {
-        return new ResourceTransferResponse(id, resource, params, chunk, error, final, sender, receiver)
+        return new ResourceTransferResponse(id, resource, params, chunk, meta, error, final, sender, receiver)
     }
 
     /*  parse any object into typed object  */
@@ -220,6 +222,8 @@ export default class Msg {
                 throw new Error("invalid ResourceTransferResponse object: \"resource\" field must be a string")
             if (obj.chunk !== undefined && typeof obj.chunk !== "object")
                 throw new Error("invalid ResourceTransferResponse object: \"chunk\" field must be an object")
+            if (obj.meta !== undefined && (typeof obj.meta !== "object" || obj.meta === null || Array.isArray(obj.meta)))
+                throw new Error("invalid ResourceTransferResponse object: \"meta\" field must be an object")
             if (obj.error !== undefined && typeof obj.error !== "string")
                 throw new Error("invalid ResourceTransferResponse object: \"error\" field must be a string")
             if (obj.final !== undefined && typeof obj.final !== "boolean")
@@ -227,10 +231,10 @@ export default class Msg {
             if (!validParams(obj))
                 throw new Error("invalid ResourceTransferResponse object: \"params\" field must be an array")
             if (anyFieldsExcept(obj, [ "type", "id", "resource", "params",
-                "chunk", "error", "final", "sender", "receiver" ]))
+                "chunk", "meta", "error", "final", "sender", "receiver" ]))
                 throw new Error("invalid ResourceTransferResponse object: contains unknown fields")
             return this.makeResourceTransferResponse(obj.id, obj.resource, obj.params,
-                obj.chunk, obj.error, obj.final, obj.sender, obj.receiver)
+                obj.chunk, obj.meta, obj.error, obj.final, obj.sender, obj.receiver)
         }
         else
             throw new Error("invalid object: not of any known type")

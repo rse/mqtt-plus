@@ -35,10 +35,10 @@ import { EventEmission,
     ResourceTransferRequest,
     ResourceTransferResponse }               from "./mqtt-plus-msg"
 import { APIOptions }                        from "./mqtt-plus-options"
-import { ReceiverTrait }                     from "./mqtt-plus-receiver"
+import { MetaTrait }                         from "./mqtt-plus-meta"
 
 /*  MQTTp Base class with shared infrastructure  */
-export class BaseTrait<T extends APISchema = APISchema> extends ReceiverTrait<T> {
+export class BaseTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
     protected mqtt: MqttClient
     private _messageHandler: (topic: string, message: Buffer, packet: IPublishPacket) => void
 
@@ -92,14 +92,21 @@ export class BaseTrait<T extends APISchema = APISchema> extends ReceiverTrait<T>
         return Object.keys(arg).every((key) => keys.includes(key))
     }
 
-    /*  parse optional peerId and options from variadic arguments  */
+    /*  parse optional meta, receiver and options from variadic arguments  */
     protected _parseCallArgs<U extends any[]> (
         args: any[]
     ): {
+        meta?:     Record<string, any>,
         receiver?: string,
-        options: IClientPublishOptions,
-        params: U
+        options:   IClientPublishOptions,
+        params:    U
     } {
+        /*  extract optional meta from arguments  */
+        let meta: Record<string, any> | undefined
+        if (args.length > 0 && this._isMeta(args[0]))
+            meta = this._getMeta(args.shift())
+
+        /*  extract optional receiver and options from arguments  */
         let receiver: string | undefined
         let options: IClientPublishOptions = {}
         let params = args as U
@@ -116,7 +123,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends ReceiverTrait<T>
             options = args[0]
             params  = args.slice(1) as U
         }
-        return { receiver, options, params }
+        return { meta, receiver, options, params }
     }
 
     /*  handle incoming MQTT message  */

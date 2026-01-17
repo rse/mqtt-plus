@@ -22,27 +22,33 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/*  external requirements  */
-import { Readable } from "stream"
+/*  internal requirements  */
+import { APISchema }      from "./mqtt-plus-api"
+import { ReceiverTrait }  from "./mqtt-plus-receiver"
 
-/*  info types  */
-export interface InfoBase {
-    sender:    string
-    receiver?: string
+/*  type of a wrapped meta object (for method overloading)  */
+export type Meta = { __meta: Record<string, any> }
+
+/*  Meta trait  */
+export class MetaTrait<T extends APISchema = APISchema> extends ReceiverTrait<T> {
+    /*  wrap meta object into wrapper (required for type-safe overloading)  */
+    meta (data: Record<string, any>) {
+        return { __meta: data }
+    }
+
+    /*  return meta object from wrapper object  */
+    protected _getMeta (obj: Meta) {
+        return obj.__meta
+    }
+
+    /*  detect meta wrapper object  */
+    protected _isMeta (obj: any): obj is Meta {
+        return (typeof obj === "object"
+            && obj !== null
+            && "__meta" in obj
+            && typeof obj.__meta === "object"
+            && obj.__meta !== null
+        )
+    }
 }
 
-/*  specialized info types  */
-export interface InfoEvent   extends InfoBase {}
-export interface InfoService extends InfoBase {}
-export interface InfoResource extends InfoBase {
-    resource: Buffer | Readable | null
-    meta?:    Record<string, any>
-    stream?:  Readable
-    buffer?:  Promise<Buffer>
-}
-
-/*  type utility: extend function with Info parameter  */
-export type WithInfo<F, I extends InfoBase> =
-    F extends (...args: infer P) => infer R
-    ? (...args: [ ...P, info: I ]) => R
-    : never

@@ -35,6 +35,7 @@ import { ResourceTransferRequest, ResourceTransferResponse }      from "./mqtt-p
 import { APISchema, ResourceKeys, APIEndpointResource }           from "./mqtt-plus-api"
 import type { WithInfo, InfoResource }                            from "./mqtt-plus-info"
 import type { Receiver }                                          from "./mqtt-plus-receiver"
+import type { Meta }                                              from "./mqtt-plus-meta"
 import { ServiceTrait }                                           from "./mqtt-plus-service"
 
 /*  the provisioning result type  */
@@ -47,15 +48,15 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
     /*  resource provisioning state  */
     private provisionings =
         new Map<string, WithInfo<APIEndpointResource, InfoResource>>()
-    private callbacks =
-        new Map<string, {
-            resource: string,
-            callback: (
-                error: Error   | undefined,
-                chunk: Buffer  | undefined,
-                final: boolean | undefined
-            ) => void
-        }>()
+    private callbacks = new Map<string, {
+        resource: string,
+        callback: (
+            error: Error               | undefined,
+            chunk: Buffer              | undefined,
+            meta:  Record<string, any> | undefined,
+            final: boolean             | undefined
+        ) => void
+    }>()
     private pushStreams = new Map<string, Readable>()
 
     /*  provision a resource (for both fetch requests and pushed data)  */
@@ -175,12 +176,68 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         ...params: Parameters<T[K]>
     ): Promise<void>
     push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        buffer:    Buffer,
+        meta:      Meta,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        buffer:    Buffer,
+        meta:      Meta,
+        receiver:  Receiver,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        buffer:    Buffer,
+        meta:      Meta,
+        options:   IClientPublishOptions,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        buffer:    Buffer,
+        meta:      Meta,
+        receiver:  Receiver,
+        options:   IClientPublishOptions,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        stream:    Readable,
+        meta:      Meta,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        stream:    Readable,
+        meta:      Meta,
+        receiver:  Receiver,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        stream:    Readable,
+        meta:      Meta,
+        options:   IClientPublishOptions,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
+        resource:  K,
+        stream:    Readable,
+        meta:      Meta,
+        receiver:  Receiver,
+        options:   IClientPublishOptions,
+        ...params: Parameters<T[K]>
+    ): Promise<void>
+    push<K extends ResourceKeys<T> & string> (
         resource:       K,
         streamOrBuffer: Readable | Buffer,
         ...args:        any[]
     ): Promise<void> {
         /*  determine actual parameters  */
-        const { receiver, options, params } = this._parseCallArgs(args)
+        const { meta, receiver, options, params } = this._parseCallArgs(args)
 
         /*  generate unique request id  */
         const rid = nanoid()
@@ -188,10 +245,15 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         /*  generate corresponding MQTT topic  */
         const topic = this.options.topicMake(resource, "resource-transfer-response", receiver)
 
+        /*  track whether first chunk has been sent (for meta)  */
+        let firstChunk = true
+
         /*  callback for creating and sending a chunk message  */
         const sendChunk = (chunk: Buffer | undefined, error: string | undefined, final: boolean) => {
+            const chunkMeta = firstChunk ? meta : undefined
+            firstChunk = false
             const request = this.msg.makeResourceTransferResponse(rid, resource,
-                params, chunk, error, final, this.options.id, receiver)
+                params, chunk, chunkMeta, error, final, this.options.id, receiver)
             const message = this.codec.encode(request)
             this.mqtt.publish(topic, message, { qos: 2, ...options })
         }
@@ -218,27 +280,27 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         ...params: Parameters<T[K]>
-    ): Promise<{ stream: Readable, buffer: Promise<Buffer> }>
+    ): Promise<{ stream: Readable, buffer: Promise<Buffer>, meta: Promise<Record<string, any> | undefined> }>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         receiver:  Receiver,
         ...params: Parameters<T[K]>
-    ): Promise<{ stream: Readable, buffer: Promise<Buffer> }>
+    ): Promise<{ stream: Readable, buffer: Promise<Buffer>, meta: Promise<Record<string, any> | undefined> }>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         options:   IClientPublishOptions,
         ...params: Parameters<T[K]>
-    ): Promise<{ stream: Readable, buffer: Promise<Buffer> }>
+    ): Promise<{ stream: Readable, buffer: Promise<Buffer>, meta: Promise<Record<string, any> | undefined> }>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         receiver:  Receiver,
         options:   IClientPublishOptions,
         ...params: Parameters<T[K]>
-    ): Promise<{ stream: Readable, buffer: Promise<Buffer> }>
+    ): Promise<{ stream: Readable, buffer: Promise<Buffer>, meta: Promise<Record<string, any> | undefined> }>
     async fetch<K extends ResourceKeys<T> & string> (
         resource:  K,
         ...args:   any[]
-    ): Promise<{ stream: Readable, buffer: Promise<Buffer> }> {
+    ): Promise<{ stream: Readable, buffer: Promise<Buffer>, meta: Promise<Record<string, any> | undefined> }> {
         /*  determine actual parameters  */
         const { receiver, options, params } = this._parseCallArgs(args)
 
@@ -254,6 +316,12 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
         /*  create promise for collecting stream chunks  */
         const buffer = streamToBuffer(stream)
+
+        /*  create promise for meta (resolved on first chunk)  */
+        let metaResolve: (value: Record<string, any> | undefined) => void
+        const meta = new Promise<Record<string, any> | undefined>((resolve) => {
+            metaResolve = resolve
+        })
 
         /*  define timer  */
         let timer: ReturnType<typeof setTimeout> | null = null
@@ -271,17 +339,24 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         /*  start timeout handler  */
         timer = setTimeout(() => {
             cleanup()
+            metaResolve?.(undefined)
             stream.destroy(new Error("communication timeout"))
         }, this.options.timeout)
 
         /*  register stream handler to collect chunks  */
+        let firstChunk = true
         this.callbacks.set(requestId, {
             resource,
             callback: (
-                error: Error   | undefined,
-                chunk: Buffer  | undefined,
-                final: boolean | undefined
+                error: Error               | undefined,
+                chunk: Buffer              | undefined,
+                meta:  Record<string, any> | undefined,
+                final: boolean             | undefined
             ) => {
+                if (firstChunk) {
+                    firstChunk = false
+                    metaResolve?.(meta)
+                }
                 if (error !== undefined) {
                     cleanup()
                     stream.destroy(error)
@@ -309,7 +384,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         this.mqtt.publish(topic, message, { qos: 2, ...options })
 
         /*  produce result  */
-        return { stream, buffer }
+        return { stream, buffer, meta }
     }
 
     /*  dispatch message (Resource pattern handling)  */
@@ -336,9 +411,12 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 const responseTopic = this.options.topicMake(resource, "resource-transfer-response", sender)
 
                 /*  callback for creating and sending a chunk message  */
+                let firstChunk = true
                 const sendChunk = (chunk: Buffer | undefined, error: string | undefined, final: boolean) => {
+                    const chunkMeta = firstChunk ? info.meta : undefined
+                    firstChunk = false
                     const request = this.msg.makeResourceTransferResponse(requestId,
-                        resource, undefined, chunk, error, final, this.options.id, sender)
+                        resource, undefined, chunk, chunkMeta, error, final, this.options.id, sender)
                     const message = this.codec.encode(request)
                     this.mqtt.publish(responseTopic, message, { qos: 2 })
                 }
@@ -349,7 +427,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                     .then(() => {
                         /*  ensure the resource field is filled  */
                         if (info.resource === null)
-                            throw new Error("received no data in info \"resource\" field")
+                            throw new Error("handler did not provide data via info.resource field")
 
                         /*  handle Readable stream result  */
                         if (info.resource instanceof Readable)
@@ -374,15 +452,15 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             /*  determine information  */
             const requestId = parsed.id
             const error     = parsed.error
+            const meta      = parsed.meta
             const final     = parsed.final
-            let   chunk     = parsed.chunk
-            if (chunk !== undefined && !Buffer.isBuffer(chunk))
-                chunk = Buffer.from(chunk)
+            const chunk     = (parsed.chunk !== undefined && !Buffer.isBuffer(parsed.chunk))
+                ? Buffer.from(parsed.chunk) : parsed.chunk
 
             /*  case 1: response on fetch  */
             const handler = this.callbacks.get(requestId)
             if (handler !== undefined)
-                handler.callback(error ? new Error(error) : undefined, chunk, final)
+                handler.callback(error ? new Error(error) : undefined, chunk, meta, final)
 
             /*  case 2: response on push  */
             else if (parsed.resource !== undefined) {
@@ -399,6 +477,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                             sender:   parsed.sender ?? "",
                             receiver: parsed.receiver,
                             resource: null,
+                            meta:     meta,
                             stream:   readable,
                             buffer:   promise
                         }
