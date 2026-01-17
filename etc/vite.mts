@@ -26,7 +26,7 @@ import * as Vite             from "vite"
 import { tscPlugin }         from "@wroud/vite-plugin-tsc"
 import { nodePolyfills }     from "vite-plugin-node-polyfills"
 
-const formats = process.env.VITE_BUILD_FORMATS ?? "esm"
+const formats = process.env.VITE_BUILD_FORMATS ?? "es"
 
 export default Vite.defineConfig(({ command, mode }) => ({
     logLevel: "info",
