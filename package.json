@@ -1,6 +1,6 @@
 {
     "name":                           "mqtt-plus",
-    "version":                        "0.9.9",
+    "version":                        "0.9.10",
     "description":                    "MQTT Communication Patterns",
     "keywords":                       [ "mqtt", "event", "service", "rpc", "request", "response" ],
     "license":                        "MIT",
