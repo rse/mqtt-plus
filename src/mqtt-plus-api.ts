@@ -27,9 +27,9 @@ type Brand<T> = T & { readonly __brand: unique symbol }
 
 /*  endpoint types  */
 export type APIEndpoint         = APIEndpointEvent | APIEndpointService | APIEndpointResource
-export type APIEndpointEvent    = (...args: any[]) => void
-export type APIEndpointService  = (...args: any[]) => any
-export type APIEndpointResource = (...args: any[]) => void
+export type APIEndpointEvent    = (...args: any[]) => void | Promise<void>
+export type APIEndpointService  = (...args: any[]) => any  | Promise<any>
+export type APIEndpointResource = (...args: any[]) => void | Promise<void>
 
 /*  API marker types  */
 export type Event<T    extends APIEndpointEvent>    = Brand<T>

@@ -514,7 +514,9 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                             stream:   readable,
                             buffer:   promise
                         }
-                        handler(...params, info)
+                        Promise.resolve()
+                            .then(() => handler(...params, info))
+                            .catch((_err: Error) => {})
                     }
 
                     /*  utility to cleanup timer  */

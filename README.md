@@ -198,7 +198,7 @@ The **MQTT+** API provides the following methods:
           callback: (
               ...params: any[],
               info: { sender: string, receiver?: string }
-          ) => void
+          ) => void | Promise<void>
       ): Promise<Subscription>
 
   Subscribe to an event.
@@ -221,7 +221,7 @@ The **MQTT+** API provides the following methods:
           callback: (
               ...params: any[],
               info: { sender: string, receiver?: string }
-          ) => any
+          ) => any | Promise<any>
       ): Promise<Registration>
 
   Register a service.
@@ -251,7 +251,7 @@ The **MQTT+** API provides the following methods:
                   stream?: Readable,
                   buffer?: Promise<Buffer>
               }
-          ) => void
+          ) => void | Promise<void>
       ): Promise<Provisioning>
 
   Provision a resource for both fetch requests and pushed data.

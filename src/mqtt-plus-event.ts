@@ -158,7 +158,9 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             const handler = this.subscriptions.get(name)
             const params = parsed.params ?? []
             const info: InfoEvent = { sender: parsed.sender ?? "", receiver: parsed.receiver }
-            handler?.(...params, info)
+            Promise.resolve()
+                .then(() => handler?.(...params, info))
+                .catch((_err: Error) => {})
         }
     }
 }
