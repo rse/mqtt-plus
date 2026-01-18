@@ -58,7 +58,7 @@ export class OptionsTrait<T extends APISchema = APISchema> {
             timeout:   10 * 1000,
             chunkSize: 16 * 1024,
             topicMake: (name, protocol, peerId) => {
-                return `${name}/${protocol}` + (peerId ? `/${peerId}` : "/any")
+                return `${name}/${protocol}/${peerId ?? "any"}`
             },
             topicMatch: (topic) => {
                 const m = topic.match(/^(.+)\/([^/]+)\/([^/]+)$/)
