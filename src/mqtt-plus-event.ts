@@ -160,7 +160,9 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             const info: InfoEvent = { sender: parsed.sender ?? "", receiver: parsed.receiver }
             Promise.resolve()
                 .then(() => handler?.(...params, info))
-                .catch((_err: Error) => {})
+                .catch((err: Error) => {
+                    this.mqtt.emit("error", err)
+                })
         }
     }
 }

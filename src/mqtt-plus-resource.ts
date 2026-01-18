@@ -516,7 +516,9 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                         }
                         Promise.resolve()
                             .then(() => handler(...params, info))
-                            .catch((_err: Error) => {})
+                            .catch((err: Error) => {
+                                this.mqtt.emit("error", err)
+                            })
                     }
 
                     /*  utility to cleanup timer  */
