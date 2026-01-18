@@ -201,7 +201,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     this.mqtt.emit("error", err)
             })
         }
-        this.responseSubscriptions.set(topic, this.responseSubscriptions.get(topic)! + 1)
+        const count = this.responseSubscriptions.get(topic) ?? 0
+        this.responseSubscriptions.set(topic, count + 1)
     }
 
     /*  unsubscribe from RPC response  */
@@ -214,7 +215,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             return
 
         /*  unsubscribe from MQTT topic and forget subscription  */
-        this.responseSubscriptions.set(topic, this.responseSubscriptions.get(topic)! - 1)
+        const count = this.responseSubscriptions.get(topic) ?? 0
+        this.responseSubscriptions.set(topic, count - 1)
         if (this.responseSubscriptions.get(topic) === 0) {
             this.responseSubscriptions.delete(topic)
             this.mqtt.unsubscribe(topic, (err?: Error) => {
