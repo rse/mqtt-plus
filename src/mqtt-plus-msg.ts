@@ -27,7 +27,7 @@ import { APISchema }  from "./mqtt-plus-api"
 import { CodecTrait } from "./mqtt-plus-codec"
 
 /*  base class  */
-export class Base {
+class Base {
     constructor (
         public type:      string,
         public id:        string,
@@ -96,7 +96,7 @@ export class ResourceTransferResponse extends Base {
 }
 
 /*  utility class  */
-export default class Msg {
+class Msg {
     /*  factory for event emission  */
     makeEventEmission (
         id:             string,
