@@ -45,7 +45,7 @@ export function streamToBuffer (stream: Readable): Promise<Buffer> {
 }
 
 /*  utility function for converting a chunk to a Buffer  */
-export function chunkToBuffer (chunk: unknown): Buffer {
+function chunkToBuffer (chunk: unknown): Buffer {
     let buffer: Buffer
     if (Buffer.isBuffer(chunk))
         buffer = chunk
