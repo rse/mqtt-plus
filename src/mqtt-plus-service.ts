@@ -33,7 +33,6 @@ import { ServiceCallRequest,
 import { APISchema,
     APIEndpointService, ServiceKeys } from "./mqtt-plus-api"
 import type { WithInfo, InfoService } from "./mqtt-plus-info"
-import type { Receiver }              from "./mqtt-plus-receiver"
 import { EventTrait }                 from "./mqtt-plus-event"
 
 /*  the registration result type  */
@@ -112,31 +111,43 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
     /*  call service ("request and response")  */
     call<K extends ServiceKeys<T> & string> (
-        service:   K,
-        ...params: Parameters<T[K]>
+        service:       K,
+        ...params:     Parameters<T[K]>
     ): Promise<ReturnType<T[K]>>
     call<K extends ServiceKeys<T> & string> (
-        service:   K,
-        receiver:  Receiver,
-        ...params: Parameters<T[K]>
+        config: {
+            service:   K,
+            params:    Parameters<T[K]>,
+            receiver?: string,
+            options?:  IClientPublishOptions
+        }
     ): Promise<ReturnType<T[K]>>
     call<K extends ServiceKeys<T> & string> (
-        service:   K,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): Promise<ReturnType<T[K]>>
-    call<K extends ServiceKeys<T> & string> (
-        service:   K,
-        receiver:  Receiver,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): Promise<ReturnType<T[K]>>
-    call<K extends ServiceKeys<T> & string> (
-        service:   K,
-        ...args:   any[]
+        serviceOrConfig: K | {
+            service:   K,
+            params:    Parameters<T[K]>,
+            receiver?: string,
+            options?:  IClientPublishOptions
+        },
+        ...args:       any[]
     ): Promise<ReturnType<T[K]>> {
         /*  determine actual parameters  */
-        const { receiver, options, params } = this._parseCallArgs(args)
+        let service:   K
+        let params:    Parameters<T[K]>
+        let receiver:  string | undefined
+        let options:   IClientPublishOptions = {}
+        if (typeof serviceOrConfig === "object" && serviceOrConfig !== null) {
+            /*  object-based API  */
+            service  = serviceOrConfig.service
+            params   = serviceOrConfig.params
+            receiver = serviceOrConfig.receiver
+            options  = serviceOrConfig.options ?? {}
+        }
+        else {
+            /*  positional API  */
+            service  = serviceOrConfig as K
+            params   = args as Parameters<T[K]>
+        }
 
         /*  generate unique request id  */
         const rid = nanoid()
