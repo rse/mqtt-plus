@@ -548,13 +548,12 @@ const mqtt = MQTT.connect("mqtt://127.0.0.1:1883", {
 })
 
 type API = {
-    "example/sample": MQTTpt.Event<(a1: string, a2: number) => void>
-    "example/hello":  MQTTpt.Service<(a1: string, a2: number) => string>
+    "example/sample":   MQTTpt.Event<(a1: string, a2: number) => void>
+    "example/hello":    MQTTpt.Service<(a1: string, a2: number) => string>
+    "example/resource": MQTTpt.Resource<(filename: string) => void>
 }
 
 const mqttp = new MQTTp<API>(mqtt, { codec: "json" })
-
-type Sample = (a: string, b: number) => string
 
 mqtt.on("error",     (err)            => { console.log("ERROR", err) })
 mqtt.on("offline",   ()               => { console.log("OFFLINE") })
@@ -564,17 +563,36 @@ mqtt.on("message",   (topic, message) => { console.log("RECEIVED", topic, messag
 
 mqtt.on("connect", async () => {
     console.log("CONNECT")
-    await mqttp.register("example/hello", (a1, a2, info) => {
+
+    /*  event emission example  */
+    const sub = await mqttp.subscribe("example/sample", (a1, a2, info) => {
+        console.log("example/sample: received:", a1, a2, "from:", info.sender)
+    })
+    mqttp.emit("example/sample", "world", 42)
+    await new Promise((resolve) => { setTimeout(resolve, 100) })
+    await sub.unsubscribe()
+
+    /*  service call example  */
+    const reg = await mqttp.register("example/hello", (a1, a2, info) => {
         console.log("example/hello: request:", a1, a2, "from:", info.sender)
         return `${a1}:${a2}`
     })
-    mqttp.call("example/hello", "world", 42).then(async (result) => {
-        console.log("example/hello success:", result)
-        mqtt.end()
-        await mosquitto.stop()
-    }).catch((err) => {
-        console.log("example/hello error:", err)
+    const result = await mqttp.call("example/hello", "world", 42)
+    console.log("example/hello: success:", result)
+    await reg.unregister()
+
+    /*  resource fetch example  */
+    const prov = await mqttp.provision("example/resource", async (filename, info) => {
+        console.log("example/resource: request:", filename, "from:", info.sender)
+        info.resource = Buffer.from(`the ${filename} content`)
     })
+    const res = await mqttp.fetch("example/resource", "foo")
+    const data = await res.buffer
+    console.log("example/resource: result:", data.toString())
+    await prov.unprovision()
+
+    mqtt.end()
+    await mosquitto.stop()
 })
 ```
 
@@ -583,10 +601,16 @@ The output will be:
 ```
 $ node sample.ts
 CONNECT
-RECEIVED example/hello/service-call-request/any {"type":"service-call-request","id":"vwLzfQDu2uEeOdOfIlT42","sender":"2IBMSk0NPnrz1AeTERoea","service":"example/hello","params":["world",42]}
-example/hello: request: world 42 from: 2IBMSk0NPnrz1AeTERoea
-RECEIVED example/hello/service-call-response/2IBMSk0NPnrz1AeTERoea {"type":"service-call-response","id":"vwLzfQDu2uEeOdOfIlT42","sender":"2IBMSk0NPnrz1AeTERoea","receiver":"2IBMSk0NPnrz1AeTERoea","result":"world:42"}
-example/hello success: world:42
+RECEIVED example/sample/event-emission/any {"type":"event-emission","id":"...","sender":"...","event":"example/sample","params":["world",42]}
+example/sample: received: world 42 from: ...
+RECEIVED example/hello/service-call-request/any {"type":"service-call-request","id":"...","sender":"...","service":"example/hello","params":["world",42]}
+example/hello: request: world 42 from: ...
+RECEIVED example/hello/service-call-response/... {"type":"service-call-response","id":"...","sender":"...","receiver":"...","result":"world:42"}
+example/hello: success: world:42
+RECEIVED example/resource/resource-transfer-request/any {"type":"resource-transfer-request","id":"...","sender":"...","resource":"example/resource","params":["foo"]}
+example/resource: request: foo from: ...
+RECEIVED example/resource/resource-transfer-response/... {"type":"resource-transfer-response","id":"...","sender":"...","receiver":"...","chunk":...,"final":true}
+example/resource: result: the foo content
 CLOSE
 ```
 
