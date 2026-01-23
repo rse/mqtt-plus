@@ -108,7 +108,7 @@ import MQTT         from "mqtt"
 import MQTTp        from "mqtt-plus"
 import type { API } from [...]
 
-const mqtt  = MQTT.connect("wss://127.0.0.1:8883", { ... })
+const mqtt  = MQTT.connect("wss://127.0.0.1:8883", { [...] })
 const mqttp = new MQTTp<API>(mqtt)
 
 mqtt.on("connect", async () => {
@@ -129,7 +129,7 @@ import MQTT         from "mqtt"
 import MQTTp        from "mqtt-plus"
 import type { API } from [...]
 
-const mqtt = MQTT.connect("wss://127.0.0.1:8883", { ... })
+const mqtt = MQTT.connect("wss://127.0.0.1:8883", { [...] })
 const mqttp = new MQTTp<API>(mqtt)
 
 mqtt.on("connect", () => {
