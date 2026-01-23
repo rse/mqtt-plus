@@ -308,7 +308,7 @@ The **MQTT+** API provides the following methods:
           service:   string,
           params:    any[],
           receiver?: string,
-          options?:  MQTT::IClientSubscribeOptions
+          options?:  MQTT::IClientPublishOptions
       }): Promise<any>
 
   Call a service on all registrants or on a specific registrant ("request and response").
