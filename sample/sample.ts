@@ -1,11 +1,10 @@
 
 import fs               from "node:fs"
-import stream           from "stream"
 import Mosquitto        from "mosquitto"
 import MQTT             from "mqtt"
 import MQTTp            from "mqtt-plus"
 import type { Event,
-    Stream, Service,
+    Service,
     Resource }          from "mqtt-plus"
 
 const mosquitto = new Mosquitto({
@@ -29,7 +28,7 @@ const mqtt = MQTT.connect("wss://127.0.0.1:8443", {
 
 type API = {
     "example/sample":   Event<(a1: string, a2: number) => void>
-    "example/upload":   Stream<(name: string) => void>
+    "example/upload":   Resource<(name: string) => void>
     "example/hello":    Service<(a1: string, a2: number) => string>
     "example/resource": Resource<(filename: string) => void>
 }
@@ -81,8 +80,9 @@ mqtt.on("connect", async () => {
         console.log("example/resource: request:", filename, "from:", info.sender)
         info.resource = Buffer.from(`the ${filename} content`)
     })
-    const foo = await mqttp.fetch("example/resource", "foo")
-    console.log("example/resource: result:", foo.toString())
+    const res = await mqttp.fetch("example/resource", "foo")
+    const data = await res.buffer
+    console.log("example/resource: result:", data.toString())
     await p.unprovision()
 
     console.log("DISCONNECT")
