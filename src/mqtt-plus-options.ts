@@ -29,9 +29,9 @@ import { nanoid }      from "nanoid"
 import { APISchema }   from "./mqtt-plus-api"
 
 /*  MQTT topic matching  */
+type TopicMatching        = { name: string, operation: string, peerId?: string }
 export type TopicMake     = (name: string, operation: string, peerId?: string) => string
 export type TopicMatch    = (topic: string) => TopicMatching | null
-export type TopicMatching = { name: string, operation: string, peerId?: string }
 
 /*  API option type  */
 export interface APIOptions {

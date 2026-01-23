@@ -278,10 +278,14 @@ The **MQTT+** API provides the following methods:
       /*  (simplified TypeScript API method signature)  */
       emit(
           event:     string,
-          receiver?: Receiver,
-          options?:  MQTT::IClientSubscribeOptions,
           ...params: any[]
       ): void
+      emit({
+          event:     string,
+          params:    any[],
+          receiver?: string,
+          options?:  MQTT::IClientSubscribeOptions
+      }): void
 
   Emit an event to all subscribers or a specific subscriber ("fire and forget").
   The optional `receiver` directs the event to a specific subscriber only.
@@ -298,10 +302,14 @@ The **MQTT+** API provides the following methods:
       /*  (simplified TypeScript API method signature)  */
       call(
           service:   string,
-          receiver?: Receiver,
-          options?:  MQTT::IClientSubscribeOptions,
           ...params: any[]
       ): Promise<any>
+      call({
+          service:   string,
+          params:    any[],
+          receiver?: string,
+          options?:  MQTT::IClientSubscribeOptions
+      }): Promise<any>
 
   Call a service on all registrants or on a specific registrant ("request and response").
   The optional `receiver` directs the call to a specific registrant only.
@@ -320,10 +328,22 @@ The **MQTT+** API provides the following methods:
       /*  (simplified TypeScript API method signature)  */
       fetch(
           resource:  string,
-          receiver?: Receiver,
-          options?:  MQTT::IClientSubscribeOptions,
           ...params: any[]
-      ): Promise<{ stream: Readable, buffer: Promise<Buffer>, meta: Promise<Record<string, any> | undefined> }>
+      ): Promise<{
+          stream:    Readable,
+          buffer:    Promise<Buffer>,
+          meta:      Promise<Record<string, any> | undefined>
+      }>
+      fetch({
+          resource:  string,
+          params:    any[],
+          receiver?: string,
+          options?:  MQTT::IClientSubscribeOptions
+      }): Promise<{
+          stream:    Readable,
+          buffer:    Promise<Buffer>,
+          meta:      Promise<Record<string, any> | undefined>
+      }>
 
   Fetches a resource from any resource provisioner or from a specific provisioner.
   The optional `receiver` directs the call to a specific provisioner only.
@@ -350,15 +370,20 @@ The **MQTT+** API provides the following methods:
       push(
           resource:       string,
           streamOrBuffer: Readable | Buffer,
-          meta?:          Meta,
-          receiver?:      Receiver,
-          options?:       MQTT::IClientPublishOptions,
           ...params:      any[]
       ): Promise<void>
+      push({
+          resource:       string,
+          streamOrBuffer: Readable | Buffer,
+          params:         any[]
+          meta?:          Record<string, any>,
+          receiver?:      string,
+          options?:       MQTT::IClientPublishOptions
+      }): Promise<void>
 
   Pushes a resource to all provisioners or a specific provisioner.
   The `streamOrBuffer` is either a Node.js `Readable` stream or a `Buffer` providing the data to push.
-  The optional `meta` (wrapped via `meta()`) sends metadata alongside the resource data,
+  The optional `meta` sends metadata alongside the resource data,
   which becomes available on the provisioner side via `info.meta`.
   The optional `receiver` directs the push to a specific provisioner only.
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
@@ -375,25 +400,6 @@ The **MQTT+** API provides the following methods:
 
   Internally, publishes to the MQTT topic by `topicMake(resource, "resource-transfer-response", peerId)`
   (default: `${resource}/resource-transfer-response/any` or `${resource}/resource-transfer-response/${peerId}`).
-
-- **Receiver Wrapping**:<br/>
-
-      receiver(
-          id: string
-      ): Receiver
-
-  Wrap a receiver ID string for use with `emit()`, `call()`, `fetch()` or `push()` to direct the
-  message to a specific receiver. Returns a `Receiver` object.
-
-- **Meta Wrapping**:<br/>
-
-      meta(
-          data: Record<string, any>
-      ): Meta
-
-  Wrap a metadata object for use with `push()` to send metadata alongside the resource data.
-  The metadata is transferred with the first chunk and becomes available on the provisioner
-  side via `info.meta`. Returns a `Meta` object.
 
 Internals
 ---------

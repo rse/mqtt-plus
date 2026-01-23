@@ -34,8 +34,6 @@ import { streamToBuffer, sendBufferAsChunks, sendStreamAsChunks } from "./mqtt-p
 import { ResourceTransferRequest, ResourceTransferResponse }      from "./mqtt-plus-msg"
 import { APISchema, ResourceKeys, APIEndpointResource }           from "./mqtt-plus-api"
 import type { WithInfo, InfoResource }                            from "./mqtt-plus-info"
-import type { Receiver }                                          from "./mqtt-plus-receiver"
-import type { Meta }                                              from "./mqtt-plus-meta"
 import { ServiceTrait }                                           from "./mqtt-plus-service"
 
 /*  the provisioning result type  */
@@ -129,116 +127,53 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
     /*  push resource ("chunked content")  */
     push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        stream:    Readable,
-        ...params: Parameters<T[K]>
+        resource:      K,
+        data:          Readable | Buffer,
+        ...params:     Parameters<T[K]>
     ): Promise<void>
     push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        stream:    Readable,
-        receiver:  Receiver,
-        ...params: Parameters<T[K]>
+        config: {
+            resource:  K,
+            data:      Readable | Buffer,
+            params:    Parameters<T[K]>,
+            meta?:     Record<string, any>,
+            receiver?: string,
+            options?:  IClientPublishOptions
+        }
     ): Promise<void>
     push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        stream:    Readable,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        stream:    Readable,
-        receiver:  Receiver,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        buffer:    Buffer,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        buffer:    Buffer,
-        receiver:  Receiver,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        buffer:    Buffer,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        buffer:    Buffer,
-        receiver:  Receiver,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        buffer:    Buffer,
-        meta:      Meta,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        buffer:    Buffer,
-        meta:      Meta,
-        receiver:  Receiver,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        buffer:    Buffer,
-        meta:      Meta,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        buffer:    Buffer,
-        meta:      Meta,
-        receiver:  Receiver,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        stream:    Readable,
-        meta:      Meta,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        stream:    Readable,
-        meta:      Meta,
-        receiver:  Receiver,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        stream:    Readable,
-        meta:      Meta,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        stream:    Readable,
-        meta:      Meta,
-        receiver:  Receiver,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): Promise<void>
-    push<K extends ResourceKeys<T> & string> (
-        resource:       K,
-        streamOrBuffer: Readable | Buffer,
-        ...args:        any[]
+        resourceOrConfig: K | {
+            resource:  K,
+            data:      Readable | Buffer,
+            params:    Parameters<T[K]>,
+            meta?:     Record<string, any>,
+            receiver?: string,
+            options?:  IClientPublishOptions
+        },
+        ...args:       any[]
     ): Promise<void> {
         /*  determine actual parameters  */
-        const { meta, receiver, options, params } = this._parseCallArgs(args)
+        let resource:       K
+        let streamOrBuffer: Readable | Buffer
+        let params:         Parameters<T[K]>
+        let meta:           Record<string, any> | undefined
+        let receiver:       string | undefined
+        let options:        IClientPublishOptions = {}
+        if (typeof resourceOrConfig === "object" && resourceOrConfig !== null) {
+            /*  object-based API  */
+            resource       = resourceOrConfig.resource
+            streamOrBuffer = resourceOrConfig.data
+            params         = resourceOrConfig.params
+            meta           = resourceOrConfig.meta
+            receiver       = resourceOrConfig.receiver
+            options        = resourceOrConfig.options ?? {}
+        }
+        else {
+            /*  positional API  */
+            resource       = resourceOrConfig as K
+            streamOrBuffer = args[0] as Readable | Buffer
+            params         = args.slice(1) as Parameters<T[K]>
+        }
 
         /*  generate unique request id  */
         const rid = nanoid()
@@ -279,51 +214,55 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
     /*  fetch resource  */
     async fetch<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        ...params: Parameters<T[K]>
+        resource:      K,
+        ...params:     Parameters<T[K]>
     ): Promise<{
-        stream: Readable,
-        buffer: Promise<Buffer>,
-        meta:   Promise<Record<string, any> | undefined>
+        stream:        Readable,
+        buffer:        Promise<Buffer>,
+        meta:          Promise<Record<string, any> | undefined>
     }>
     async fetch<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        receiver:  Receiver,
-        ...params: Parameters<T[K]>
+        config: {
+            resource:  K,
+            params:    Parameters<T[K]>,
+            receiver?: string,
+            options?:  IClientPublishOptions
+        }
     ): Promise<{
-        stream: Readable,
-        buffer: Promise<Buffer>,
-        meta:   Promise<Record<string, any> | undefined>
+        stream:        Readable,
+        buffer:        Promise<Buffer>,
+        meta:          Promise<Record<string, any> | undefined>
     }>
     async fetch<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
+        resourceOrConfig: K | {
+            resource:  K,
+            params:    Parameters<T[K]>,
+            receiver?: string,
+            options?:  IClientPublishOptions
+        },
+        ...args:       any[]
     ): Promise<{
-        stream: Readable,
-        buffer: Promise<Buffer>,
-        meta:   Promise<Record<string, any> | undefined>
-    }>
-    async fetch<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        receiver:  Receiver,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): Promise<{
-        stream: Readable,
-        buffer: Promise<Buffer>,
-        meta:   Promise<Record<string, any> | undefined>
-    }>
-    async fetch<K extends ResourceKeys<T> & string> (
-        resource:  K,
-        ...args:   any[]
-    ): Promise<{
-        stream: Readable,
-        buffer: Promise<Buffer>,
-        meta:   Promise<Record<string, any> | undefined>
+        stream:        Readable,
+        buffer:        Promise<Buffer>,
+        meta:          Promise<Record<string, any> | undefined>
     }> {
         /*  determine actual parameters  */
-        const { receiver, options, params } = this._parseCallArgs(args)
+        let resource:  K
+        let receiver:  string | undefined
+        let options:   IClientPublishOptions = {}
+        let params:    Parameters<T[K]>
+        if (typeof resourceOrConfig === "object" && resourceOrConfig !== null) {
+            /*  object-based API  */
+            resource = resourceOrConfig.resource
+            params   = resourceOrConfig.params
+            receiver = resourceOrConfig.receiver
+            options  = resourceOrConfig.options ?? {}
+        }
+        else {
+            /*  positional API  */
+            resource = resourceOrConfig as K
+            params   = args as Parameters<T[K]>
+        }
 
         /*  generate unique request id for the request  */
         const requestId = nanoid()

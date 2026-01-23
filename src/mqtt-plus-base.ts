@@ -33,12 +33,12 @@ import { EventEmission,
     ServiceCallRequest,
     ServiceCallResponse,
     ResourceTransferRequest,
-    ResourceTransferResponse }               from "./mqtt-plus-msg"
+    ResourceTransferResponse,
+    MsgTrait }                               from "./mqtt-plus-msg"
 import { APIOptions }                        from "./mqtt-plus-options"
-import { MetaTrait }                         from "./mqtt-plus-meta"
 
 /*  MQTTp Base class with shared infrastructure  */
-export class BaseTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
+export class BaseTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
     protected mqtt: MqttClient
     private _messageHandler: (topic: string, message: Buffer, packet: IPublishPacket) => void
 
@@ -82,48 +82,6 @@ export class BaseTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
                 else     resolve()
             })
         })
-    }
-
-    /*  check whether argument has structure of interface IClientPublishOptions  */
-    private _isIClientPublishOptions (arg: any) {
-        if (typeof arg !== "object")
-            return false
-        const keys = [ "qos", "retain", "dup", "properties", "cbStorePut" ]
-        return Object.keys(arg).every((key) => keys.includes(key))
-    }
-
-    /*  parse optional meta, receiver and options from variadic arguments  */
-    protected _parseCallArgs<U extends any[]> (
-        args: any[]
-    ): {
-        meta?:     Record<string, any>,
-        receiver?: string,
-        options:   IClientPublishOptions,
-        params:    U
-    } {
-        /*  extract optional meta from arguments  */
-        let meta: Record<string, any> | undefined
-        if (args.length > 0 && this._isMeta(args[0]))
-            meta = this._getMeta(args.shift())
-
-        /*  extract optional receiver and options from arguments  */
-        let receiver: string | undefined
-        let options: IClientPublishOptions = {}
-        let params = args as U
-        if (args.length >= 2 && this._isReceiver(args[0]) && this._isIClientPublishOptions(args[1])) {
-            receiver = this._getReceiver(args[0])
-            options  = args[1]
-            params   = args.slice(2) as U
-        }
-        else if (args.length >= 1 && this._isReceiver(args[0])) {
-            receiver = this._getReceiver(args[0])
-            params   = args.slice(1) as U
-        }
-        else if (args.length >= 1 && this._isIClientPublishOptions(args[0])) {
-            options = args[0]
-            params  = args.slice(1) as U
-        }
-        return { meta, receiver, options, params }
     }
 
     /*  handle incoming MQTT message  */

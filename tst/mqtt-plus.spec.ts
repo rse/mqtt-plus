@@ -87,8 +87,6 @@ describe("MQTT+ Library", function () {
         expect(MQTTp.prototype).to.be.an("object")
         expect(MQTTp.prototype.constructor).to.equal(MQTTp)
 
-        expect(mqttp).to.respondTo("receiver")
-
         expect(mqttp).to.respondTo("subscribe")
         expect(mqttp).to.respondTo("emit")
 

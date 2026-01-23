@@ -32,7 +32,6 @@ import { EventEmission }             from "./mqtt-plus-msg"
 import { APISchema,
     APIEndpointEvent, EventKeys }    from "./mqtt-plus-api"
 import type { WithInfo, InfoEvent }  from "./mqtt-plus-info"
-import type { Receiver }             from "./mqtt-plus-receiver"
 import { BaseTrait }                 from "./mqtt-plus-base"
 
 /*  the subscription result type  */
@@ -106,31 +105,43 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
 
     /*  emit event ("fire and forget")  */
     emit<K extends EventKeys<T> & string> (
-        event:     K,
-        ...params: Parameters<T[K]>
+        event:         K,
+        ...params:     Parameters<T[K]>
     ): void
     emit<K extends EventKeys<T> & string> (
-        event:     K,
-        receiver:  Receiver,
-        ...params: Parameters<T[K]>
+        config: {
+            event:     K,
+            params:    Parameters<T[K]>,
+            receiver?: string,
+            options?:  IClientPublishOptions
+        }
     ): void
     emit<K extends EventKeys<T> & string> (
-        event:     K,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): void
-    emit<K extends EventKeys<T> & string> (
-        event:     K,
-        receiver:  Receiver,
-        options:   IClientPublishOptions,
-        ...params: Parameters<T[K]>
-    ): void
-    emit<K extends EventKeys<T> & string> (
-        event:     K,
-        ...args:   any[]
+        eventOrConfig: K | {
+            event:     K,
+            params:    Parameters<T[K]>,
+            receiver?: string,
+            options?:  IClientPublishOptions
+        },
+        ...args:       any[]
     ): void {
         /*  determine actual parameters  */
-        const { receiver, options, params } = this._parseCallArgs(args)
+        let event:     K
+        let params:    Parameters<T[K]>
+        let receiver:  string | undefined
+        let options:   IClientPublishOptions = {}
+        if (typeof eventOrConfig === "object" && eventOrConfig !== null) {
+            /*  object-based API  */
+            event    = eventOrConfig.event
+            params   = eventOrConfig.params
+            receiver = eventOrConfig.receiver
+            options  = eventOrConfig.options ?? {}
+        }
+        else {
+            /*  positional API  */
+            event    = eventOrConfig as K
+            params   = args as Parameters<T[K]>
+        }
 
         /*  generate unique request id  */
         const rid = nanoid()
