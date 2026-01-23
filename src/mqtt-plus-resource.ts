@@ -397,6 +397,10 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                         /*  handle Buffer result  */
                         else if (info.resource instanceof Buffer)
                             sendBufferAsChunks(info.resource, this.options.chunkSize, sendChunk)
+
+                        /*  fail  */
+                        else
+                            throw new Error("handler did not provide valid data via info.resource field")
                     })
                     .catch((err: Error) => {
                         /*  send error  */
@@ -443,6 +447,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                         }, this.options.timeout)
                         this.pushTimers.set(requestId, timer)
 
+                        /*  prepare info object  */
                         const promise = streamToBuffer(readable)
                         const params = parsed.params ?? []
                         const info: InfoResource = {
@@ -453,6 +458,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                             stream:   readable,
                             buffer:   promise
                         }
+
+                        /*  call handler  */
                         Promise.resolve()
                             .then(() => handler(...params, info))
                             .catch((err: Error) => {
