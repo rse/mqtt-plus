@@ -176,11 +176,13 @@ class Msg {
         if ("receiver" in obj && obj.receiver !== undefined && typeof obj.receiver !== "string")
             throw new Error("invalid object: invalid \"receiver\" field")
 
-        /*  dispatch according to type indication by field  */
+        /*  utility predicates for validation  */
         const anyFieldsExcept = (obj: object, allowed: string[]) =>
             Object.keys(obj).some((key) => !allowed.includes(key))
         const validParams = (obj: any) =>
             obj.params === undefined || (typeof obj.params === "object" && Array.isArray(obj.params))
+
+        /*  dispatch according to type indication by field  */
         if (obj.type === "event-emission") {
             /*  detect and parse event emission  */
             if (typeof obj.event !== "string")
