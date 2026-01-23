@@ -391,7 +391,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                                 () => {}, (err) => sendChunk(undefined, err.message, true))
 
                         /*  handle Buffer result  */
-                        else if (info.buffer !== undefined)
+                        else if (info.buffer !== undefined && typeof info.buffer.then === "function")
                             sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk)
 
                         /*  fail  */
