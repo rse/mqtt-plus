@@ -365,7 +365,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 const params    = parsed.params ?? []
                 const sender    = parsed.sender ?? ""
                 const receiver  = parsed.receiver
-                const info: InfoResource = { sender, receiver, resource: null }
+                const info: InfoResource = { sender, receiver }
 
                 /*  generate corresponding MQTT topic  */
                 const responseTopic = this.options.topicMake(resource, "resource-transfer-response", sender)
@@ -384,23 +384,19 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 /*  call the handler callback  */
                 Promise.resolve()
                     .then(() => handler(...params, info))
-                    .then(() => {
-                        /*  ensure the resource field is filled  */
-                        if (info.resource === null)
-                            throw new Error("handler did not provide data via info.resource field")
-
+                    .then(async () => {
                         /*  handle Readable stream result  */
-                        if (info.resource instanceof Readable)
-                            sendStreamAsChunks(info.resource, this.options.chunkSize, sendChunk,
+                        if (info.stream instanceof Readable)
+                            sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk,
                                 () => {}, (err) => sendChunk(undefined, err.message, true))
 
                         /*  handle Buffer result  */
-                        else if (info.resource instanceof Buffer)
-                            sendBufferAsChunks(info.resource, this.options.chunkSize, sendChunk)
+                        else if (info.buffer !== undefined)
+                            sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk)
 
                         /*  fail  */
                         else
-                            throw new Error("handler did not provide valid data via info.resource field")
+                            throw new Error("handler did not provide data via info.stream or info.buffer field")
                     })
                     .catch((err: Error) => {
                         /*  send error  */
@@ -453,7 +449,6 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                         const info: InfoResource = {
                             sender:   parsed.sender ?? "",
                             receiver: parsed.receiver,
-                            resource: null,
                             meta:     meta,
                             stream:   readable,
                             buffer:   promise

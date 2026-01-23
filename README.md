@@ -247,7 +247,6 @@ The **MQTT+** API provides the following methods:
               info: {
                   sender: string,
                   receiver?: string,
-                  resource: Buffer | Readable | null,
                   meta?: Record<string, any>,
                   stream?: Readable,
                   buffer?: Promise<Buffer>
@@ -260,7 +259,7 @@ The **MQTT+** API provides the following methods:
   The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
 
   For **fetch requests**: The `callback` is called with the `params` passed to a remote `fetch()`.
-  The `callback` should set `info.resource` to a `Buffer` or `Readable` containing the resource data.
+  The `callback` should set `info.stream` to a `Readable` or `info.buffer` to a `Promise<Buffer>` containing the resource data.
   Optionally, the `callback` can set `info.meta` to a `Record<string, any>` to send metadata back with the response.
 
   For **pushed data**: The `callback` is called with the `params` passed to a remote `push()`.
@@ -356,7 +355,7 @@ The **MQTT+** API provides the following methods:
   sent by the provisioner when the first chunk arrives.
 
   The remote `provision()` `callback` is called with `params` and
-  should set `info.resource` to a `Buffer` or `Readable` containing the resource data.
+  should set `info.stream` to a `Readable` or `info.buffer` to a `Promise<Buffer>` containing the resource data.
   Optionally, the `callback` can set `info.meta` to send metadata back with the response.
   If the remote `callback` throws an exception, this destroys the stream with the error.
 
@@ -585,7 +584,7 @@ mqtt.on("connect", async () => {
     /*  resource fetch example  */
     const prov = await mqttp.provision("example/resource", async (filename, info) => {
         console.log("example/resource: request:", filename, "from:", info.sender)
-        info.resource = Buffer.from(`the ${filename} content`)
+        info.buffer = Promise.resolve(Buffer.from(`the ${filename} content`))
     })
     const res = await mqttp.fetch("example/resource", "foo")
     const data = await res.buffer

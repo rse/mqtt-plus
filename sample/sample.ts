@@ -54,6 +54,8 @@ mqtt.on("connect", async () => {
 
     /*  streaming  */
     const a = await mqttp.provision("example/upload", (name, info) => {
+        if (!info.stream || !info.buffer)
+            throw new Error("only uploading supported")
         console.log("example/upload: received:", name, "from:", info.sender)
         const x = fs.createWriteStream("x.txt")
         info.stream.pipe(x)

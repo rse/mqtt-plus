@@ -223,7 +223,7 @@ describe("MQTT+ Library", function () {
         const mqttp = new MQTTp<API>(mqtt, { timeout: 1000 })
         const provisioning = await mqttp.provision("example/download", async (filename, info) => {
             if (filename === "foo")
-                info.resource = Buffer.from(`the ${filename} content`)
+                info.buffer = Promise.resolve(Buffer.from(`the ${filename} content`))
             else
                 throw new Error("invalid resource")
         })
