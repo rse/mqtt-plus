@@ -54,15 +54,15 @@ mqtt.on("connect", async () => {
     await s.unsubscribe()
 
     /*  streaming  */
-    const a = await mqttp.attach("example/upload", (name, info) => {
+    const a = await mqttp.provision("example/upload", (name, info) => {
         console.log("example/upload: received:", name, "from:", info.sender)
         const x = fs.createWriteStream("x.txt")
         info.stream.pipe(x)
     })
     const readable = fs.createReadStream("README.md")
-    await mqttp.transfer("example/upload", readable, "filename")
+    await mqttp.push("example/upload", readable, "filename")
     await new Promise((resolve) => { setTimeout(resolve, 100) })
-    await a.unattach()
+    await a.unprovision()
 
     /*  service  */
     const r = await mqttp.register("example/hello", (a1, a2, info) => {
