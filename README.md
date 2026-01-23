@@ -87,12 +87,12 @@ The API type defines the available endpoints. Use the marker types
 pattern of each endpoint:
 
 ```ts
-import type * as MQTTpt from "mqtt-plus"
+import type { Event, Service, Resource } from "mqtt-plus"
 
 export type API = {
-    "example/sample":   MQTTpt.Event<(a1: string, a2: number) => void>
-    "example/hello":    MQTTpt.Service<(a1: string, a2: number) => string>
-    "example/resource": MQTTpt.Resource<(filename: string) => void>
+    "example/sample":   Event<(a1: string, a2: number) => void>
+    "example/hello":    Service<(a1: string, a2: number) => string>
+    "example/resource": Resource<(filename: string) => void>
 }
 ```
 
@@ -179,7 +179,8 @@ The **MQTT+** API provides the following methods:
     The `operation` parameter is one of: `event-emission`, `service-call-request`, `service-call-response`, `resource-transfer-request`, `resource-transfer-response`.
     (default: `` (name, operation, peerId) => `${name}/${protocol}/${peerId ?? "any"}` ``)
   - `topicMatch`: Custom topic matching function.
-    Returns `{ name, operation, peerId? }` or `null` if no match. The `peerId` is `undefined` for broadcast topics (ending with `/any`).
+    Returns `{ name, operation, peerId? }` or `null` if no match.
+    The `peerId` is `undefined` for broadcast topics (ending with `/any`).
     (default: `` (topic) => { const m = topic.match(/^(.+)\/([^/]+)\/([^/]+)$/); return m ? { name: m[1], operation: m[2], peerId: m[3] === "any" ? undefined : m[3] } : null } ``)
 
 - **Destruction**:<br/>
