@@ -9,7 +9,7 @@ const mqtt = MQTT.connect("ws://127.0.0.1:8443", {
     password: "example"
 })
 
-const mqttp = new MQTTp<API>(mqtt, { codec: "json" })
+const mqttp = new MQTTp<API>(mqtt, { codec: "cbor" })
 
 mqtt.on("error",     (err)            => { console.log("ERROR", err) })
 mqtt.on("offline",   ()               => { console.log("OFFLINE") })
