@@ -43,12 +43,9 @@ export interface Registration {
 /*  Service Communication Trait  */
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
     /*  internal state  */
-    private registrations =
-        new Map<string, WithInfo<APIEndpointService, InfoService>>()
-    private responseCallback =
-        new Map<string, { service: string, callback: (err: any, result: any) => void }>()
-    private responseSubscriptions =
-        new Map<string, number>()
+    private registrations         = new Map<string, WithInfo<APIEndpointService, InfoService>>()
+    private responseCallback      = new Map<string, { service: string, callback: (err: any, result: any) => void }>()
+    private responseSubscriptions = new Map<string, number>()
 
     /*  register an RPC service  */
     async register<K extends ServiceKeys<T> & string> (

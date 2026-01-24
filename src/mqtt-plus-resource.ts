@@ -44,9 +44,8 @@ export interface Provisioning {
 /*  Resource Communication Trait  */
 export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
     /*  resource provisioning state  */
-    private provisionings =
-        new Map<string, WithInfo<APIEndpointResource, InfoResource>>()
-    private callbacks = new Map<string, {
+    private provisionings = new Map<string, WithInfo<APIEndpointResource, InfoResource>>()
+    private callbacks     = new Map<string, {
         resource: string,
         callback: (
             error: Error               | undefined,
@@ -55,8 +54,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             final: boolean             | undefined
         ) => void
     }>()
-    private pushStreams = new Map<string, Readable>()
-    private pushTimers  = new Map<string, ReturnType<typeof setTimeout>>()
+    private pushStreams   = new Map<string, Readable>()
+    private pushTimers    = new Map<string, ReturnType<typeof setTimeout>>()
 
     /*  provision a resource (for both fetch requests and pushed data)  */
     async provision<K extends ResourceKeys<T> & string> (
@@ -411,10 +410,10 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             && parsed instanceof ResourceTransferResponse) {
             /*  determine information  */
             const requestId = parsed.id
-            const error     = parsed.error
-            const meta      = parsed.meta
-            const final     = parsed.final
-            const chunk     = (parsed.chunk !== undefined && !Buffer.isBuffer(parsed.chunk))
+            const error = parsed.error
+            const meta  = parsed.meta
+            const final = parsed.final
+            const chunk = (parsed.chunk !== undefined && !Buffer.isBuffer(parsed.chunk))
                 ? Buffer.from(parsed.chunk) : parsed.chunk
 
             /*  case 1: response on fetch  */
