@@ -23,7 +23,6 @@
 */
 
 /*  external requirements  */
-import { Buffer }   from "node:buffer"
 import { Readable } from "node:stream"
 
 /*  info types  */
@@ -38,7 +37,7 @@ export interface InfoService  extends InfoBase {}
 export interface InfoResource extends InfoBase {
     meta?:    Record<string, any>
     stream?:  Readable
-    buffer?:  Promise<Buffer>
+    buffer?:  Promise<Uint8Array>
 }
 
 /*  type utility: extend function with Info parameter  */

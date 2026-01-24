@@ -34,7 +34,7 @@ mqtt.on("connect", () => {
     mqttp.fetch("example/data", "foo").then(async ({ buffer, meta }) => {
         const data = await buffer
         const info = await meta
-        console.log("example/data success: ", data.toString(), info)
+        console.log("example/data success: ", new TextDecoder().decode(data), info)
     }).catch((err) => {
         console.log("example/data error: ", err)
     })

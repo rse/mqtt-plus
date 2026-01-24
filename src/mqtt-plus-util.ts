@@ -23,21 +23,32 @@
 */
 
 /*  built-in requirements  */
-import { Buffer }   from "node:buffer"
 import { Readable } from "node:stream"
 
 /*  external requirements  */
 import PLazy        from "p-lazy"
 
-/*  utility function for collecting stream chunks into a Buffer  */
-export function streamToBuffer (stream: Readable): Promise<Buffer> {
-    return new PLazy<Buffer>((resolve, reject) => {
-        const chunks: Buffer[] = []
-        stream.on("data", (data: Buffer) => {
+/*  concatenate elements of an Uint8Array array  */
+function uint8ArrayConcat (arrays: Uint8Array[]) {
+    const totalLength = arrays.reduce((acc, value) => acc + value.length, 0)
+    const result = new Uint8Array(totalLength)
+    let offset = 0
+    for (const array of arrays) {
+        result.set(array, offset)
+        offset += array.length
+    }
+    return result
+}
+
+/*  utility function for collecting stream chunks into a buffer  */
+export function streamToBuffer (stream: Readable): Promise<Uint8Array> {
+    return new PLazy<Uint8Array>((resolve, reject) => {
+        const chunks: Uint8Array[] = []
+        stream.on("data", (data: Uint8Array) => {
             chunks.push(data)
         })
         stream.on("end", () => {
-            resolve(Buffer.concat(chunks))
+            resolve(uint8ArrayConcat(chunks))
         })
         stream.on("error", (err: Error) => {
             reject(err)
@@ -45,30 +56,28 @@ export function streamToBuffer (stream: Readable): Promise<Buffer> {
     })
 }
 
-/*  utility function for converting a chunk to a Buffer  */
-function chunkToBuffer (chunk: unknown): Buffer {
-    let buffer: Buffer
-    if (Buffer.isBuffer(chunk))
+/*  utility function for converting a chunk to a buffer  */
+function chunkToBuffer (chunk: unknown): Uint8Array {
+    let buffer: Uint8Array
+    if (chunk instanceof Uint8Array)
         buffer = chunk
     else if (typeof chunk === "string")
-        buffer = Buffer.from(chunk)
-    else if (chunk instanceof Uint8Array)
-        buffer = Buffer.from(chunk)
+        buffer = new TextEncoder().encode(chunk)
     else
-        buffer = Buffer.from(String(chunk))
+        buffer = new TextEncoder().encode(String(chunk))
     return buffer
 }
 
 /*  callback type for sending chunks  */
 export type SendChunkCallback = (
-    chunk: Buffer | undefined,
+    chunk: Uint8Array | undefined,
     error: string | undefined,
     final: boolean
 ) => void
 
-/*  utility function for sending a Buffer as chunks  */
+/*  utility function for sending a buffer as chunks  */
 export function sendBufferAsChunks (
-    buffer:    Buffer,
+    buffer:    Uint8Array,
     chunkSize: number,
     sendChunk: SendChunkCallback
 ): void {

@@ -22,9 +22,6 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/*  built-in requirements  */
-import { Buffer }     from "node:buffer"
-
 /*  internal requirements  */
 import { APISchema }  from "./mqtt-plus-api"
 import { CodecTrait } from "./mqtt-plus-codec"
@@ -89,7 +86,7 @@ export class ResourceTransferResponse extends Base {
         id:               string,
         public resource?: string,
         public params?:   any[],
-        public chunk?:    Buffer,
+        public chunk?:    Uint8Array,
         public meta?:     Record<string, any>,
         public error?:    string,
         public final?:    boolean,
@@ -149,7 +146,7 @@ class Msg {
         id:             string,
         resource?:      string,
         params?:        any[],
-        chunk?:         Buffer,
+        chunk?:         Uint8Array,
         meta?:          Record<string, any>,
         error?:         string,
         final?:         boolean,

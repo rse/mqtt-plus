@@ -22,6 +22,9 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/*  built-in requirements  */
+import { Buffer }                     from "node:buffer"
+
 /*  external requirements  */
 import { IClientPublishOptions,
     IClientSubscribeOptions }         from "mqtt"
@@ -181,7 +184,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const topic = this.options.topicMake(service, "service-call-request", receiver)
 
         /*  publish message to MQTT topic  */
-        this.mqtt.publish(topic, message, { qos: 2, ...options }, (err?: Error) => {
+        this.mqtt.publish(topic, Buffer.from(message), { qos: 2, ...options }, (err?: Error) => {
             /*  handle request failure (only if not already handled)  */
             if (err) {
                 const pendingRequest = this.responseCallback.get(rid)
@@ -280,7 +283,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     throw new Error("invalid request: missing sender")
                 const encoded = this.codec.encode(rpcResponse)
                 const topic = this.options.topicMake(name, "service-call-response", senderPeerId)
-                this.mqtt.publish(topic, encoded, { qos: 2 })
+                this.mqtt.publish(topic, Buffer.from(encoded), { qos: 2 })
             }).catch((err: Error) => {
                 this.mqtt.emit("error", err)
             })

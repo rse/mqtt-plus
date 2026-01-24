@@ -44,7 +44,7 @@ mqtt.on("connect", () => {
     /*  provision a resource (chunked content)  */
     mqttp.provision("example/data", (a1, info) => {
         console.log("example/data: request: ", a1, info)
-        info.buffer = Promise.resolve(Buffer.from(`data-for-${a1}`))
+        info.buffer = Promise.resolve(new TextEncoder().encode(`data-for-${a1}`))
         info.meta = { type: "text/plain" }
     })
 })

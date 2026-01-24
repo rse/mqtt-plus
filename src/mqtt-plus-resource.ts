@@ -50,7 +50,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         resource: string,
         callback: (
             error: Error               | undefined,
-            chunk: Buffer              | undefined,
+            chunk: Uint8Array          | undefined,
             meta:  Record<string, any> | undefined,
             final: boolean             | undefined
         ) => void
@@ -128,13 +128,13 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
     /*  push resource ("chunked content")  */
     push<K extends ResourceKeys<T> & string> (
         resource:      K,
-        data:          Readable | Buffer,
+        data:          Readable | Uint8Array,
         ...params:     Parameters<T[K]>
     ): Promise<void>
     push<K extends ResourceKeys<T> & string> (
         config: {
             resource:  K,
-            data:      Readable | Buffer,
+            data:      Readable | Uint8Array,
             params:    Parameters<T[K]>,
             meta?:     Record<string, any>,
             receiver?: string,
@@ -144,7 +144,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
     push<K extends ResourceKeys<T> & string> (
         resourceOrConfig: K | {
             resource:  K,
-            data:      Readable | Buffer,
+            data:      Readable | Uint8Array,
             params:    Parameters<T[K]>,
             meta?:     Record<string, any>,
             receiver?: string,
@@ -154,7 +154,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
     ): Promise<void> {
         /*  determine actual parameters  */
         let resource:       K
-        let streamOrBuffer: Readable | Buffer
+        let streamOrBuffer: Readable | Uint8Array
         let params:         Parameters<T[K]>
         let meta:           Record<string, any> | undefined
         let receiver:       string | undefined
@@ -171,7 +171,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         else {
             /*  positional API  */
             resource       = resourceOrConfig as K
-            streamOrBuffer = args[0] as Readable | Buffer
+            streamOrBuffer = args[0] as Readable | Uint8Array
             params         = args.slice(1) as Parameters<T[K]>
         }
 
@@ -185,13 +185,13 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         let firstChunk = true
 
         /*  callback for creating and sending a chunk message  */
-        const sendChunk = (chunk: Buffer | undefined, error: string | undefined, final: boolean) => {
+        const sendChunk = (chunk: Uint8Array | undefined, error: string | undefined, final: boolean) => {
             const chunkMeta = firstChunk ? meta : undefined
             firstChunk = false
             const request = this.msg.makeResourceTransferResponse(rid, resource,
                 params, chunk, chunkMeta, error, final, this.options.id, receiver)
             const message = this.codec.encode(request)
-            this.mqtt.publish(topic, message, { qos: 2, ...options })
+            this.mqtt.publish(topic, Buffer.from(message), { qos: 2, ...options })
         }
 
         /*  iterate over all chunks of the buffer  */
@@ -204,7 +204,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                     (err) => reject(err)
                 )
             }
-            else if (streamOrBuffer instanceof Buffer) {
+            else if (streamOrBuffer instanceof Uint8Array) {
                 /*  split buffer into chunks and send them  */
                 sendBufferAsChunks(streamOrBuffer, this.options.chunkSize, sendChunk)
                 resolve()
@@ -218,7 +218,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         ...params:     Parameters<T[K]>
     ): Promise<{
         stream:        Readable,
-        buffer:        Promise<Buffer>,
+        buffer:        Promise<Uint8Array>,
         meta:          Promise<Record<string, any> | undefined>
     }>
     async fetch<K extends ResourceKeys<T> & string> (
@@ -230,7 +230,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         }
     ): Promise<{
         stream:        Readable,
-        buffer:        Promise<Buffer>,
+        buffer:        Promise<Uint8Array>,
         meta:          Promise<Record<string, any> | undefined>
     }>
     async fetch<K extends ResourceKeys<T> & string> (
@@ -243,7 +243,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         ...args:       any[]
     ): Promise<{
         stream:        Readable,
-        buffer:        Promise<Buffer>,
+        buffer:        Promise<Uint8Array>,
         meta:          Promise<Record<string, any> | undefined>
     }> {
         /*  determine actual parameters  */
@@ -311,7 +311,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             resource,
             callback: (
                 error: Error               | undefined,
-                chunk: Buffer              | undefined,
+                chunk: Uint8Array          | undefined,
                 meta:  Record<string, any> | undefined,
                 final: boolean             | undefined
             ) => {
@@ -343,7 +343,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         const topic = this.options.topicMake(resource, "resource-transfer-request", receiver)
 
         /*  publish message to MQTT topic  */
-        this.mqtt.publish(topic, message, { qos: 2, ...options })
+        this.mqtt.publish(topic, Buffer.from(message), { qos: 2, ...options })
 
         /*  produce result  */
         return { stream, buffer, meta }
@@ -376,12 +376,12 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
                 /*  callback for creating and sending a chunk message  */
                 let firstChunk = true
-                const sendChunk = (chunk: Buffer | undefined, error: string | undefined, final: boolean) => {
+                const sendChunk = (chunk: Uint8Array | undefined, error: string | undefined, final: boolean) => {
                     const chunkMeta = firstChunk ? info.meta : undefined
                     firstChunk = false
                     const request = this.msg.makeResourceTransferResponse(requestId,
                         resource, undefined, chunk, chunkMeta, error, final, this.options.id, sender)
-                    const message = this.codec.encode(request)
+                    const message = Buffer.from(this.codec.encode(request))
                     this.mqtt.publish(responseTopic, message, { qos: 2 })
                 }
 
@@ -418,8 +418,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             const error = parsed.error
             const meta  = parsed.meta
             const final = parsed.final
-            const chunk = (parsed.chunk !== undefined && !Buffer.isBuffer(parsed.chunk))
-                ? Buffer.from(parsed.chunk) : parsed.chunk
+            const chunk = (parsed.chunk !== undefined && !(parsed.chunk instanceof Uint8Array))
+                ? Uint8Array.from(parsed.chunk) : parsed.chunk
 
             /*  case 1: response on fetch  */
             const handler = this.callbacks.get(requestId)

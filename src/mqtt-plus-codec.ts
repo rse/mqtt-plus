@@ -23,7 +23,6 @@
 */
 
 /*  external requirements  */
-import { Buffer }                    from "node:buffer"
 import * as CBOR                     from "cbor2"
 
 /*  internal requirements  */
@@ -46,10 +45,10 @@ export default class Codec {
             return Buffer.from(tag.contents as Uint8Array)
         })
     }
-    encode (data: unknown): Buffer | string {
-        let result: Buffer | string
+    encode (data: unknown): Uint8Array | string {
+        let result: Uint8Array | string
         if (this.type === "cbor") {
-            try { result = Buffer.from(CBOR.encode(data, { types: this.types })) }
+            try { result = CBOR.encode(data, { types: this.types }) }
             catch (_ex) { throw new Error("failed to encode CBOR format") }
         }
         else if (this.type === "json") {
@@ -60,11 +59,11 @@ export default class Codec {
             throw new Error("invalid format")
         return result
     }
-    decode (data: Buffer | string): unknown {
+    decode (data: Uint8Array | string): unknown {
         let result: unknown
         if (this.type === "cbor"
             && typeof data === "object"
-            && (data instanceof Buffer || data instanceof Uint8Array)) {
+            && data instanceof Uint8Array) {
             try { result = CBOR.decode(data, { tags: this.tags }) }
             catch (_ex) { throw new Error("failed to decode CBOR format") }
         }

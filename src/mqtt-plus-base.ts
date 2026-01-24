@@ -22,9 +22,6 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/*  built-in requirements  */
-import { Buffer }                            from "node:buffer"
-
 /*  external requirements  */
 import { MqttClient, IClientPublishOptions,
     IClientSubscribeOptions,
@@ -43,7 +40,7 @@ import { APIOptions }                        from "./mqtt-plus-options"
 /*  MQTTp Base class with shared infrastructure  */
 export class BaseTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
     protected mqtt: MqttClient
-    private _messageHandler: (topic: string, message: Buffer, packet: IPublishPacket) => void
+    private _messageHandler: (topic: string, message: Uint8Array, packet: IPublishPacket) => void
 
     /*  construct API class  */
     constructor (
@@ -88,7 +85,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
     }
 
     /*  handle incoming MQTT message  */
-    private _onMessage (topic: string, message: Buffer, packet: IPublishPacket): void {
+    private _onMessage (topic: string, message: Uint8Array, packet: IPublishPacket): void {
         /*  try to parse message as payload  */
         let parsed:
             EventEmission             |
@@ -97,7 +94,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
             ResourceTransferRequest   |
             ResourceTransferResponse
         try {
-            let input: Buffer | string = message
+            let input: Uint8Array | string = message
             if (this.options.codec === "json")
                 input = message.toString()
             const payload = this.codec.decode(input)

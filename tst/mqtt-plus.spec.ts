@@ -232,7 +232,7 @@ describe("MQTT+ Library", function () {
         /*  fetch existing resource (valid resource argument)  */
         const result = await mqttp.fetch("example/download", "foo")
         const buffer = await result.buffer
-        const str = buffer.toString()
+        const str = new TextDecoder().decode(buffer)
         expect(str).to.be.equal("the foo content")
 
         /*  fetch non-existing resource (invalid resource argument)  */

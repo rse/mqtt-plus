@@ -22,6 +22,9 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/*  built-in requirements  */
+import { Buffer }                    from "node:buffer"
+
 /*  external requirements  */
 import { IClientPublishOptions,
     IClientSubscribeOptions }        from "mqtt"
@@ -154,7 +157,7 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
         const topic = this.options.topicMake(event, "event-emission", receiver)
 
         /*  publish message to MQTT topic  */
-        this.mqtt.publish(topic, message, { qos: 0, ...options })
+        this.mqtt.publish(topic, Buffer.from(message), { qos: 0, ...options })
     }
 
     /*  dispatch message (Event pattern handling)  */

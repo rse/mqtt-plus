@@ -86,7 +86,7 @@ mqtt.on("connect", async () => {
     })
     const res = await mqttp.fetch("example/resource", "foo")
     const data = await res.buffer
-    console.log("example/resource: result:", data.toString())
+    console.log("example/resource: result:", new TextDecoder().decode(data))
     await p.unprovision()
 
     console.log("DISCONNECT")
