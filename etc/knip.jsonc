@@ -36,7 +36,8 @@
         "tst/**/*.spec.ts"
     ],
     "ignoreDependencies": [
-        "shx"
+        "shx",
+        "chokidar-cli"
     ],
     "ignore": [
     ]
