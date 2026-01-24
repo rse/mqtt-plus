@@ -15,7 +15,7 @@
         "vite-plugin-singlefile":          "2.3.0",
         "vite-plugin-node-polyfills":      "0.25.0",
         "@wroud/vite-plugin-tsc":          "0.12.2",
-        "mosquitto":                       "0.9.5"
+        "mosquitto":                       "0.9.6"
     },
     "scripts": {
         "build":                           "vite --config vite.mjs build --mode production",
