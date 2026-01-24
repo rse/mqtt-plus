@@ -23,11 +23,23 @@
 */
 
 /*  external requirements  */
-import CBOR from "cbor"
+import * as CBOR                     from "cbor2"
+import { registerEncoder }           from "cbor2/encoder"
+import { Tag }                       from "cbor2/tag"
 
 /*  internal requirements  */
 import { APISchema }                 from "./mqtt-plus-api"
 import { APIOptions, OptionsTrait }  from "./mqtt-plus-options"
+
+/*  directly support Buffer type for CBOR  */
+registerEncoder(Buffer, (buffer: Buffer) => [
+    64000,
+    new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
+])
+Tag.registerDecoder(64000, (tag) => {
+    const array = tag.contents as Uint8Array
+    return Buffer.copyBytesFrom(array)
+})
 
 /*  the encoder/decoder abstraction  */
 export default class Codec {
@@ -35,7 +47,7 @@ export default class Codec {
     encode (data: unknown): Buffer | string {
         let result: Buffer | string
         if (this.type === "cbor") {
-            try { result = CBOR.encode(data) }
+            try { result = Buffer.from(CBOR.encode(data)) }
             catch (_ex) { throw new Error("failed to encode CBOR format") }
         }
         else if (this.type === "json") {

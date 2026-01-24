@@ -58,7 +58,7 @@
     },
     "dependencies": {
         "nanoid":                     "5.1.6",
-        "cbor":                       "10.0.11",
+        "cbor2":                      "2.2.0",
         "p-lazy":                     "5.0.0"
     },
     "engines": {
