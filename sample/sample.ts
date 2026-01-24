@@ -82,7 +82,7 @@ mqtt.on("connect", async () => {
     /*  resource  */
     const p = await mqttp.provision("example/resource", async (filename, info) => {
         console.log("example/resource: request:", filename, "from:", info.sender)
-        info.buffer = Promise.resolve(Buffer.from(`the ${filename} content`))
+        info.buffer = Promise.resolve(new TextEncoder().encode(`the ${filename} content`))
     })
     const res = await mqttp.fetch("example/resource", "foo")
     const data = await res.buffer
