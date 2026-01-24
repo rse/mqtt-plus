@@ -32,8 +32,8 @@ export interface InfoBase {
 }
 
 /*  specialized info types  */
-export interface InfoEvent   extends InfoBase {}
-export interface InfoService extends InfoBase {}
+export interface InfoEvent    extends InfoBase {}
+export interface InfoService  extends InfoBase {}
 export interface InfoResource extends InfoBase {
     meta?:    Record<string, any>
     stream?:  Readable
