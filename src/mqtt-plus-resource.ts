@@ -286,13 +286,15 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         let timer: ReturnType<typeof setTimeout> | null = null
 
         /*  utility function for cleanup  */
-        const cleanup = () => {
+        const cleanup = (resolveMeta = false) => {
             if (timer !== null) {
                 clearTimeout(timer)
                 timer = null
             }
             this._unsubscribeTopic(responseTopic).catch(() => {})
             this.callbacks.delete(requestId)
+            if (resolveMeta)
+                metaResolve?.(undefined)
         }
 
         /*  start timeout handler  */
@@ -317,7 +319,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                     metaResolve?.(meta)
                 }
                 if (error !== undefined) {
-                    cleanup()
+                    cleanup(true)
                     stream.destroy(error)
                 }
                 else {
