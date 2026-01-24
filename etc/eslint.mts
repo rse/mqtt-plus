@@ -89,7 +89,8 @@ export default [
             "@typescript-eslint/consistent-generic-constructors": "off",
             "@typescript-eslint/no-this-alias":                   "off",
             "@typescript-eslint/unified-signatures":              "off",
-            "@typescript-eslint/no-empty-object-type":            "off"
+            "@typescript-eslint/no-empty-object-type":            "off",
+            "@typescript-eslint/no-extraneous-class":             "off"
         }
     }
 ]
