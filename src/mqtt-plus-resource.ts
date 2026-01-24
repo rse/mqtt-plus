@@ -366,7 +366,9 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 const params    = parsed.params ?? []
                 const sender    = parsed.sender ?? ""
                 const receiver  = parsed.receiver
-                const info: InfoResource = { sender, receiver }
+                const info: InfoResource = { sender }
+                if (receiver)
+                    info.receiver = receiver
 
                 /*  generate corresponding MQTT topic  */
                 const responseTopic = this.options.topicMake(resource, "resource-transfer-response", sender)
@@ -447,13 +449,13 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                         /*  prepare info object  */
                         const promise = streamToBuffer(readable)
                         const params = parsed.params ?? []
-                        const info: InfoResource = {
-                            sender:   parsed.sender ?? "",
-                            receiver: parsed.receiver,
-                            meta:     meta,
-                            stream:   readable,
-                            buffer:   promise
-                        }
+                        const info: InfoResource = { sender: parsed.sender ?? "" }
+                        if (parsed.receiver)
+                            info.receiver = parsed.receiver
+                        if (parsed.meta)
+                            info.meta = meta
+                        info.stream = readable
+                        info.buffer = promise
 
                         /*  call handler  */
                         Promise.resolve()

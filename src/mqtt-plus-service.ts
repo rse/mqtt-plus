@@ -249,7 +249,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             if (handler !== undefined) {
                 /*  execute service handler  */
                 const params = parsed.params ?? []
-                const info: InfoService = { sender: parsed.sender ?? "", receiver: parsed.receiver }
+                const info: InfoService = { sender: parsed.sender ?? "" }
+                if (parsed.receiver)
+                    info.receiver = parsed.receiver
                 response = Promise.resolve().then(() => handler(...params, info))
             }
             else
