@@ -44,7 +44,8 @@ function uint8ArrayConcat (arrays: Uint8Array[]) {
 export function streamToBuffer (stream: Readable): Promise<Uint8Array> {
     return new PLazy<Uint8Array>((resolve, reject) => {
         const chunks: Uint8Array[] = []
-        stream.on("data", (data: Uint8Array) => {
+        stream.on("data", (_data: any) => {
+            const data = chunkToBuffer(_data)
             chunks.push(data)
         })
         stream.on("end", () => {
@@ -59,7 +60,9 @@ export function streamToBuffer (stream: Readable): Promise<Uint8Array> {
 /*  utility function for converting a chunk to a buffer  */
 function chunkToBuffer (chunk: unknown): Uint8Array {
     let buffer: Uint8Array
-    if (chunk instanceof Uint8Array)
+    if (chunk instanceof Buffer)
+        buffer = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.length)
+    else if (chunk instanceof Uint8Array)
         buffer = chunk
     else if (typeof chunk === "string")
         buffer = new TextEncoder().encode(chunk)
