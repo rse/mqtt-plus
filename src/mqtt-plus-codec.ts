@@ -29,6 +29,34 @@ import * as CBOR                     from "cbor2"
 import { APISchema }                 from "./mqtt-plus-api"
 import { APIOptions, OptionsTrait }  from "./mqtt-plus-options"
 
+/*  JSON encode/decode with Uint8Array support  */
+class JSONX {
+    private static uint8ArrayToBase64 (arr: Uint8Array): string {
+        return btoa(String.fromCharCode(...arr))
+    }
+    private static base64ToUint8Array(base64: string): Uint8Array {
+        const binary = atob(base64)
+        const arr = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++)
+            arr[i] = binary.charCodeAt(i)
+        return arr
+    }
+    static stringify (obj: any): string {
+        return JSON.stringify(obj, (_, value) =>
+            value instanceof Uint8Array
+                ? { __Uint8Array__: this.uint8ArrayToBase64(value) }
+                : value
+        )
+    }
+    static parse (json: string): any {
+        return JSON.parse(json, (_, value) =>
+            value?.__Uint8Array__
+                ? this.base64ToUint8Array(value.__Uint8Array__)
+                : value
+        )
+    }
+}
+
 /*  the encoder/decoder abstraction  */
 export default class Codec {
     private types = new CBOR.TypeEncoderMap()
@@ -52,7 +80,7 @@ export default class Codec {
             catch (_ex) { throw new Error("failed to encode CBOR format") }
         }
         else if (this.type === "json") {
-            try { result = JSON.stringify(data) }
+            try { result = JSONX.stringify(data) }
             catch (_ex) { throw new Error("failed to encode JSON format") }
         }
         else
@@ -68,7 +96,7 @@ export default class Codec {
             catch (_ex) { throw new Error("failed to decode CBOR format") }
         }
         else if (this.type === "json" && typeof data === "string") {
-            try { result = JSON.parse(data) }
+            try { result = JSONX.parse(data) }
             catch (_ex) { throw new Error("failed to decode JSON format") }
         }
         else
