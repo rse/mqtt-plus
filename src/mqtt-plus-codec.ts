@@ -23,31 +23,33 @@
 */
 
 /*  external requirements  */
+import { Buffer }                    from "node:buffer"
 import * as CBOR                     from "cbor2"
-import { registerEncoder }           from "cbor2/encoder"
-import { Tag }                       from "cbor2/tag"
 
 /*  internal requirements  */
 import { APISchema }                 from "./mqtt-plus-api"
 import { APIOptions, OptionsTrait }  from "./mqtt-plus-options"
 
-/*  directly support Buffer type for CBOR  */
-registerEncoder(Buffer, (buffer: Buffer) => [
-    64000,
-    new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength)
-])
-Tag.registerDecoder(64000, (tag) => {
-    const array = tag.contents as Uint8Array
-    return Buffer.copyBytesFrom(array)
-})
-
 /*  the encoder/decoder abstraction  */
 export default class Codec {
-    constructor (private type: "cbor" | "json") {}
+    private types = new CBOR.TypeEncoderMap()
+    private tags: CBOR.TagDecoderMap = new Map<CBOR.TagNumber, CBOR.TagDecoder>()
+    constructor (
+        private type: "cbor" | "json"
+    ) {
+        /*  support direct encoding/decoding of Buffer  */
+        const TAG_BUFFER = 64000
+        this.types.registerEncoder(Buffer, (buffer: Buffer) => {
+            return [ TAG_BUFFER, new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength) ]
+        })
+        this.tags.set(TAG_BUFFER, (tag: CBOR.ITag) => {
+            return Buffer.from(tag.contents as Uint8Array)
+        })
+    }
     encode (data: unknown): Buffer | string {
         let result: Buffer | string
         if (this.type === "cbor") {
-            try { result = Buffer.from(CBOR.encode(data)) }
+            try { result = Buffer.from(CBOR.encode(data, { types: this.types })) }
             catch (_ex) { throw new Error("failed to encode CBOR format") }
         }
         else if (this.type === "json") {
@@ -60,8 +62,10 @@ export default class Codec {
     }
     decode (data: Buffer | string): unknown {
         let result: unknown
-        if (this.type === "cbor" && typeof data === "object" && data instanceof Buffer) {
-            try { result = CBOR.decode(data) }
+        if (this.type === "cbor"
+            && typeof data === "object"
+            && (data instanceof Buffer || data instanceof Uint8Array)) {
+            try { result = CBOR.decode(data, { tags: this.tags }) }
             catch (_ex) { throw new Error("failed to decode CBOR format") }
         }
         else if (this.type === "json" && typeof data === "string") {
