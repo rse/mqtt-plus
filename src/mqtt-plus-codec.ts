@@ -44,14 +44,14 @@ class JSONX {
     static stringify (obj: any): string {
         return JSON.stringify(obj, (_, value) =>
             value instanceof Uint8Array
-                ? { __Uint8Array__: this.uint8ArrayToBase64(value) }
+                ? { __Uint8Array: this.uint8ArrayToBase64(value) }
                 : value
         )
     }
     static parse (json: string): any {
         return JSON.parse(json, (_, value) =>
-            value?.__Uint8Array__
-                ? this.base64ToUint8Array(value.__Uint8Array__)
+            value?.__Uint8Array
+                ? this.base64ToUint8Array(value.__Uint8Array)
                 : value
         )
     }
