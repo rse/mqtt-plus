@@ -24,6 +24,8 @@
 
 /*  built-in dependencies  */
 import crypto           from "node:crypto"
+import stream           from "node:stream"
+import { Buffer }       from "node:buffer"
 
 /*  external dependencies (test suite)  */
 import { describe, it } from "mocha"
@@ -32,7 +34,6 @@ import sinon            from "sinon"
 import sinonChai        from "sinon-chai"
 
 /*  external dependencies (application)  */
-import stream           from "stream"
 import Mosquitto        from "mosquitto"
 import MQTT             from "mqtt"
 

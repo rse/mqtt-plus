@@ -23,7 +23,8 @@
 */
 
 /*  built-in requirements  */
-import { Readable }                                               from "stream"
+import { Buffer }                                                 from "node:buffer"
+import { Readable }                                               from "node:stream"
 
 /*  external requirements  */
 import { IClientPublishOptions, IClientSubscribeOptions }         from "mqtt"

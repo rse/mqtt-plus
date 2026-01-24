@@ -22,6 +22,9 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/*  built-in requirements  */
+import { Buffer }                            from "node:buffer"
+
 /*  external requirements  */
 import { MqttClient, IClientPublishOptions,
     IClientSubscribeOptions,

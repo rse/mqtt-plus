@@ -22,6 +22,9 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/*  built-in requirements  */
+import { Buffer }     from "node:buffer"
+
 /*  internal requirements  */
 import { APISchema }  from "./mqtt-plus-api"
 import { CodecTrait } from "./mqtt-plus-codec"

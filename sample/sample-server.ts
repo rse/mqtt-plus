@@ -1,7 +1,10 @@
 
+import { Buffer }   from "node:buffer"
+
 import Mosquitto    from "mosquitto"
 import MQTT         from "mqtt"
 import MQTTp        from "mqtt-plus"
+
 import type { API } from "./sample-common"
 
 const mosquitto = new Mosquitto({
@@ -16,7 +19,7 @@ const mqtt = MQTT.connect("ws://127.0.0.1:8443", {
     password: "example"
 })
 
-const mqttp = new MQTTp<API>(mqtt, { codec: "json" })
+const mqttp = new MQTTp<API>(mqtt, { codec: "cbor" })
 
 mqtt.on("error",     (err)            => { console.log("ERROR", err) })
 mqtt.on("offline",   ()               => { console.log("OFFLINE") })

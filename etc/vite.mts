@@ -39,11 +39,21 @@ export default Vite.defineConfig(({ command, mode }) => ({
             packageManager: "npx",
             prebuild:       true
         }),
-        ...(formats === "umd" ? [ nodePolyfills() ] : [])
+        ...(formats === "umd" ? [ nodePolyfills({
+            include: [ "stream", "buffer" ],
+            globals: {},
+            protocolImports: true
+        }) ] : [])
     ],
     build: {
         rollupOptions: {
-            external: formats === "umd" ? [] : [ "stream", "nanoid", "cbor2", "p-lazy" ]
+            external: formats === "umd" ? [] : [
+                "node:stream",
+                "node:buffer",
+                "nanoid",
+                "cbor2",
+                "p-lazy"
+            ]
         },
         lib: {
             entry:    "dst-stage1/mqtt-plus.js",

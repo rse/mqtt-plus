@@ -23,7 +23,8 @@
 */
 
 /*  external requirements  */
-import { Readable } from "stream"
+import { Buffer }   from "node:buffer"
+import { Readable } from "node:stream"
 
 /*  info types  */
 export interface InfoBase {

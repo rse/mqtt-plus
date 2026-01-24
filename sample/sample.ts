@@ -1,5 +1,7 @@
 
 import fs               from "node:fs"
+import { Buffer }       from "node:buffer"
+
 import Mosquitto        from "mosquitto"
 import MQTT             from "mqtt"
 import MQTTp            from "mqtt-plus"
