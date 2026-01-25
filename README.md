@@ -457,8 +457,12 @@ In the following, we assume that an **MQTT+** instance is created with:
 import MQTT  from "mqtt"
 import MQTTp from "mqtt-plus"
 
+export type API = {
+    "example/sample": Event<(a1: string, a2: number) => void>
+    ...
+}
 const mqtt  = MQTT.connect("...", { ... })
-const mqttp = new MQTTp(mqtt, { codec: "json" })
+const mqttp = new MQTTp<API>(mqtt, { codec: "json" })
 ```
 
 Internally, remote services are assigned to MQTT topics. When calling a
@@ -512,12 +516,102 @@ The `sender` field is the NanoID of the MQTT+ sender instance and
 used for sending back the response message to the requestor only. The
 `id` is used for correlating the response to the request only.
 
+Example
+-------
+
+You can test-drive MQTT+, in a temporary MQTT broker environment,
+with a complete [sample](sample/sample.ts) to see it in action and
+tracing its communication:
+
+```ts
+import Mosquitto                         from "mosquitto"
+import MQTT                              from "mqtt"
+import MQTTp                             from "mqtt-plus"
+import type { Event, Service, Resource } from "mqtt-plus"
+
+const mosquitto = new Mosquitto()
+await mosquitto.start()
+await new Promise((resolve) => { setTimeout(resolve, 500) })
+
+const mqtt = MQTT.connect("mqtt://127.0.0.1:1883", {
+    username: "example",
+    password: "example"
+})
+
+type API = {
+    "example/sample":   Event<(a1: string, a2: number) => void>
+    "example/hello":    Service<(a1: string, a2: number) => string>
+    "example/resource": Resource<(filename: string) => void>
+}
+
+const mqttp = new MQTTp<API>(mqtt, { codec: "json" })
+
+mqtt.on("error",     (err)            => { console.log("ERROR", err) })
+mqtt.on("offline",   ()               => { console.log("OFFLINE") })
+mqtt.on("close",     ()               => { console.log("CLOSE") })
+mqtt.on("reconnect", ()               => { console.log("RECONNECT") })
+mqtt.on("message",   (topic, message) => { console.log("RECEIVED", topic, message.toString()) })
+
+mqtt.on("connect", async () => {
+    console.log("CONNECT")
+
+    /*  event emission example  */
+    const sub = await mqttp.subscribe("example/sample", (a1, a2, info) => {
+        console.log("example/sample: received:", a1, a2, "from:", info.sender)
+    })
+    mqttp.emit("example/sample", "world", 42)
+    await new Promise((resolve) => { setTimeout(resolve, 100) })
+    await sub.unsubscribe()
+
+    /*  service call example  */
+    const reg = await mqttp.register("example/hello", (a1, a2, info) => {
+        console.log("example/hello: request:", a1, a2, "from:", info.sender)
+        return `${a1}:${a2}`
+    })
+    const result = await mqttp.call("example/hello", "world", 42)
+    console.log("example/hello: success:", result)
+    await reg.unregister()
+
+    /*  resource fetch example  */
+    const prov = await mqttp.provision("example/resource", async (filename, info) => {
+        console.log("example/resource: request:", filename, "from:", info.sender)
+        const data = `the ${filename} content`
+        info.buffer = Promise.resolve(new TextEncoder().encode(data))
+    })
+    const res = await mqttp.fetch("example/resource", "foo")
+    const data = new TextDecoder().decode(await res.buffer)
+    console.log("example/resource: result:", data)
+    await prov.unprovision()
+
+    mqtt.end()
+    await mosquitto.stop()
+})
+```
+
+The output will be:
+
+```
+$ node sample.ts
+CONNECT
+RECEIVED example/sample/event-emission/any {"type":"event-emission","id":"...","sender":"...","event":"example/sample","params":["world",42]}
+example/sample: received: world 42 from: ...
+RECEIVED example/hello/service-call-request/any {"type":"service-call-request","id":"...","sender":"...","service":"example/hello","params":["world",42]}
+example/hello: request: world 42 from: ...
+RECEIVED example/hello/service-call-response/... {"type":"service-call-response","id":"...","sender":"...","receiver":"...","result":"world:42"}
+example/hello: success: world:42
+RECEIVED example/resource/resource-transfer-request/any {"type":"resource-transfer-request","id":"...","sender":"...","resource":"example/resource","params":["foo"]}
+example/resource: request: foo from: ...
+RECEIVED example/resource/resource-transfer-response/... {"type":"resource-transfer-response","id":"...","sender":"...","receiver":"...","chunk":...,"final":true}
+example/resource: result: the foo content
+CLOSE
+```
+
 Broker Setup
 ------------
 
-For a real test-drive of MQTT+, install the
-[Mosquitto](https://mosquitto.org/) MQTT broker and a `mosquitto.conf`
-file like...
+For establishing your own permanent MQTT environment, install the
+[Mosquitto](https://mosquitto.org/) MQTT broker yourself and a setup
+a `mosquitto.conf` file like...
 
 ```
 [...]
@@ -567,98 +661,6 @@ topic   write     service/+/+
 
 ```
 example:$6$awYNe6oCAi+xlvo5$mWIUqyy4I0O3nJ99lP1mkRVqsDGymF8en5NChQQxf7KrVJLUp1SzrrVDe94wWWJa3JGIbOXD9wfFGZdi948e6A==
-```
-
-Alternatively, you can use the [NPM package mosquitto](https://npmjs.com/mosquitto)
-for an equal setup.
-
-Example
--------
-
-You can test-drive MQTT+ with a complete [sample](sample/sample.ts) to see
-it in action and tracing its communication (the typing of the `MQTTp`
-class with `API` is optional, but strongly suggested):
-
-```ts
-import Mosquitto        from "mosquitto"
-import MQTT             from "mqtt"
-import MQTTp            from "mqtt-plus"
-import type * as MQTTpt from "mqtt-plus"
-
-const mosquitto = new Mosquitto()
-await mosquitto.start()
-await new Promise((resolve) => { setTimeout(resolve, 500) })
-
-const mqtt = MQTT.connect("mqtt://127.0.0.1:1883", {
-    username: "example",
-    password: "example"
-})
-
-type API = {
-    "example/sample":   MQTTpt.Event<(a1: string, a2: number) => void>
-    "example/hello":    MQTTpt.Service<(a1: string, a2: number) => string>
-    "example/resource": MQTTpt.Resource<(filename: string) => void>
-}
-
-const mqttp = new MQTTp<API>(mqtt, { codec: "json" })
-
-mqtt.on("error",     (err)            => { console.log("ERROR", err) })
-mqtt.on("offline",   ()               => { console.log("OFFLINE") })
-mqtt.on("close",     ()               => { console.log("CLOSE") })
-mqtt.on("reconnect", ()               => { console.log("RECONNECT") })
-mqtt.on("message",   (topic, message) => { console.log("RECEIVED", topic, message.toString()) })
-
-mqtt.on("connect", async () => {
-    console.log("CONNECT")
-
-    /*  event emission example  */
-    const sub = await mqttp.subscribe("example/sample", (a1, a2, info) => {
-        console.log("example/sample: received:", a1, a2, "from:", info.sender)
-    })
-    mqttp.emit("example/sample", "world", 42)
-    await new Promise((resolve) => { setTimeout(resolve, 100) })
-    await sub.unsubscribe()
-
-    /*  service call example  */
-    const reg = await mqttp.register("example/hello", (a1, a2, info) => {
-        console.log("example/hello: request:", a1, a2, "from:", info.sender)
-        return `${a1}:${a2}`
-    })
-    const result = await mqttp.call("example/hello", "world", 42)
-    console.log("example/hello: success:", result)
-    await reg.unregister()
-
-    /*  resource fetch example  */
-    const prov = await mqttp.provision("example/resource", async (filename, info) => {
-        console.log("example/resource: request:", filename, "from:", info.sender)
-        info.buffer = Promise.resolve(Buffer.from(`the ${filename} content`))
-    })
-    const res = await mqttp.fetch("example/resource", "foo")
-    const data = await res.buffer
-    console.log("example/resource: result:", data.toString())
-    await prov.unprovision()
-
-    mqtt.end()
-    await mosquitto.stop()
-})
-```
-
-The output will be:
-
-```
-$ node sample.ts
-CONNECT
-RECEIVED example/sample/event-emission/any {"type":"event-emission","id":"...","sender":"...","event":"example/sample","params":["world",42]}
-example/sample: received: world 42 from: ...
-RECEIVED example/hello/service-call-request/any {"type":"service-call-request","id":"...","sender":"...","service":"example/hello","params":["world",42]}
-example/hello: request: world 42 from: ...
-RECEIVED example/hello/service-call-response/... {"type":"service-call-response","id":"...","sender":"...","receiver":"...","result":"world:42"}
-example/hello: success: world:42
-RECEIVED example/resource/resource-transfer-request/any {"type":"resource-transfer-request","id":"...","sender":"...","resource":"example/resource","params":["foo"]}
-example/resource: request: foo from: ...
-RECEIVED example/resource/resource-transfer-response/... {"type":"resource-transfer-response","id":"...","sender":"...","receiver":"...","chunk":...,"final":true}
-example/resource: result: the foo content
-CLOSE
 ```
 
 Notice
