@@ -53,20 +53,38 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
         callback: WithInfo<T[K], InfoEvent>
     ): Promise<Subscription>
     async subscribe<K extends EventKeys<T> & string> (
-        event:    K,
-        options:  Partial<IClientSubscribeOptions>,
-        callback: WithInfo<T[K], InfoEvent>
+        config: {
+            event:     K,
+            callback:  WithInfo<T[K], InfoEvent>,
+            options?:  Partial<IClientSubscribeOptions>,
+            share?:    string
+        }
     ): Promise<Subscription>
     async subscribe<K extends EventKeys<T> & string> (
-        event:    K,
-        ...args:  any[]
+        eventOrConfig: K | {
+            event:     K,
+            callback:  WithInfo<T[K], InfoEvent>,
+            options?:  Partial<IClientSubscribeOptions>,
+            share?:    string
+        },
+        ...args:       any[]
     ): Promise<Subscription> {
-        /*  determine parameters  */
+        /*  determine actual parameters  */
+        let event:    K
+        let callback: WithInfo<T[K], InfoEvent>
         let options:  Partial<IClientSubscribeOptions> = {}
-        let callback: WithInfo<T[K], InfoEvent> = args[0]
-        if (args.length === 2 && typeof args[0] === "object") {
-            options  = args[0]
-            callback = args[1]
+        let share:    string | undefined
+        if (typeof eventOrConfig === "object" && eventOrConfig !== null) {
+            /*  object-based API  */
+            event    = eventOrConfig.event
+            callback = eventOrConfig.callback
+            options  = eventOrConfig.options ?? {}
+            share    = eventOrConfig.share
+        }
+        else {
+            /*  positional API  */
+            event    = eventOrConfig as K
+            callback = args[0] as WithInfo<T[K], InfoEvent>
         }
 
         /*  sanity check situation  */
@@ -74,8 +92,9 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             throw new Error(`subscribe: event "${event}" already subscribed`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topicB = this.options.topicMake(event, "event-emission")
-        const topicD = this.options.topicMake(event, "event-emission", this.options.id)
+        const name = share ? `$share/${share}/${event}` : event
+        const topicB = this.options.topicMake(name, "event-emission")
+        const topicD = this.options.topicMake(name, "event-emission", this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([

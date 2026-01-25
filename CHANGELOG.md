@@ -2,6 +2,12 @@
 ChangeLog
 =========
 
+0.9.18 (2026-01-25)
+-------------------
+
+- IMPROVEMENT: support config parameter API variant also in subscribe/register/provision
+- IMPROVEMENT: support MQTT 5 shared subscriptions also in subscribe/register/provision
+
 0.9.17 (2026-01-25)
 -------------------
 

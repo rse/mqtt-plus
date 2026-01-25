@@ -64,20 +64,38 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         callback: WithInfo<T[K], InfoResource>
     ): Promise<Provisioning>
     async provision<K extends ResourceKeys<T> & string> (
-        resource: K,
-        options:  Partial<IClientSubscribeOptions>,
-        callback: WithInfo<T[K], InfoResource>
+        config: {
+            resource:  K,
+            callback:  WithInfo<T[K], InfoResource>,
+            options?:  Partial<IClientSubscribeOptions>,
+            share?:    string
+        }
     ): Promise<Provisioning>
     async provision<K extends ResourceKeys<T> & string> (
-        resource: K,
+        resourceOrConfig: K | {
+            resource:  K,
+            callback:  WithInfo<T[K], InfoResource>,
+            options?:  Partial<IClientSubscribeOptions>,
+            share?:    string
+        },
         ...args:  any[]
     ): Promise<Provisioning> {
-        /*  determine parameters  */
+        /*  determine actual parameters  */
+        let resource: K
+        let callback: WithInfo<T[K], InfoResource>
         let options:  Partial<IClientSubscribeOptions> = {}
-        let callback: WithInfo<T[K], InfoResource> = args[0]
-        if (args.length === 2 && typeof args[0] === "object") {
-            options  = args[0]
-            callback = args[1]
+        let share:    string | undefined
+        if (typeof resourceOrConfig === "object" && resourceOrConfig !== null) {
+            /*  object-based API  */
+            resource = resourceOrConfig.resource
+            callback = resourceOrConfig.callback
+            options  = resourceOrConfig.options ?? {}
+            share    = resourceOrConfig.share
+        }
+        else {
+            /*  positional API  */
+            resource = resourceOrConfig as K
+            callback = args[0] as WithInfo<T[K], InfoResource>
         }
 
         /*  sanity check situation  */
@@ -85,10 +103,11 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             throw new Error(`provision: resource "${resource}" already provisioned`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topicReqB = this.options.topicMake(resource, "resource-transfer-request")
-        const topicReqD = this.options.topicMake(resource, "resource-transfer-request", this.options.id)
-        const topicResB = this.options.topicMake(resource, "resource-transfer-response")
-        const topicResD = this.options.topicMake(resource, "resource-transfer-response", this.options.id)
+        const name = share ? `$share/${share}/${resource}` : resource
+        const topicReqB = this.options.topicMake(name, "resource-transfer-request")
+        const topicReqD = this.options.topicMake(name, "resource-transfer-request", this.options.id)
+        const topicResB = this.options.topicMake(name, "resource-transfer-response")
+        const topicResD = this.options.topicMake(name, "resource-transfer-response", this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([

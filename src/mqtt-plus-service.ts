@@ -56,20 +56,38 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         callback: WithInfo<T[K], InfoService>
     ): Promise<Registration>
     async register<K extends ServiceKeys<T> & string> (
-        service:  K,
-        options:  Partial<IClientSubscribeOptions>,
-        callback: WithInfo<T[K], InfoService>
+        config: {
+            service:   K,
+            callback:  WithInfo<T[K], InfoService>,
+            options?:  Partial<IClientSubscribeOptions>,
+            share?:    string
+        }
     ): Promise<Registration>
     async register<K extends ServiceKeys<T> & string> (
-        service:  K,
+        serviceOrConfig: K | {
+            service:   K,
+            callback:  WithInfo<T[K], InfoService>,
+            options?:  Partial<IClientSubscribeOptions>,
+            share?:    string
+        },
         ...args:  any[]
     ): Promise<Registration> {
-        /*  determine parameters  */
+        /*  determine actual parameters  */
+        let service:  K
+        let callback: WithInfo<T[K], InfoService>
         let options:  Partial<IClientSubscribeOptions> = {}
-        let callback: WithInfo<T[K], InfoService> = args[0]
-        if (args.length === 2 && typeof args[0] === "object") {
-            options  = args[0]
-            callback = args[1]
+        let share:    string | undefined
+        if (typeof serviceOrConfig === "object" && serviceOrConfig !== null) {
+            /*  object-based API  */
+            service  = serviceOrConfig.service
+            callback = serviceOrConfig.callback
+            options  = serviceOrConfig.options ?? {}
+            share    = serviceOrConfig.share
+        }
+        else {
+            /*  positional API  */
+            service  = serviceOrConfig as K
+            callback = args[0] as WithInfo<T[K], InfoService>
         }
 
         /*  sanity check situation  */
@@ -77,8 +95,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             throw new Error(`register: service "${service}" already registered`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topicB = this.options.topicMake(service, "service-call-request")
-        const topicD = this.options.topicMake(service, "service-call-request", this.options.id)
+        const name = share ? `$share/${share}/${service}` : service
+        const topicB = this.options.topicMake(name, "service-call-request")
+        const topicD = this.options.topicMake(name, "service-call-request", this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([
