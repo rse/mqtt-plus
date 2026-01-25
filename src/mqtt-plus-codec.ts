@@ -34,7 +34,7 @@ class JSONX {
     private static uint8ArrayToBase64 (arr: Uint8Array): string {
         return btoa(String.fromCharCode(...arr))
     }
-    private static base64ToUint8Array(base64: string): Uint8Array {
+    private static base64ToUint8Array (base64: string): Uint8Array {
         const binary = atob(base64)
         const arr = new Uint8Array(binary.length)
         for (let i = 0; i < binary.length; i++)
