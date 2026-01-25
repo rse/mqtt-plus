@@ -23,7 +23,7 @@
 */
 
 /*  external requirements  */
-import { MqttClient, IClientPublishOptions,
+import type { MqttClient,
     IClientSubscribeOptions,
     IPublishPacket }                         from "mqtt"
 
@@ -44,10 +44,22 @@ export class BaseTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
 
     /*  construct API class  */
     constructor (
-        mqtt: MqttClient,
+        mqtt: MqttClient | null,
         options: Partial<APIOptions> = {}
     ) {
         super(options)
+
+        /*  optionally provide a fake proxy for the MQTT client
+            (mainly for using emit({ ..., dry: true }) to just make MQTT "last will")  */
+        if (mqtt === null)
+            mqtt = new Proxy<MqttClient>({} as MqttClient, {
+                get(_target, prop, _receiver): any {
+                    if (prop === "isFakeProxy")
+                        return true
+                    else
+                        return (...args: any[]) => {}
+                }
+            })
 
         /*  store MQTT client  */
         this.mqtt = mqtt
