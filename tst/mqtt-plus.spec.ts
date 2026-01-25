@@ -50,6 +50,7 @@ const { expect } = chai
 
 /*  example API  */
 type API = {
+    "example/connection":       Event<(state: "open" | "close") => void>
     "example/sample":           Event<(a1: string, a2: number) => void>
     "example/hello":            Service<(a1: string, a2: number) => string>
     "example/upload":           Resource<(name: string) => void>
@@ -251,6 +252,65 @@ describe("MQTT+ Library", function () {
 
         await provisioning.unprovision()
         mqttp.destroy()
+    })
+
+    /*  test case: Dry-Run & Last-Will */
+    it("MQTT+ Dry-Run & MQTT Last-Will", async function () {
+        this.timeout(3000)
+
+        /*  generate connection close event  */
+        const mqttpDry = new MQTTp<API>(null, { id: "my-client" })
+        const will = mqttpDry.emit({ dry: true, event: "example/connection", params: [ "close" ] })
+        mqttpDry.destroy()
+
+        /*  connect to broker as a server  */
+        const mqttServer = MQTT.connect("mqtt://127.0.0.1:1883", {
+            username: "example", password: "example"
+        })
+        await new Promise<void>((resolve, reject) => {
+            mqttServer.once("connect", ()         => { resolve() })
+            mqttServer.once("error",   (err: any) => { reject(err) })
+        })
+        const mqttpServer = new MQTTp<API>(mqttServer, { timeout: 1000 })
+
+        /*  observe connection events  */
+        const spy = sinon.spy()
+        mqttpServer.subscribe("example/connection", (state) => {
+            expect(state).to.match(/^(?:open|close)$/)
+            spy(state)
+        })
+
+        /*  connect to broker as a client with last-will  */
+        const mqttClient = MQTT.connect("mqtt://127.0.0.1:1883", {
+            username: "example", password: "example",
+            will: {
+                topic:   will.topic,
+                payload: will.payload,
+                qos:     will.options.qos
+            }
+        })
+        await new Promise<void>((resolve, reject) => {
+            mqttClient.once("connect", ()         => { resolve() })
+            mqttClient.once("error",   (err: any) => { reject(err) })
+        })
+        const mqttpClient = new MQTTp<API>(mqttClient, { timeout: 1000 })
+
+        /*  send connection open event  */
+        await mqttpClient.emit("example/connection", "open")
+        await new Promise((resolve) => { setTimeout(resolve, 100) })
+
+        /*  perform unexpected destruction of client  */
+        mqttpClient.destroy()
+        mqttClient.end(true)
+        await new Promise((resolve) => { setTimeout(resolve, 1000) })
+
+        /*  perform regular destruction of client  */
+        mqttpServer.destroy()
+        mqttServer.end()
+
+        /*  ensure connection open and close events were seen  */
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.deep.equal([ "open", "close" ])
     })
 
     /*  actions after each test cases  */
