@@ -286,16 +286,52 @@ The **MQTT+** API provides the following methods:
           receiver?: string,
           options?:  MQTT::IClientSubscribeOptions
       }): void
+      emit({
+          event:     string,
+          params:    any[],
+          receiver?: string,
+          options?:  MQTT::IClientSubscribeOptions,
+          dry:       true
+      }): { topic: string, payload: Buffer, options: IClientPublishOptions }
 
   Emit an event to all subscribers or a specific subscriber ("fire and forget").
   The optional `receiver` directs the event to a specific subscriber only.
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+  The optional `dry` flag, when set to `true`, returns the publish information
+  (`topic`, `payload`, `options`) instead of actually publishing to the MQTT broker.
+  This is useful for generating MQTT "last will" messages (see example below).
 
   The remote `subscribe()` `callback` is called with `params` and its
   return value is silently ignored.
 
   Internally, publishes to the MQTT topic by `topicMake(event, "event-emission", peerId)`
   (default: `${event}/event-emission/any` or `${event}/event-emission/${peerId}`).
+
+  **Dry-Run Publishing for MQTT Last-Will:**
+  When you need to set up an MQTT "last will" message (automatically published
+  by the broker when a client disconnects *unexpectedly*), you can use `dry: true`
+  together with a `null` MQTT client:
+
+      type API = {
+          "example/connection": Event<(state: "open" | "close") => void>,
+          [...]
+      }
+      const mqttpDry = new MQTTp<API>(null, { id: "my-client" })
+      const will = mqttpDry.emit({
+          dry:    true,
+          event:  "example/connection",
+          params: [ "close" ],
+          [...]
+      })
+      mqttpDry.destroy()
+      const mqtt = MQTT.connect("[...]", {
+          will: {
+              topic:   will.topic,
+              payload: will.payload,
+              qos:     will.options.qos
+          },
+          [...]
+      })
 
 - **Service Call**:<br/>
 
