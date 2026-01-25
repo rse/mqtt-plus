@@ -157,8 +157,13 @@ The **MQTT+** API provides the following methods:
 
 - **Construction**:<br/>
 
-      constructor<API>(
-          mqtt: MqttClient,
+      /*  (simplified TypeScript API method signature)  */
+      constructor<API extends Record<string,
+          Event<   (...args: any[]) => void | Promise<void>> |
+          Service< (...args: any[]) => any  | Promise<any>>  |
+          Resource<(...args: any[]) => void | Promise<void>>
+      >>(
+          mqtt: MqttClient | null,
           options?: {
               id:         string
               codec:      "cbor" | "json"
@@ -169,19 +174,16 @@ The **MQTT+** API provides the following methods:
           }
       )
 
-  The `API` is an optional TypeScript type `Record<string, ((...args:
-  any[]) => void) | ((...args: any[]) => any)>`, describing the
-  available events and services. Callbacks without return values
-  describe events, callbacks with return values describe services.
-
+  The `API` is an optional TypeScript type,
+  describing the available events, services and resources.
   The `mqtt` is the [MQTT.js](https://www.npmjs.com/package/mqtt) instance,
-  which has to be established separately.
-
-  Use `destroy()` to clean up when the instance is no longer needed.
+  which has to be established separately. A `null` MQTT instance can be
+  used for performing dry-runs (see *Dry-Run Publishing for MQTT Last-Will* under
+  **Event Emission** below).
 
   The optional `options` object supports the following fields:
   - `id`: Custom MQTT peer identifier (default: auto-generated NanoID).
-  - `codec`: Encoding format (default: `cbor`).
+  - `codec`: Encoding format, either `cbor` or `json` (default: `cbor`).
   - `timeout`: Communication timeout in milliseconds (default: `10000`).
   - `chunkSize`: Chunk size in bytes for resource transfers (default: `16384`).
   - `topicMake`: Custom topic generation function.
@@ -316,7 +318,7 @@ The **MQTT+** API provides the following methods:
   Internally, publishes to the MQTT topic by `topicMake(event, "event-emission", peerId)`
   (default: `${event}/event-emission/any` or `${event}/event-emission/${peerId}`).
 
-  **Dry-Run Publishing for MQTT Last-Will:**
+  *Dry-Run Publishing for MQTT Last-Will:*
   When you need to set up an MQTT "last will" message (automatically published
   by the broker when a client disconnects *unexpectedly*), you can use `dry: true`
   together with a `null` MQTT client:
