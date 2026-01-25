@@ -89,9 +89,7 @@ export default class Codec {
     }
     decode (data: Uint8Array | string): unknown {
         let result: unknown
-        if (this.type === "cbor"
-            && typeof data === "object"
-            && data instanceof Uint8Array) {
+        if (this.type === "cbor" && data instanceof Uint8Array) {
             try { result = CBOR.decode(data, { tags: this.tags }) }
             catch (_ex) { throw new Error("failed to decode CBOR format") }
         }
