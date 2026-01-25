@@ -706,9 +706,9 @@ Notice
 ------
 
 > [!Note]
-> **MQTT+** is somewhat similar to and originally derived from the weaker
-> [MQTT-JSON-RPC](https://github.com/rse/mqtt-json-rpc) of the same
-> author, but instead of just JSON, MQTT+ encodes packets as JSON
+> **MQTT+** is still somewhat similar to and originally derived from the weaker
+> [MQTT-JSON-RPC](https://github.com/rse/mqtt-json-rpc) library of the same
+> author. But instead of just JSON, MQTT+ encodes packets as JSON
 > or CBOR (default), uses an own packet format (allowing sender and
 > receiver information), uses shorter NanoIDs instead of longer UUIDs
 > for identification of sender, receiver and requests, and additionally
