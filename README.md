@@ -160,7 +160,7 @@ The **MQTT+** API provides the following methods:
       /*  (simplified TypeScript API method signature)  */
       constructor<API extends Record<string,
           Event<   (...args: any[]) => void | Promise<void>> |
-          Service< (...args: any[]) => any  | Promise<any>>  |
+          Service< (...args: any[]) => any  | Promise<any> > |
           Resource<(...args: any[]) => void | Promise<void>>
       >>(
           mqtt: MqttClient | null,
