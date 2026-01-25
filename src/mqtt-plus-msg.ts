@@ -26,10 +26,18 @@
 import { APISchema }  from "./mqtt-plus-api"
 import { CodecTrait } from "./mqtt-plus-codec"
 
+/*  message types  */
+type MessageType =
+    | "event-emission"
+    | "service-call-request"
+    | "service-call-response"
+    | "resource-transfer-request"
+    | "resource-transfer-response"
+
 /*  base class  */
 class Base {
     constructor (
-        public type:      string,
+        public type:      MessageType,
         public id:        string,
         public sender?:   string,
         public receiver?: string
@@ -222,7 +230,7 @@ class Msg {
         else if (obj.type === "resource-transfer-response") {
             if (obj.resource !== undefined && typeof obj.resource !== "string")
                 throw new Error("invalid ResourceTransferResponse object: \"resource\" field must be a string")
-            if (obj.chunk !== undefined && typeof obj.chunk !== "object")
+            if (obj.chunk !== undefined && (obj.chunk === null || typeof obj.chunk !== "object"))
                 throw new Error("invalid ResourceTransferResponse object: \"chunk\" field must be an object")
             if (obj.meta !== undefined && (typeof obj.meta !== "object" || obj.meta === null || Array.isArray(obj.meta)))
                 throw new Error("invalid ResourceTransferResponse object: \"meta\" field must be an object")
