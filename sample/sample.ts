@@ -1,13 +1,10 @@
 
-import fs               from "node:fs"
-import { Buffer }       from "node:buffer"
+import fs                                from "node:fs"
 
-import Mosquitto        from "mosquitto"
-import MQTT             from "mqtt"
-import MQTTp            from "mqtt-plus"
-import type { Event,
-    Service,
-    Resource }          from "mqtt-plus"
+import Mosquitto                         from "mosquitto"
+import MQTT                              from "mqtt"
+import MQTTp                             from "mqtt-plus"
+import type { Event, Service, Resource } from "mqtt-plus"
 
 const mosquitto = new Mosquitto({
     listen: [ { protocol: "wss", address: "127.0.0.1", port: 8443 } ]
