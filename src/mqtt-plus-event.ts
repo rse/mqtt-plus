@@ -120,25 +120,37 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
         }
     ): void
     emit<K extends EventKeys<T> & string> (
+        config: {
+            event:     K,
+            params:    Parameters<T[K]>,
+            receiver?: string,
+            options?:  IClientPublishOptions,
+            dry:       true
+        }
+    ): { topic: string, payload: Buffer, options: IClientPublishOptions }
+    emit<K extends EventKeys<T> & string> (
         eventOrConfig: K | {
             event:     K,
             params:    Parameters<T[K]>,
             receiver?: string,
             options?:  IClientPublishOptions
+            dry?:      true
         },
         ...args:       any[]
-    ): void {
+    ): void | { topic: string, payload: Buffer, options: IClientPublishOptions } {
         /*  determine actual parameters  */
         let event:     K
         let params:    Parameters<T[K]>
         let receiver:  string | undefined
         let options:   IClientPublishOptions = {}
+        let dry:       boolean | undefined
         if (typeof eventOrConfig === "object" && eventOrConfig !== null) {
             /*  object-based API  */
             event    = eventOrConfig.event
             params   = eventOrConfig.params
             receiver = eventOrConfig.receiver
             options  = eventOrConfig.options ?? {}
+            dry      = eventOrConfig.dry
         }
         else {
             /*  positional API  */
@@ -156,8 +168,13 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
         /*  generate corresponding MQTT topic  */
         const topic = this.options.topicMake(event, "event-emission", receiver)
 
-        /*  publish message to MQTT topic  */
-        this.mqtt.publish(topic, Buffer.from(message), { qos: 0, ...options })
+        /*  produce result  */
+        if (dry)
+            /*  return publish information  */
+            return { topic, payload: Buffer.from(message), options: { qos: 0, ...options } }
+        else
+            /*  publish message to MQTT topic  */
+            this.mqtt.publish(topic, Buffer.from(message), { qos: 0, ...options })
     }
 
     /*  dispatch message (Event pattern handling)  */
