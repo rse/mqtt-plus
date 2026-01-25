@@ -319,8 +319,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
         /*  start timeout handler  */
         timer = setTimeout(() => {
-            cleanup()
-            metaResolve?.(undefined)
+            cleanup(true)
             stream.destroy(new Error("communication timeout"))
         }, this.options.timeout)
 
@@ -334,12 +333,13 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 meta:  Record<string, any> | undefined,
                 final: boolean             | undefined
             ) => {
+                const wasFirstChunk = firstChunk
                 if (firstChunk) {
                     firstChunk = false
                     metaResolve?.(meta)
                 }
                 if (error !== undefined) {
-                    cleanup(true)
+                    cleanup(!wasFirstChunk)
                     stream.destroy(error)
                 }
                 else {
@@ -414,7 +414,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                                 () => {}, (err) => sendChunk(undefined, err.message, true))
 
                         /*  handle Buffer result  */
-                        else if (info.buffer !== undefined && typeof info.buffer.then === "function")
+                        else if (info.buffer instanceof Promise)
                             sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk)
 
                         /*  fail  */
