@@ -313,7 +313,7 @@ The **MQTT+** API provides the following methods:
   together with a `null` MQTT client:
 
       type API = {
-          "example/connection": Event<(state: "open" | "close") => void>,
+          "example/connection": Event<(state: "open" | "close") => void>
           [...]
       }
       const mqttpDry = new MQTTp<API>(null, { id: "my-client" })
