@@ -208,8 +208,14 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         if (!this.responseSubscriptions.has(topic)) {
             this.responseSubscriptions.set(topic, 0)
             this.mqtt.subscribe(topic, options, (err: Error | null) => {
-                if (err)
+                if (err) {
+                    const count = this.responseSubscriptions.get(topic) ?? 0
+                    if (count > 1)
+                        this.responseSubscriptions.set(topic, count - 1)
+                    else
+                        this.responseSubscriptions.delete(topic)
                     this.mqtt.emit("error", err)
+                }
             })
         }
         const count = this.responseSubscriptions.get(topic) ?? 0
@@ -227,8 +233,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
         /*  unsubscribe from MQTT topic and forget subscription  */
         const count = this.responseSubscriptions.get(topic) ?? 0
-        this.responseSubscriptions.set(topic, count - 1)
-        if (this.responseSubscriptions.get(topic) === 0) {
+        if (count > 1)
+            this.responseSubscriptions.set(topic, count - 1)
+        else {
             this.responseSubscriptions.delete(topic)
             this.mqtt.unsubscribe(topic, (err?: Error) => {
                 if (err)
