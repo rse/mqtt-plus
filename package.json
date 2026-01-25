@@ -24,7 +24,10 @@
         ".": {
             "import":                 { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.esm.js" },
             "require":                { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.cjs.js" }
-        }
+        },
+        "./esm":                      { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.esm.js" },
+        "./cjs":                      { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.cjs.js" },
+        "./umd":                      { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.umd.js" }
     },
     "devDependencies": {
         "@rse/stx":                   "1.1.4",
