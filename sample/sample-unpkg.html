@@ -10,20 +10,19 @@
         Please watch the console!
     </body>
     <script type="text/javascript">
-        const mqtt = MQTT.connect("ws://127.0.0.1:8443", {
+        const base = mqtt.connect("ws://127.0.0.1:8443", {
             rejectUnauthorized: false,
             username: "example",
             password: "example"
         })
-        const mqttp = new MQTTp(mqtt)
-        mqtt.on("error",     (err)            => { console.log("ERROR", err) })
-        mqtt.on("offline",   ()               => { console.log("OFFLINE") })
-        mqtt.on("close",     ()               => { console.log("CLOSE") })
-        mqtt.on("reconnect", ()               => { console.log("RECONNECT") })
-        mqtt.on("message",   (topic, message) => { console.log("RECEIVED", topic, message.toString()) })
-        mqtt.on("connect", () => {
+        const client = new MQTTp(base)
+        base.on("error",     (err)  => { console.log("ERROR", err) })
+        base.on("offline",   ()     => { console.log("OFFLINE") })
+        base.on("close",     ()     => { console.log("CLOSE") })
+        base.on("reconnect", ()     => { console.log("RECONNECT") })
+        base.on("connect", () => {
             console.log("CONNECT")
-            mqttp.emit("example/sample", "world", 42)
+            client.emit("example/sample", "world", 42)
         })
     </script>
 </html>
