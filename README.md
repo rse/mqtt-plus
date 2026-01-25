@@ -667,7 +667,7 @@ Notice
 ------
 
 > [!Note]
-> **MQTT+** is somewhat similar to and originally derived from
+> **MQTT+** is somewhat similar to and originally derived from the weaker
 > [MQTT-JSON-RPC](https://github.com/rse/mqtt-json-rpc) of the same
 > author, but instead of just JSON, MQTT+ encodes packets as JSON
 > or CBOR (default), uses an own packet format (allowing sender and
