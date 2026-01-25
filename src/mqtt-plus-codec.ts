@@ -50,7 +50,7 @@ class JSONX {
     }
     static parse (json: string): any {
         return JSON.parse(json, (_, value) =>
-            value?.__Uint8Array
+            typeof value?.__Uint8Array === "string"
                 ? this.base64ToUint8Array(value.__Uint8Array)
                 : value
         )
