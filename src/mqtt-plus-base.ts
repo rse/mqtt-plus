@@ -57,7 +57,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
                     if (prop === "isFakeProxy")
                         return true
                     else
-                        return (...args: any[]) => {}
+                        return () => {}
                 }
             })
 
