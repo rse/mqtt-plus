@@ -113,11 +113,15 @@ const mqttp = new MQTTp<API>(mqtt)
 
 mqtt.on("connect", async () => {
     await mqttp.subscribe("example/sample", (a1, a2, info) => {
-        console.log("example/sample:", a1, a2, "from:", info.sender)
+        console.log("example/sample: SERVER:", a1, a2, info.sender)
     })
     await mqttp.register("example/hello", (a1, a2, info) => {
-        console.log("example/hello:", a1, a2, "from:", info.sender)
+        console.log("example/hello: SERVER:", a1, a2, info.sender)
         return `${a1}:${a2}`
+    })
+    await mqttp.provision("example/resource", async (filename, info) => {
+        console.log("example/resource: SERVER:", filename, info.sender)
+        info.buffer = Promise.resolve(new TextEncoder().encode(`the ${filename} content`))
     })
 })
 ```
@@ -132,12 +136,17 @@ import type { API } from [...]
 const mqtt = MQTT.connect("wss://127.0.0.1:8883", { [...] })
 const mqttp = new MQTTp<API>(mqtt)
 
-mqtt.on("connect", () => {
+mqtt.on("connect", async () => {
     mqttp.emit("example/sample", "world", 42)
-    mqttp.call("example/hello", "world", 42).then((response) => {
-        console.log("example/hello response:", response)
-        mqtt.end()
-    })
+
+    const response = await mqttp.call("example/hello", "world", 42)
+    console.log("example/hello CLIENT:", response)
+
+    const result = await mqttp.fetch("example/resource", "foo")
+    const data = new TextDecoder().decode(await result.buffer)
+    console.log("example/resource CLIENT:", data)
+
+    mqtt.end()
 })
 ```
 
