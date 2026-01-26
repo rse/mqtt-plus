@@ -671,29 +671,85 @@ protocol             mqtt
 ...and an access control list in `mosquitto-acl.txt` like...
 
 ```
-#   shared ACL
+#   ==== shared/anonymous ACL ====
+
+#   common
 topic   read      $SYS/#
 pattern write     $SYS/broker/connection/%c/state
-pattern readwrite %u/#
 
-#   anonymous ACL
-topic   read      event/+
-pattern read      event/+/%c
-topic   write     event/+/+
-pattern read      service/+/%c
-topic   write     service/+
-topic   write     service/+/+
+#   ---- event emission ----
 
-#   user ACL
+#   client -> server
+topic   write     example/server/+/event-emission/+
+
+#   client <- server
+topic   read      example/client/+/event-emission/any
+pattern read      example/client/+/event-emission/%c
+
+#   ---- service call ----
+
+#   client -> server
+topic   write     example/server/+/service-call-request/+
+pattern read      example/server/+/service-call-response/%c
+
+#   client <- server
+topic   read      example/client/+/service-call-request/any
+pattern read      example/client/+/service-call-request/%c
+pattern write     example/client/+/service-call-response/%c
+
+#   ---- resource transfer ----
+
+#   client -> server
+topic   write     example/server/+/resource-transfer-request/+
+topic   write     example/server/+/resource-transfer-response/+
+pattern read      example/server/+/resource-transfer-response/%c
+
+#   client <- server
+topic   read      example/client/+/resource-transfer-request/+
+topic   read      example/client/+/resource-transfer-response/+
+pattern write     example/client/+/resource-transfer-response/%c
+
+#   ==== server/autenticated ACL ====
+
 user    example
-topic   read      event/+
-pattern read      event/+/%c
-topic   write     event/+
-topic   write     event/+/+
-topic   read      service/+
-pattern read      service/+/%c
-topic   write     service/+
-topic   write     service/+/+
+
+#   ---- event emission ----
+
+#   client -> server
+topic   read      example/server/+/event-emission/any
+pattern read      example/server/+/event-emission/%c
+topic   read      $share/server/example/server/+/event-emission/any
+
+#   client <- server
+topic   write     example/client/+/event-emission/+
+
+#   ---- service call ----
+
+#   client -> server
+topic   read      example/server/+/service-call-request/any
+topic   read      $share/server/example/server/+/service-call-request/any
+pattern read      example/server/+/service-call-request/%c
+pattern write     example/server/+/service-call-response/+
+
+#   client <- server
+topic   write     example/client/+/service-call-request/+
+pattern read      example/client/+/service-call-response/%c
+
+#   ---- resource transfer ----
+
+#   client -> server
+topic   read      example/server/+/resource-transfer-request/any
+topic   read      $share/server/example/server/+/resource-transfer-request/any
+pattern read      example/server/+/resource-transfer-request/%c
+topic   write     example/server/+/resource-transfer-response/+
+topic   read      example/server/+/resource-transfer-response/any
+topic   read      $share/server/example/server/+/resource-transfer-response/any
+pattern read      example/server/+/resource-transfer-response/%c
+
+#   client <- server
+topic   write     example/client/+/resource-transfer-request/+
+topic   write     example/client/+/resource-transfer-response/+
+pattern read      example/client/+/resource-transfer-response/%c
 ```
 
 ...and an `example` user (with password `example`) in `mosquitto-pwd.txt` like:

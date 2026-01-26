@@ -32,6 +32,7 @@ import { describe, it } from "mocha"
 import * as chai        from "chai"
 import sinon            from "sinon"
 import sinonChai        from "sinon-chai"
+import textframe        from "textframe"
 
 /*  external dependencies (application)  */
 import Mosquitto        from "mosquitto"
@@ -50,56 +51,147 @@ const { expect } = chai
 
 /*  example API  */
 type API = {
-    "example/connection":       Event<(state: "open" | "close") => void>
-    "example/sample":           Event<(a1: string, a2: number) => void>
-    "example/hello":            Service<(a1: string, a2: number) => string>
-    "example/upload":           Resource<(name: string) => void>
-    "example/download":         Resource<(filename: string) => void>
-    "example/download-invalid": Resource<(filename: string) => void>
+    "example/server/connection":       Event<(state: "open" | "close") => void>
+    "example/server/sample":           Event<(a1: string, a2: number) => void>
+    "example/server/hello":            Service<(a1: string, a2: number) => string>
+    "example/server/upload":           Resource<(name: string) => void>
+    "example/server/download":         Resource<(filename: string) => void>
+    "example/server/download-invalid": Resource<(filename: string) => void>
 }
+
+/*  Mosquitto ACL  */
+const ACL = textframe(`
+    #   ==== shared/anonymous ACL ====
+
+    #   common
+    topic   read      $SYS/#
+    pattern write     $SYS/broker/connection/%c/state
+
+    #   ---- event emission ----
+
+    #   client -> server
+    topic   write     example/server/+/event-emission/+
+
+    #   client <- server
+    topic   read      example/client/+/event-emission/any
+    pattern read      example/client/+/event-emission/%c
+
+    #   ---- service call ----
+
+    #   client -> server
+    topic   write     example/server/+/service-call-request/+
+    pattern read      example/server/+/service-call-response/%c
+
+    #   client <- server
+    topic   read      example/client/+/service-call-request/any
+    pattern read      example/client/+/service-call-request/%c
+    pattern write     example/client/+/service-call-response/%c
+
+    #   ---- resource transfer ----
+
+    #   client -> server
+    topic   write     example/server/+/resource-transfer-request/+
+    topic   write     example/server/+/resource-transfer-response/+
+    pattern read      example/server/+/resource-transfer-response/%c
+
+    #   client <- server
+    topic   read      example/client/+/resource-transfer-request/+
+    topic   read      example/client/+/resource-transfer-response/+
+    pattern write     example/client/+/resource-transfer-response/%c
+
+    #   ==== server/autenticated ACL ====
+
+    user    example
+
+    #   ---- event emission ----
+
+    #   client -> server
+    topic   read      example/server/+/event-emission/any
+    pattern read      example/server/+/event-emission/%c
+    topic   read      $share/server/example/server/+/event-emission/any
+
+    #   client <- server
+    topic   write     example/client/+/event-emission/+
+
+    #   ---- service call ----
+
+    #   client -> server
+    topic   read      example/server/+/service-call-request/any
+    topic   read      $share/server/example/server/+/service-call-request/any
+    pattern read      example/server/+/service-call-request/%c
+    pattern write     example/server/+/service-call-response/+
+
+    #   client <- server
+    topic   write     example/client/+/service-call-request/+
+    pattern read      example/client/+/service-call-response/%c
+
+    #   ---- resource transfer ----
+
+    #   client -> server
+    topic   read      example/server/+/resource-transfer-request/any
+    topic   read      $share/server/example/server/+/resource-transfer-request/any
+    pattern read      example/server/+/resource-transfer-request/%c
+    topic   write     example/server/+/resource-transfer-response/+
+    topic   read      example/server/+/resource-transfer-response/any
+    topic   read      $share/server/example/server/+/resource-transfer-response/any
+    pattern read      example/server/+/resource-transfer-response/%c
+
+    #   client <- server
+    topic   write     example/client/+/resource-transfer-request/+
+    topic   write     example/client/+/resource-transfer-response/+
+    pattern read      example/client/+/resource-transfer-response/%c
+`)
 
 /*  test suite  */
 describe("MQTT+ Library", function () {
     let mosquitto: Mosquitto
-    let mqtt:      MQTT.MqttClient
+    let mqttC:     MQTT.MqttClient
+    let mqttS:     MQTT.MqttClient
+    let mqttpC:    MQTTp<API>
+    let mqttpS:    MQTTp<API>
 
     /*  actions before all test cases  */
     before(async function () {
         /*  start Mosquitto  */
         this.timeout(8000)
-        mosquitto = new Mosquitto()
+        mosquitto = new Mosquitto({ acl: ACL })
         await mosquitto.start()
         await new Promise((resolve) => { setTimeout(resolve, 1000) })
 
-        /*  connect with MQTT  */
-        mqtt = MQTT.connect("mqtt://127.0.0.1:1883", {
-            username: "example", password: "example"
-        })
+        /*  connect with MQTT as client  */
+        mqttC = MQTT.connect("mqtt://127.0.0.1:1883",
+            { clientId: "client" })
+        mqttpC = new MQTTp<API>(mqttC, { id: "client", timeout: 1000 })
         await new Promise<void>((resolve, reject) => {
-            mqtt.once("connect", ()         => { resolve() })
-            mqtt.once("error",   (err: any) => { reject(err) })
+            mqttC.once("connect", ()         => { resolve() })
+            mqttC.once("error",   (err: any) => { reject(err) })
+        })
+
+        /*  connect with MQTT as server  */
+        mqttS = MQTT.connect("mqtt://127.0.0.1:1883",
+            { clientId: "server", username: "example", password: "example" })
+        mqttpS = new MQTTp<API>(mqttS, { id: "server", timeout: 1000 })
+        await new Promise<void>((resolve, reject) => {
+            mqttS.once("connect", ()         => { resolve() })
+            mqttS.once("error",   (err: any) => { reject(err) })
         })
     })
 
     /*  test case: TypeScript API  */
     it("MQTT+ TypeScript API sanity check", async function () {
-        const mqttp = new MQTTp(mqtt)
-
         expect(MQTTp).to.be.a("function")
         expect(MQTTp.prototype).to.be.an("object")
         expect(MQTTp.prototype.constructor).to.equal(MQTTp)
 
-        expect(mqttp).to.respondTo("subscribe")
-        expect(mqttp).to.respondTo("emit")
+        expect(mqttpC).to.respondTo("subscribe")
+        expect(mqttpC).to.respondTo("emit")
 
-        expect(mqttp).to.respondTo("register")
-        expect(mqttp).to.respondTo("call")
+        expect(mqttpC).to.respondTo("register")
+        expect(mqttpC).to.respondTo("call")
 
-        expect(mqttp).to.respondTo("provision")
-        expect(mqttp).to.respondTo("fetch")
-        expect(mqttp).to.respondTo("push")
-
-        mqttp.destroy()
+        expect(mqttpC).to.respondTo("provision")
+        expect(mqttpC).to.respondTo("fetch")
+        expect(mqttpC).to.respondTo("push")
     })
 
     /*  test case: Event Emission  */
@@ -109,20 +201,18 @@ describe("MQTT+ Library", function () {
         const spy = sinon.spy()
 
         /*  subscribe to event  */
-        const mqttp = new MQTTp<API>(mqtt)
-        const subscription = await mqttp.subscribe("example/sample", (str: string, num: number) => {
+        const subscription = await mqttpS.subscribe("example/server/sample", (str: string, num: number) => {
             spy("subscribe")
         })
 
         /*  emit event  */
-        mqttp.emit("example/sample", "world", 42)
+        mqttpC.emit("example/server/sample", "world", 42)
         await new Promise((resolve) => { setTimeout(resolve, 10) })
         expect(spy.getCalls().map((call) => call.firstArg))
             .to.be.deep.equal([ "subscribe" ])
 
         /*  destroy service  */
         await subscription.unsubscribe()
-        mqttp.destroy()
     })
 
     /*  test case: Service Call  */
@@ -132,8 +222,7 @@ describe("MQTT+ Library", function () {
         const spy = sinon.spy()
 
         /*  provide service  */
-        const mqttp = new MQTTp<API>(mqtt, { timeout: 1000 })
-        const registration = await mqttp.register("example/hello", (str: string, num: number) => {
+        const registration = await mqttpS.register("example/server/hello", (str: string, num: number) => {
             spy("register")
             if (str !== "world")
                 throw new Error("invalid service call")
@@ -143,7 +232,7 @@ describe("MQTT+ Library", function () {
         })
 
         /*  call service (successfully)  */
-        await mqttp.call("example/hello", "world", 42).then(async (result) => {
+        await mqttpC.call("example/server/hello", "world", 42).then(async (result) => {
             spy("call-success")
             expect(result).to.be.equal("world:42")
         }).catch((err: Error) => {
@@ -154,7 +243,7 @@ describe("MQTT+ Library", function () {
         spy.resetHistory()
 
         /*  call service (with error)  */
-        await mqttp.call("example/hello", "bad-arg", 42).then(async (result) => {
+        await mqttpC.call("example/server/hello", "bad-arg", 42).then(async (result) => {
             spy("call-success")
         }).catch((err: Error) => {
             expect(err.message).to.be.equal("invalid service call")
@@ -165,7 +254,6 @@ describe("MQTT+ Library", function () {
 
         /*  destroy service  */
         await registration.unregister()
-        mqttp.destroy()
     })
 
     /*  test case: Resource Transfer (Push)  */
@@ -178,8 +266,7 @@ describe("MQTT+ Library", function () {
         const data = Buffer.from(crypto.randomBytes(16 * 1024))
 
         /*  attach to resource  */
-        const mqttp = new MQTTp<API>(mqtt)
-        const attachment = await mqttp.provision("example/upload", (name: string, info: InfoResource) => {
+        const attachment = await mqttpS.provision("example/server/upload", (name: string, info: InfoResource) => {
             spy("provision")
             if (name !== "foo")
                 throw new Error("invalid resource transfer")
@@ -203,7 +290,7 @@ describe("MQTT+ Library", function () {
         })
         readable.push(data)
         readable.push(null)
-        await mqttp.push("example/upload", readable, "foo").then(() => {
+        await mqttpC.push("example/server/upload", readable, "foo").then(() => {
             spy("transfer-success")
         }).catch((err: Error) => {
             spy("transfer-error")
@@ -214,7 +301,6 @@ describe("MQTT+ Library", function () {
 
         /*  destroy service  */
         await attachment.unprovision()
-        mqttp.destroy()
     })
 
     /*  test case: Resource Transfer  */
@@ -222,8 +308,7 @@ describe("MQTT+ Library", function () {
         this.timeout(3000)
 
         /*  provide resource  */
-        const mqttp = new MQTTp<API>(mqtt, { timeout: 1000 })
-        const provisioning = await mqttp.provision("example/download", async (filename, info) => {
+        const provisioning = await mqttpS.provision("example/server/download", async (filename, info) => {
             if (filename === "foo")
                 info.buffer = Promise.resolve(Buffer.from(`the ${filename} content`))
             else
@@ -231,27 +316,26 @@ describe("MQTT+ Library", function () {
         })
 
         /*  fetch existing resource (valid resource argument)  */
-        const result = await mqttp.fetch("example/download", "foo")
+        const result = await mqttpC.fetch("example/server/download", "foo")
         const buffer = await result.buffer
         const str = new TextDecoder().decode(buffer)
         expect(str).to.be.equal("the foo content")
 
         /*  fetch non-existing resource (invalid resource argument)  */
-        const result2 = await mqttp.fetch("example/download", "bar")
+        const result2 = await mqttpC.fetch("example/server/download", "bar")
         const error2 = await result2.buffer.catch((err: Error) => {
             return err.message
         })
         expect(error2).to.be.equal("invalid resource")
 
         /*  fetch non-existing resource (invalid resource name)  */
-        const result3 = await mqttp.fetch("example/download-invalid", "foo").catch((err) => err.message)
+        const result3 = await mqttpC.fetch("example/server/download-invalid", "foo").catch((err) => err.message)
         const error3 = await result3.buffer.catch((err: Error) => {
             return err.message
         })
         expect(error3).to.be.equal("communication timeout")
 
         await provisioning.unprovision()
-        mqttp.destroy()
     })
 
     /*  test case: Dry-Run & Last-Will */
@@ -260,7 +344,7 @@ describe("MQTT+ Library", function () {
 
         /*  generate connection close event  */
         const mqttpDry = new MQTTp<API>(null, { id: "my-client" })
-        const will = mqttpDry.emit({ dry: true, event: "example/connection", params: [ "close" ] })
+        const will = mqttpDry.emit({ dry: true, event: "example/server/connection", params: [ "close" ] })
         mqttpDry.destroy()
 
         /*  connect to broker as a server  */
@@ -275,14 +359,13 @@ describe("MQTT+ Library", function () {
 
         /*  observe connection events  */
         const spy = sinon.spy()
-        mqttpServer.subscribe("example/connection", (state) => {
+        mqttpServer.subscribe("example/server/connection", (state) => {
             expect(state).to.match(/^(?:open|close)$/)
             spy(state)
         })
 
         /*  connect to broker as a client with last-will  */
         const mqttClient = MQTT.connect("mqtt://127.0.0.1:1883", {
-            username: "example", password: "example",
             will: {
                 topic:   will.topic,
                 payload: will.payload,
@@ -296,7 +379,7 @@ describe("MQTT+ Library", function () {
         const mqttpClient = new MQTTp<API>(mqttClient, { timeout: 1000 })
 
         /*  send connection open event  */
-        await mqttpClient.emit("example/connection", "open")
+        await mqttpClient.emit("example/server/connection", "open")
         await new Promise((resolve) => { setTimeout(resolve, 100) })
 
         /*  perform unexpected destruction of client  */
@@ -323,7 +406,8 @@ describe("MQTT+ Library", function () {
     /*  actions after all test cases  */
     after(async function () {
         /*  disconnect with MQTT  */
-        mqtt.end()
+        mqttC.end()
+        mqttS.end()
 
         /*  stop Mosquitto  */
         this.timeout(4000)
