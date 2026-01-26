@@ -2,6 +2,11 @@
 ChangeLog
 =========
 
+1.0.1 (2026-01-25)
+------------------
+
+- IMPROVEMENT: use client/server scenario in test suite
+
 1.0.0 (2026-01-25)
 ------------------
 
