@@ -47,7 +47,8 @@
         "typescript-eslint":          "8.53.1",
         "@typescript-eslint/parser":  "8.53.1",
         "mqtt":                       "5.14.1",
-        "mosquitto":                  "0.9.6",
+        "mosquitto":                  "0.9.7",
+        "textframe":                  "1.2.1",
         "vite":                       "7.3.1",
         "vite-plugin-node-polyfills": "0.25.0",
         "@wroud/vite-plugin-tsc":     "0.12.2",
@@ -65,7 +66,7 @@
     },
     "dependencies": {
         "nanoid":                     "5.1.6",
-        "cbor2":                      "2.2.0",
+        "cbor2":                      "2.2.1",
         "p-lazy":                     "5.0.0"
     },
     "engines": {
