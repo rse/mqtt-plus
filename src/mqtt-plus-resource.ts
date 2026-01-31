@@ -406,6 +406,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 const info: InfoResource = { sender }
                 if (receiver)
                     info.receiver = receiver
+                if (parsed.meta)
+                    info.meta = parsed.meta
                 if (handler?.auth)
                     info.authenticated = await this.authenticated(parsed.id, parsed.auth, handler.auth)
 

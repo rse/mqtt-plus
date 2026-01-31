@@ -289,6 +289,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 const info: InfoService = { sender: parsed.sender ?? "" }
                 if (parsed.receiver)
                     info.receiver = parsed.receiver
+                if (parsed.meta)
+                    info.meta = parsed.meta
                 if (handler?.auth)
                     info.authenticated = await this.authenticated(parsed.id, parsed.auth, handler.auth)
                 if (info.authenticated !== undefined && !info.authenticated) {

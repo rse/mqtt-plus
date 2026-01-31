@@ -223,6 +223,8 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             const info: InfoEvent = { sender: parsed.sender ?? "" }
             if (parsed.receiver)
                 info.receiver = parsed.receiver
+            if (parsed.meta)
+                info.meta = parsed.meta
             if (handler?.auth)
                 info.authenticated = await this.authenticated(parsed.id, parsed.auth, handler.auth)
             if (info.authenticated !== undefined && !info.authenticated)
