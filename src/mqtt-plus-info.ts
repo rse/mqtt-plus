@@ -27,8 +27,10 @@ import { Readable } from "node:stream"
 
 /*  info types  */
 export interface InfoBase {
-    sender:    string
-    receiver?: string
+    sender:         string
+    receiver?:      string
+    authenticated?: boolean
+    meta?:          Record<string, any>
 }
 
 /*  specialized info types  */
