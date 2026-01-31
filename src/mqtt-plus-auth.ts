@@ -60,6 +60,7 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
     /*  retrieve/add/remove client-side token (client-side)  */
     authenticate (): string[] | undefined
     authenticate (token: string): void
+    authenticate (token: string, remove: boolean): void
     authenticate (token?: string, remove?: boolean): string[] | undefined | void {
         if (token === undefined)
             return this._tokens.size > 0 ? Array.from(this._tokens) : undefined
