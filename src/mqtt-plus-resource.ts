@@ -23,7 +23,6 @@
 */
 
 /*  built-in requirements  */
-import { Buffer }                                                 from "node:buffer"
 import { Readable }                                               from "node:stream"
 
 /*  external requirements  */
@@ -36,6 +35,7 @@ import { ResourceTransferRequest, ResourceTransferResponse }      from "./mqtt-p
 import { APISchema, ResourceKeys, APIEndpointResource }           from "./mqtt-plus-api"
 import type { WithInfo, InfoResource }                            from "./mqtt-plus-info"
 import { ServiceTrait }                                           from "./mqtt-plus-service"
+import type { AuthOption }                                        from "./mqtt-plus-auth"
 
 /*  the provisioning result type  */
 export interface Provisioning {
@@ -45,7 +45,10 @@ export interface Provisioning {
 /*  Resource Communication Trait  */
 export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
     /*  resource provisioning state  */
-    private provisionings = new Map<string, WithInfo<APIEndpointResource, InfoResource>>()
+    private provisionings = new Map<string, {
+        callback: WithInfo<APIEndpointResource, InfoResource>,
+        auth?:    AuthOption
+    }>()
     private callbacks     = new Map<string, {
         resource: string,
         callback: (
@@ -68,7 +71,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             resource:  K,
             callback:  WithInfo<T[K], InfoResource>,
             options?:  Partial<IClientSubscribeOptions>,
-            share?:    string
+            share?:    string,
+            auth?:     AuthOption
         }
     ): Promise<Provisioning>
     async provision<K extends ResourceKeys<T> & string> (
@@ -76,7 +80,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             resource:  K,
             callback:  WithInfo<T[K], InfoResource>,
             options?:  Partial<IClientSubscribeOptions>,
-            share?:    string
+            share?:    string,
+            auth?:     AuthOption
         },
         ...args:  any[]
     ): Promise<Provisioning> {
@@ -85,12 +90,14 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         let callback: WithInfo<T[K], InfoResource>
         let options:  Partial<IClientSubscribeOptions> = {}
         let share:    string | undefined
+        let auth:     AuthOption | undefined
         if (typeof resourceOrConfig === "object" && resourceOrConfig !== null) {
             /*  object-based API  */
             resource = resourceOrConfig.resource
             callback = resourceOrConfig.callback
             options  = resourceOrConfig.options ?? {}
             share    = resourceOrConfig.share
+            auth     = resourceOrConfig.auth
         }
         else {
             /*  positional API  */
@@ -124,7 +131,10 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         })
 
         /*  remember the provisioning  */
-        this.provisionings.set(resource, callback as WithInfo<APIEndpointResource, InfoResource>)
+        this.provisionings.set(resource, {
+            callback: callback as WithInfo<APIEndpointResource, InfoResource>,
+            auth
+        })
 
         /*  provide a provisioning object for subsequent unprovisioning  */
         const self = this
@@ -155,9 +165,9 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             resource:  K,
             data:      Readable | Uint8Array,
             params:    Parameters<T[K]>,
-            meta?:     Record<string, any>,
             receiver?: string,
-            options?:  IClientPublishOptions
+            options?:  IClientPublishOptions,
+            meta?:     Record<string, any>
         }
     ): Promise<void>
     push<K extends ResourceKeys<T> & string> (
@@ -165,9 +175,9 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             resource:  K,
             data:      Readable | Uint8Array,
             params:    Parameters<T[K]>,
-            meta?:     Record<string, any>,
             receiver?: string,
-            options?:  IClientPublishOptions
+            options?:  IClientPublishOptions,
+            meta?:     Record<string, any>
         },
         ...args:       any[]
     ): Promise<void> {
@@ -175,17 +185,17 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         let resource:       K
         let streamOrBuffer: Readable | Uint8Array
         let params:         Parameters<T[K]>
-        let meta:           Record<string, any> | undefined
         let receiver:       string | undefined
         let options:        IClientPublishOptions = {}
+        let meta:           Record<string, any> | undefined
         if (typeof resourceOrConfig === "object" && resourceOrConfig !== null) {
             /*  object-based API  */
             resource       = resourceOrConfig.resource
             streamOrBuffer = resourceOrConfig.data
             params         = resourceOrConfig.params
-            meta           = resourceOrConfig.meta
             receiver       = resourceOrConfig.receiver
             options        = resourceOrConfig.options ?? {}
+            meta           = resourceOrConfig.meta
         }
         else {
             /*  positional API  */
@@ -205,12 +215,13 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
         /*  callback for creating and sending a chunk message  */
         const sendChunk = (chunk: Uint8Array | undefined, error: string | undefined, final: boolean) => {
-            const chunkMeta = firstChunk ? meta : undefined
+            const auth = this.authenticate()
+            const metaStore = firstChunk ? this.metaStore(meta) : undefined
             firstChunk = false
             const request = this.msg.makeResourceTransferResponse(rid, resource,
-                params, chunk, chunkMeta, error, final, this.options.id, receiver)
+                params, chunk, error, final, this.options.id, receiver, auth, metaStore)
             const message = this.codec.encode(request)
-            this.mqtt.publish(topic, Buffer.from(message), { qos: 2, ...options })
+            this._publishToTopic(topic, message, { qos: 2, ...options }).catch(() => {})
         }
 
         /*  iterate over all chunks of the buffer  */
@@ -245,7 +256,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             resource:  K,
             params:    Parameters<T[K]>,
             receiver?: string,
-            options?:  IClientPublishOptions
+            options?:  IClientPublishOptions,
+            meta?:     Record<string, any>
         }
     ): Promise<{
         stream:        Readable,
@@ -257,7 +269,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             resource:  K,
             params:    Parameters<T[K]>,
             receiver?: string,
-            options?:  IClientPublishOptions
+            options?:  IClientPublishOptions,
+            meta?:     Record<string, any>
         },
         ...args:       any[]
     ): Promise<{
@@ -269,6 +282,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         let resource:  K
         let receiver:  string | undefined
         let options:   IClientPublishOptions = {}
+        let meta:      Record<string, any> | undefined
         let params:    Parameters<T[K]>
         if (typeof resourceOrConfig === "object" && resourceOrConfig !== null) {
             /*  object-based API  */
@@ -276,6 +290,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
             params   = resourceOrConfig.params
             receiver = resourceOrConfig.receiver
             options  = resourceOrConfig.options ?? {}
+            meta     = resourceOrConfig.meta
         }
         else {
             /*  positional API  */
@@ -298,7 +313,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
 
         /*  create promise for meta (resolved on first chunk)  */
         let metaResolve: (value: Record<string, any> | undefined) => void
-        const meta = new Promise<Record<string, any> | undefined>((resolve) => {
+        const metaP = new Promise<Record<string, any> | undefined>((resolve) => {
             metaResolve = resolve
         })
 
@@ -354,22 +369,24 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
         })
 
         /*  generate encoded message  */
+        const auth = this.authenticate()
+        const metaStore = this.metaStore(meta)
         const request = this.msg.makeResourceTransferRequest(requestId,
-            resource, params, this.options.id, receiver)
+            resource, params, this.options.id, receiver, auth, metaStore)
         const message = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
         const topic = this.options.topicMake(resource, "resource-transfer-request", receiver)
 
         /*  publish message to MQTT topic  */
-        this.mqtt.publish(topic, Buffer.from(message), { qos: 2, ...options })
+        this._publishToTopic(topic, message, { qos: 2, ...options }).catch(() => {})
 
         /*  produce result  */
-        return { stream, buffer, meta }
+        return { stream, buffer, meta: metaP }
     }
 
     /*  dispatch message (Resource pattern handling)  */
-    protected _dispatchMessage (topic: string, parsed: any) {
+    protected async _dispatchMessage (topic: string, parsed: any) {
         super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
 
@@ -389,6 +406,8 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 const info: InfoResource = { sender }
                 if (receiver)
                     info.receiver = receiver
+                if (handler?.auth)
+                    info.authenticated = await this.authenticated(parsed.id, parsed.auth, handler.auth)
 
                 /*  generate corresponding MQTT topic  */
                 const responseTopic = this.options.topicMake(resource, "resource-transfer-response", sender)
@@ -396,35 +415,39 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 /*  callback for creating and sending a chunk message  */
                 let firstChunk = true
                 const sendChunk = (chunk: Uint8Array | undefined, error: string | undefined, final: boolean) => {
-                    const chunkMeta = firstChunk ? info.meta : undefined
+                    const metaStore = firstChunk ? this.metaStore(info.meta) : undefined
                     firstChunk = false
+                    const auth = this.authenticate()
                     const request = this.msg.makeResourceTransferResponse(requestId,
-                        resource, undefined, chunk, chunkMeta, error, final, this.options.id, sender)
-                    const message = Buffer.from(this.codec.encode(request))
-                    this.mqtt.publish(responseTopic, message, { qos: 2 })
+                        resource, undefined, chunk, error, final, this.options.id, sender, auth, metaStore)
+                    const message = this.codec.encode(request)
+                    this._publishToTopic(responseTopic, message, { qos: 2 }).catch(() => {})
                 }
 
                 /*  call the handler callback  */
-                Promise.resolve()
-                    .then(() => handler(...params, info))
-                    .then(async () => {
-                        /*  handle Readable stream result  */
-                        if (info.stream instanceof Readable)
-                            sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk,
-                                () => {}, (err) => sendChunk(undefined, err.message, true))
+                if (info.authenticated !== undefined && !info.authenticated)
+                    this.error(new Error(`authentication on resource "${name}" failed`))
+                else
+                    Promise.resolve()
+                        .then(() => handler.callback(...params, info))
+                        .then(async () => {
+                            /*  handle Readable stream result  */
+                            if (info.stream instanceof Readable)
+                                sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk,
+                                    () => {}, (err) => sendChunk(undefined, err.message, true))
 
-                        /*  handle Buffer result  */
-                        else if (info.buffer instanceof Promise)
-                            sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk)
+                            /*  handle Buffer result  */
+                            else if (info.buffer instanceof Promise)
+                                sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk)
 
-                        /*  fail  */
-                        else
-                            throw new Error("handler did not provide data via info.stream or info.buffer field")
-                    })
-                    .catch((err: Error) => {
-                        /*  send error  */
-                        sendChunk(undefined, err.message, true)
-                    })
+                            /*  fail  */
+                            else
+                                throw new Error("handler did not provide data via info.stream or info.buffer field")
+                        })
+                        .catch((err: Error) => {
+                            /*  send error  */
+                            sendChunk(undefined, err.message, true)
+                        })
             }
         }
 
@@ -474,15 +497,20 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                             info.receiver = parsed.receiver
                         if (parsed.meta)
                             info.meta = meta
+                        if (handler?.auth)
+                            info.authenticated = await this.authenticated(parsed.id, parsed.auth, handler.auth)
                         info.stream = readable
                         info.buffer = promise
 
                         /*  call handler  */
-                        Promise.resolve()
-                            .then(() => handler(...params, info))
-                            .catch((err: Error) => {
-                                this.mqtt.emit("error", err)
-                            })
+                        if (info.authenticated !== undefined && !info.authenticated)
+                            this.error(new Error(`authentication on resource "${name}" failed`))
+                        else
+                            Promise.resolve()
+                                .then(() => handler.callback(...params, info))
+                                .catch((err: Error) => {
+                                    this.error(err)
+                                })
                     }
 
                     /*  utility to cleanup timer  */

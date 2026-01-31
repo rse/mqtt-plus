@@ -22,20 +22,17 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/*  built-in requirements  */
-import { Buffer }                    from "node:buffer"
-
 /*  external requirements  */
 import { IClientPublishOptions,
-    IClientSubscribeOptions }        from "mqtt"
-import { nanoid }                    from "nanoid"
+    IClientSubscribeOptions }         from "mqtt"
+import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
-import { EventEmission }             from "./mqtt-plus-msg"
+import { EventEmission }              from "./mqtt-plus-msg"
 import { APISchema,
-    APIEndpointEvent, EventKeys }    from "./mqtt-plus-api"
-import type { WithInfo, InfoEvent }  from "./mqtt-plus-info"
-import { BaseTrait }                 from "./mqtt-plus-base"
+    APIEndpointEvent, EventKeys }     from "./mqtt-plus-api"
+import type { WithInfo, InfoEvent }   from "./mqtt-plus-info"
+import { AuthTrait, type AuthOption } from "./mqtt-plus-auth"
 
 /*  the subscription result type  */
 export interface Subscription {
@@ -43,9 +40,12 @@ export interface Subscription {
 }
 
 /*  Event Communication Trait  */
-export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
+export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
     /*  internal state  */
-    private subscriptions = new Map<string, WithInfo<APIEndpointEvent, InfoEvent>>()
+    private subscriptions = new Map<string, {
+        callback: WithInfo<APIEndpointEvent, InfoEvent>,
+        auth?:    AuthOption
+    }>()
 
     /*  subscribe to an RPC event  */
     async subscribe<K extends EventKeys<T> & string> (
@@ -57,7 +57,8 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             event:     K,
             callback:  WithInfo<T[K], InfoEvent>,
             options?:  Partial<IClientSubscribeOptions>,
-            share?:    string
+            share?:    string,
+            auth?:     AuthOption
         }
     ): Promise<Subscription>
     async subscribe<K extends EventKeys<T> & string> (
@@ -65,7 +66,8 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             event:     K,
             callback:  WithInfo<T[K], InfoEvent>,
             options?:  Partial<IClientSubscribeOptions>,
-            share?:    string
+            share?:    string,
+            auth?:     AuthOption
         },
         ...args:       any[]
     ): Promise<Subscription> {
@@ -74,12 +76,13 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
         let callback: WithInfo<T[K], InfoEvent>
         let options:  Partial<IClientSubscribeOptions> = {}
         let share:    string | undefined
+        let auth:     AuthOption | undefined
         if (typeof eventOrConfig === "object" && eventOrConfig !== null) {
             /*  object-based API  */
             event    = eventOrConfig.event
             callback = eventOrConfig.callback
             options  = eventOrConfig.options ?? {}
-            share    = eventOrConfig.share
+            auth     = eventOrConfig.auth
         }
         else {
             /*  positional API  */
@@ -107,7 +110,10 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
         })
 
         /*  remember the subscription  */
-        this.subscriptions.set(event, callback as WithInfo<APIEndpointEvent, InfoEvent>)
+        this.subscriptions.set(event, {
+            callback: callback as WithInfo<APIEndpointEvent, InfoEvent>,
+            auth
+        })
 
         /*  provide a subscription for subsequent unsubscribing  */
         const self = this
@@ -135,7 +141,8 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             event:     K,
             params:    Parameters<T[K]>,
             receiver?: string,
-            options?:  IClientPublishOptions
+            options?:  IClientPublishOptions,
+            meta?:     Record<string, any>
         }
     ): void
     emit<K extends EventKeys<T> & string> (
@@ -144,6 +151,7 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             params:    Parameters<T[K]>,
             receiver?: string,
             options?:  IClientPublishOptions,
+            meta?:     Record<string, any>,
             dry:       true
         }
     ): { topic: string, payload: string | Uint8Array, options: IClientPublishOptions }
@@ -152,7 +160,8 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             event:     K,
             params:    Parameters<T[K]>,
             receiver?: string,
-            options?:  IClientPublishOptions
+            options?:  IClientPublishOptions,
+            meta?:     Record<string, any>,
             dry?:      true
         },
         ...args:       any[]
@@ -162,6 +171,7 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
         let params:    Parameters<T[K]>
         let receiver:  string | undefined
         let options:   IClientPublishOptions = {}
+        let meta:      Record<string, any> = {}
         let dry:       boolean | undefined
         if (typeof eventOrConfig === "object" && eventOrConfig !== null) {
             /*  object-based API  */
@@ -169,6 +179,7 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             params   = eventOrConfig.params
             receiver = eventOrConfig.receiver
             options  = eventOrConfig.options ?? {}
+            meta     = eventOrConfig.meta ?? {}
             dry      = eventOrConfig.dry
         }
         else {
@@ -181,8 +192,10 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
         const rid = nanoid()
 
         /*  generate encoded message  */
-        const request = this.msg.makeEventEmission(rid, event, params, this.options.id, receiver)
-        const message = this.codec.encode(request)
+        const auth      = this.authenticate()
+        const metaStore = this.metaStore(meta)
+        const request   = this.msg.makeEventEmission(rid, event, params, this.options.id, receiver, auth, metaStore)
+        const message   = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
         const topic = this.options.topicMake(event, "event-emission", receiver)
@@ -190,14 +203,14 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
         /*  produce result  */
         if (dry)
             /*  return publish information  */
-            return { topic, payload: Buffer.from(message), options: { qos: 0, ...options } }
+            return { topic, payload: message, options: { qos: 0, ...options } }
         else
             /*  publish message to MQTT topic  */
-            this.mqtt.publish(topic, Buffer.from(message), { qos: 0, ...options })
+            this._publishToTopic(topic, message, { qos: 0, ...options }).catch(() => {})
     }
 
     /*  dispatch message (Event pattern handling)  */
-    protected _dispatchMessage (topic: string, parsed: any) {
+    protected async _dispatchMessage (topic: string, parsed: any) {
         super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
         if (topicMatch !== null
@@ -210,11 +223,16 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             const info: InfoEvent = { sender: parsed.sender ?? "" }
             if (parsed.receiver)
                 info.receiver = parsed.receiver
-            Promise.resolve()
-                .then(() => handler?.(...params, info))
-                .catch((err: Error) => {
-                    this.mqtt.emit("error", err)
-                })
+            if (handler?.auth)
+                info.authenticated = await this.authenticated(parsed.id, parsed.auth, handler.auth)
+            if (info.authenticated !== undefined && !info.authenticated)
+                this.error(new Error(`authentication on event "${name}" failed`))
+            else
+                Promise.resolve()
+                    .then(() => handler?.callback?.(...params, info))
+                    .catch((err: Error) => {
+                        this.error(err)
+                    })
         }
     }
 }

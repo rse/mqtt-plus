@@ -22,9 +22,6 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/*  built-in requirements  */
-import { Buffer }                     from "node:buffer"
-
 /*  external requirements  */
 import { IClientPublishOptions,
     IClientSubscribeOptions }         from "mqtt"
@@ -37,6 +34,7 @@ import { APISchema,
     APIEndpointService, ServiceKeys } from "./mqtt-plus-api"
 import type { WithInfo, InfoService } from "./mqtt-plus-info"
 import { EventTrait }                 from "./mqtt-plus-event"
+import type { AuthOption }            from "./mqtt-plus-auth"
 
 /*  the registration result type  */
 export interface Registration {
@@ -46,7 +44,10 @@ export interface Registration {
 /*  Service Communication Trait  */
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
     /*  internal state  */
-    private registrations         = new Map<string, WithInfo<APIEndpointService, InfoService>>()
+    private registrations         = new Map<string, {
+        callback: WithInfo<APIEndpointService, InfoService>
+        auth?:    AuthOption
+    }>()
     private responseCallback      = new Map<string, { service: string, callback: (err: any, result: any) => void }>()
     private responseSubscriptions = new Map<string, number>()
 
@@ -60,7 +61,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             service:   K,
             callback:  WithInfo<T[K], InfoService>,
             options?:  Partial<IClientSubscribeOptions>,
-            share?:    string
+            share?:    string,
+            auth?:     AuthOption
         }
     ): Promise<Registration>
     async register<K extends ServiceKeys<T> & string> (
@@ -68,7 +70,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             service:   K,
             callback:  WithInfo<T[K], InfoService>,
             options?:  Partial<IClientSubscribeOptions>,
-            share?:    string
+            share?:    string,
+            auth?:     AuthOption
         },
         ...args:  any[]
     ): Promise<Registration> {
@@ -77,12 +80,14 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         let callback: WithInfo<T[K], InfoService>
         let options:  Partial<IClientSubscribeOptions> = {}
         let share:    string | undefined
+        let auth:     AuthOption | undefined
         if (typeof serviceOrConfig === "object" && serviceOrConfig !== null) {
             /*  object-based API  */
             service  = serviceOrConfig.service
             callback = serviceOrConfig.callback
             options  = serviceOrConfig.options ?? {}
             share    = serviceOrConfig.share
+            auth     = serviceOrConfig.auth
         }
         else {
             /*  positional API  */
@@ -110,7 +115,10 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         })
 
         /*  remember the registration  */
-        this.registrations.set(service, callback as WithInfo<APIEndpointService, InfoService>)
+        this.registrations.set(service, {
+            callback: callback as WithInfo<APIEndpointService, InfoService>,
+            auth
+        })
 
         /*  provide a registration for subsequent unregistering  */
         const self = this
@@ -138,7 +146,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             service:   K,
             params:    Parameters<T[K]>,
             receiver?: string,
-            options?:  IClientPublishOptions
+            options?:  IClientPublishOptions,
+            meta?:     Record<string, any>
         }
     ): Promise<ReturnType<T[K]>>
     call<K extends ServiceKeys<T> & string> (
@@ -146,7 +155,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             service:   K,
             params:    Parameters<T[K]>,
             receiver?: string,
-            options?:  IClientPublishOptions
+            options?:  IClientPublishOptions,
+            meta?:     Record<string, any>
         },
         ...args:       any[]
     ): Promise<ReturnType<T[K]>> {
@@ -155,12 +165,14 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         let params:    Parameters<T[K]>
         let receiver:  string | undefined
         let options:   IClientPublishOptions = {}
+        let meta:      Record<string, any> = {}
         if (typeof serviceOrConfig === "object" && serviceOrConfig !== null) {
             /*  object-based API  */
             service  = serviceOrConfig.service
             params   = serviceOrConfig.params
             receiver = serviceOrConfig.receiver
             options  = serviceOrConfig.options ?? {}
+            meta     = serviceOrConfig.meta ?? {}
         }
         else {
             /*  positional API  */
@@ -196,22 +208,22 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         })
 
         /*  generate encoded message  */
-        const request = this.msg.makeServiceCallRequest(rid, service, params, this.options.id, receiver)
-        const message = this.codec.encode(request)
+        const auth      = this.authenticate()
+        const metaStore = this.metaStore(meta)
+        const request   = this.msg.makeServiceCallRequest(rid, service, params, this.options.id, receiver, auth, metaStore)
+        const message   = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
         const topic = this.options.topicMake(service, "service-call-request", receiver)
 
         /*  publish message to MQTT topic  */
-        this.mqtt.publish(topic, Buffer.from(message), { qos: 2, ...options }, (err?: Error) => {
+        this._publishToTopic(topic, message, { qos: 2, ...options }).catch((err: Error) => {
             /*  handle request failure (only if not already handled)  */
-            if (err) {
-                const pendingRequest = this.responseCallback.get(rid)
-                if (pendingRequest !== undefined) {
-                    this.responseCallback.delete(rid)
-                    this._responseUnsubscribe(service)
-                    pendingRequest.callback(err, undefined)
-                }
+            const pendingRequest = this.responseCallback.get(rid)
+            if (pendingRequest !== undefined) {
+                this.responseCallback.delete(rid)
+                this._responseUnsubscribe(service)
+                pendingRequest.callback(err, undefined)
             }
         })
 
@@ -253,15 +265,14 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             this.responseSubscriptions.set(topic, count - 1)
         else {
             this.responseSubscriptions.delete(topic)
-            this.mqtt.unsubscribe(topic, (err?: Error) => {
-                if (err)
-                    this.mqtt.emit("error", err)
+            this._unsubscribeTopic(topic).catch((err: Error) => {
+                this.error(err)
             })
         }
     }
 
     /*  dispatch message (Service pattern handling)  */
-    protected _dispatchMessage (topic: string, parsed: any) {
+    protected async _dispatchMessage (topic: string, parsed: any) {
         super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
         if (topicMatch !== null
@@ -278,7 +289,15 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 const info: InfoService = { sender: parsed.sender ?? "" }
                 if (parsed.receiver)
                     info.receiver = parsed.receiver
-                response = Promise.resolve().then(() => handler(...params, info))
+                if (handler?.auth)
+                    info.authenticated = await this.authenticated(parsed.id, parsed.auth, handler.auth)
+                if (info.authenticated !== undefined && !info.authenticated) {
+                    const error = new Error(`authentication on service "${name}" failed`)
+                    this.error(error)
+                    response = Promise.reject(error)
+                }
+                else
+                    response = Promise.resolve().then(() => handler.callback(...params, info))
             }
             else
                 response = Promise.reject(new Error(`method not found: ${name}`))
@@ -306,9 +325,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     throw new Error("invalid request: missing sender")
                 const encoded = this.codec.encode(rpcResponse)
                 const topic = this.options.topicMake(name, "service-call-response", senderPeerId)
-                this.mqtt.publish(topic, Buffer.from(encoded), { qos: 2 })
+                this._publishToTopic(topic, encoded, { qos: 2 }).catch(() => {})
             }).catch((err: Error) => {
-                this.mqtt.emit("error", err)
+                this.error(err)
             })
         }
         else if (topicMatch !== null
