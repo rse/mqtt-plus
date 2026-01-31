@@ -46,11 +46,12 @@ export class MetaTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
 
     /*  determine meta store  */
     protected metaStore (extra?: Record<string, any>): Record<string, any> | undefined {
-        if (this._meta.size === 0 && extra === undefined)
+        const extraEmpty = (extra === undefined || Object.keys(extra).length === 0)
+        if (this._meta.size === 0 && extraEmpty)
             return undefined
-        else if (this._meta.size > 0 && extra === undefined)
+        else if (this._meta.size > 0 && extraEmpty)
             return Object.fromEntries(this._meta)
-        else if (this._meta.size === 0 && extra !== undefined)
+        else if (this._meta.size === 0 && !extraEmpty)
             return extra
         else
             return { ...Object.fromEntries(this._meta), ...extra }
