@@ -5,6 +5,10 @@ ChangeLog
 1.0.1 (2026-01-25)
 ------------------
 
+- IMPROVEMENT: allow "meta" information for emit()/call()/push()/fetch()
+- IMPROVEMENT: provide JWT-based authentication facility
+- IMPROVEMENT: provide utility functions for string/buffer conversions
+- IMPROVEMENT: MQTTp API is now an event emitter for emitting errors and logs
 - IMPROVEMENT: use client/server scenario in test suite
 
 1.0.0 (2026-01-25)
