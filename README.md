@@ -487,6 +487,38 @@ The **MQTT+** API provides the following methods:
   Internally, publishes to the MQTT topic by `topicMake(resource, "resource-transfer-response", peerId)`
   (default: `${resource}/resource-transfer-response/any` or `${resource}/resource-transfer-response/${peerId}`).
 
+- **Data Type Conversion Utilities**:<br/>
+
+  MQTT+ provides utility methods for converting between strings,
+  buffers, and typed arrays. These are useful when working with binary
+  data in resource transfers or when interfacing with API methods that
+  expect specific data types.
+
+      /*  convert character string to buffer  */
+      str2buf(data: string): Uint8Array
+
+      /*  convert buffer to character string  */
+      buf2str(data: Uint8Array): string
+
+      /*  convert byte-based typed array to buffer  */
+      arr2buf(data: Buffer | Uint8Array | Int8Array): Uint8Array
+
+      /*  convert buffer to byte-based typed array  */
+      buf2arr(data: Uint8Array, type: typeof Buffer): Buffer
+      buf2arr(data: Uint8Array, type: typeof Uint8Array): Uint8Array
+      buf2arr(data: Uint8Array, type: typeof Int8Array): Int8Array
+
+  Example usage:
+
+      /*  string to buffer conversion  */
+      const buffer = mqttp.str2buf("Hello, World!")
+      const text   = mqttp.buf2str(buffer)
+
+      /*  typed array conversions  */
+      const ui8a   = mqttp.arr2buf(buffer)
+      const buffer = mqttp.buf2arr(ui8a, Buffer)
+      const i8a    = mqttp.buf2arr(ui8a, Int8Array)
+
 Internals
 ---------
 
