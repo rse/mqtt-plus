@@ -51,7 +51,9 @@ export class EventEmission extends Base {
         public event:   string,
         public params?: any[],
         sender?:        string,
-        receiver?:      string
+        receiver?:      string,
+        public auth?:   string[],
+        public meta?:   Record<string, any>
     ) { super("event-emission", id, sender, receiver) }
 }
 
@@ -62,7 +64,9 @@ export class ServiceCallRequest extends Base {
         public service: string,
         public params?: any[],
         sender?:        string,
-        receiver?:      string
+        receiver?:      string,
+        public auth?:   string[],
+        public meta?:   Record<string, any>
     ) { super("service-call-request", id, sender, receiver) }
 }
 
@@ -84,7 +88,9 @@ export class ResourceTransferRequest extends Base {
         public resource: string,
         public params?:  any[],
         sender?:         string,
-        receiver?:       string
+        receiver?:       string,
+        public auth?:    string[],
+        public meta?:   Record<string, any>
     ) { super("resource-transfer-request", id, sender, receiver) }
 }
 
@@ -95,11 +101,12 @@ export class ResourceTransferResponse extends Base {
         public resource?: string,
         public params?:   any[],
         public chunk?:    Uint8Array,
-        public meta?:     Record<string, any>,
         public error?:    string,
         public final?:    boolean,
         sender?:          string,
-        receiver?:        string
+        receiver?:        string,
+        public auth?:     string[],
+        public meta?:     Record<string, any>
     ) { super("resource-transfer-response", id, sender, receiver) }
 }
 
@@ -111,9 +118,11 @@ class Msg {
         event:          string,
         params?:        any[],
         sender?:        string,
-        receiver?:      string
+        receiver?:      string,
+        auth?:          string[],
+        meta?:          Record<string, any>
     ): EventEmission {
-        return new EventEmission(id, event, params, sender, receiver)
+        return new EventEmission(id, event, params, sender, receiver, auth, meta)
     }
 
     /*  factory for service request  */
@@ -122,9 +131,11 @@ class Msg {
         service:        string,
         params?:        any[],
         sender?:        string,
-        receiver?:      string
+        receiver?:      string,
+        auth?:          string[],
+        meta?:          Record<string, any>
     ): ServiceCallRequest {
-        return new ServiceCallRequest(id, service, params, sender, receiver)
+        return new ServiceCallRequest(id, service, params, sender, receiver, auth, meta)
     }
 
     /*  factory for service response success  */
@@ -144,9 +155,11 @@ class Msg {
         resource:       string,
         params?:        any[],
         sender?:        string,
-        receiver?:      string
+        receiver?:      string,
+        auth?:          string[],
+        meta?:          Record<string, any>
     ): ResourceTransferRequest {
-        return new ResourceTransferRequest(id, resource, params, sender, receiver)
+        return new ResourceTransferRequest(id, resource, params, sender, receiver, auth, meta)
     }
 
     /*  factory for resource response  */
@@ -155,13 +168,14 @@ class Msg {
         resource?:      string,
         params?:        any[],
         chunk?:         Uint8Array,
-        meta?:          Record<string, any>,
         error?:         string,
         final?:         boolean,
         sender?:        string,
-        receiver?:      string
+        receiver?:      string,
+        auth?:          string[],
+        meta?:          Record<string, any>
     ): ResourceTransferResponse {
-        return new ResourceTransferResponse(id, resource, params, chunk, meta, error, final, sender, receiver)
+        return new ResourceTransferResponse(id, resource, params, chunk, error, final, sender, receiver, auth, meta)
     }
 
     /*  parse any object into typed object  */
@@ -195,21 +209,21 @@ class Msg {
             /*  detect and parse event emission  */
             if (typeof obj.event !== "string")
                 throw new Error("invalid EventEmission object: \"event\" field must be a string")
-            if (anyFieldsExcept(obj, [ "type", "id", "event", "params", "sender", "receiver" ]))
+            if (anyFieldsExcept(obj, [ "type", "id", "event", "params", "sender", "receiver", "auth", "meta" ]))
                 throw new Error("invalid EventEmission object: contains unknown fields")
             if (!validParams(obj))
                 throw new Error("invalid EventEmission object: \"params\" field must be an array")
-            return this.makeEventEmission(obj.id, obj.event, obj.params, obj.sender, obj.receiver)
+            return this.makeEventEmission(obj.id, obj.event, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
         }
         else if (obj.type === "service-call-request") {
             /*  detect and parse service request  */
             if (typeof obj.service !== "string")
                 throw new Error("invalid ServiceCallRequest object: \"service\" field must be a string")
-            if (anyFieldsExcept(obj, [ "type", "id", "service", "params", "sender", "receiver" ]))
+            if (anyFieldsExcept(obj, [ "type", "id", "service", "params", "sender", "receiver", "auth", "meta" ]))
                 throw new Error("invalid ServiceCallRequest object: contains unknown fields")
             if (!validParams(obj))
                 throw new Error("invalid ServiceCallRequest object: \"params\" field must be an array")
-            return this.makeServiceCallRequest(obj.id, obj.service, obj.params, obj.sender, obj.receiver)
+            return this.makeServiceCallRequest(obj.id, obj.service, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
         }
         else if (obj.type === "service-call-response") {
             /*  detect and parse service response success  */
@@ -221,19 +235,17 @@ class Msg {
             /*  detect and parse resource request  */
             if (typeof obj.resource !== "string")
                 throw new Error("invalid ResourceTransferRequest object: \"resource\" field must be a string")
-            if (anyFieldsExcept(obj, [ "type", "id", "resource", "params", "sender", "receiver" ]))
+            if (anyFieldsExcept(obj, [ "type", "id", "resource", "params", "sender", "receiver", "auth", "meta" ]))
                 throw new Error("invalid ResourceTransferRequest object: contains unknown fields")
             if (!validParams(obj))
                 throw new Error("invalid ResourceTransferRequest object: \"params\" field must be an array")
-            return this.makeResourceTransferRequest(obj.id, obj.resource, obj.params, obj.sender, obj.receiver)
+            return this.makeResourceTransferRequest(obj.id, obj.resource, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
         }
         else if (obj.type === "resource-transfer-response") {
             if (obj.resource !== undefined && typeof obj.resource !== "string")
                 throw new Error("invalid ResourceTransferResponse object: \"resource\" field must be a string")
             if (obj.chunk !== undefined && (obj.chunk === null || typeof obj.chunk !== "object"))
                 throw new Error("invalid ResourceTransferResponse object: \"chunk\" field must be an object")
-            if (obj.meta !== undefined && (typeof obj.meta !== "object" || obj.meta === null || Array.isArray(obj.meta)))
-                throw new Error("invalid ResourceTransferResponse object: \"meta\" field must be an object")
             if (obj.error !== undefined && typeof obj.error !== "string")
                 throw new Error("invalid ResourceTransferResponse object: \"error\" field must be a string")
             if (obj.final !== undefined && typeof obj.final !== "boolean")
@@ -241,10 +253,10 @@ class Msg {
             if (!validParams(obj))
                 throw new Error("invalid ResourceTransferResponse object: \"params\" field must be an array")
             if (anyFieldsExcept(obj, [ "type", "id", "resource", "params",
-                "chunk", "meta", "error", "final", "sender", "receiver" ]))
+                "chunk", "error", "final", "sender", "receiver", "auth", "meta" ]))
                 throw new Error("invalid ResourceTransferResponse object: contains unknown fields")
             return this.makeResourceTransferResponse(obj.id, obj.resource, obj.params,
-                obj.chunk, obj.meta, obj.error, obj.final, obj.sender, obj.receiver)
+                obj.chunk, obj.error, obj.final, obj.sender, obj.receiver, obj.auth, obj.meta)
         }
         else
             throw new Error("invalid object: not of any known type")
