@@ -53,7 +53,9 @@ export default Vite.defineConfig(({ command, mode }) => ({
                 "node:buffer",
                 "nanoid",
                 "cbor2",
-                "p-lazy"
+                "p-lazy",
+                "jose/jwt/sign",
+                "jose/jwt/verify"
             ]
         },
         lib: {
