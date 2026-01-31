@@ -201,6 +201,93 @@ The **MQTT+** API provides the following methods:
   Clean up the MQTT+ instance by removing all event listeners.
   Call this method when the instance is no longer needed.
 
+- **Authentication**:<br/>
+
+  MQTT+ provides JWT-based authentication for securing events, services,
+  and resources. Authentication works by issuing tokens on the
+  server-side and validating them when messages are received.
+
+      /*  store server-side secret credential  */
+      credential(credential: string): void
+
+      /*  issue client-side token on server-side  */
+      issue(payload: { roles: string[], id?: string }): Promise<string>
+
+      /*  add/remove client-side token (client-side)  */
+      authenticate(token: string): void
+      authenticate(token: string, remove: true): void
+
+  The `credential()` method sets the secret key used for signing and
+  verifying JWT tokens. This must be called before `issue()` can be
+  used.
+
+  The `issue()` method creates a new JWT token with the specified `roles` array.
+  The optional `id` field can bind the token to a specific client identifier.
+
+  The `authenticate()` method manages client-side tokens:
+  called with a token, adds the token to the set of active tokens;
+  called with a token and `true`, removes the token from the set.
+
+  When a client has tokens set via `authenticate()`, they are automatically
+  included in outgoing `emit()`, `call()`, `push()`, and `fetch()` requests.
+
+  Example:
+
+      /*  server-side: set credential and issue token  */
+      mqttp.credential("my-secret-key")
+      const token = await mqttp.issue({ roles: [ "admin", "user" ] })
+
+      /*  client-side: add token for authentication  */
+      mqttp.authenticate(token)
+
+- **Meta Information**:<br/>
+
+  MQTT+ allows attaching persistent meta-data to an instance that is
+  automatically included in all outgoing messages. This is useful for
+  adding context information like client version, environment, or user
+  identity to every request.
+
+      /*  set meta information by key  */
+      meta(key: string, value: any): void
+
+      /*  delete meta information by key  */
+      meta(key: string): void
+
+  The `meta()` method manages instance-level meta-data:
+  called with a key only, deletes the meta-data entry for that key;
+  called with a key and value, sets the meta-data entry.
+
+  Instance-level meta-data set via `meta()` is merged with any per-request
+  `meta` option passed to `emit()`, `call()`, `push()`, or `fetch()`.
+  Per-request meta-data takes precedence over instance-level metadata.
+
+  On the receiving side, meta-data is available via the `info.meta`
+  field in callbacks for `subscribe()`, `register()`, and `provision()`.
+  For `fetch()`, the returned `meta` promise resolves to the meta-data
+  sent by the provisioner.
+
+  Example usage:
+
+      /*  sender: set instance-level metadata  */
+      mqttp.meta("clientVersion", "1.0.0")
+      mqttp.meta("environment", "production")
+
+      /*  sender: retrieve all metadata  */
+      const allMeta = mqttp.meta()
+
+      /*  sender: delete a metadata entry  */
+      mqttp.meta("environment")
+
+      /*  sender: per-request metadata (merged with instance-level)  */
+      mqttp.call({ service: "example/hello", params: [ "world" ], meta: { requestId: "123" } })
+
+      /*  receiver: access metadata in callback  */
+      await mqttp.register("example/hello", (arg, info) => {
+          console.log(info.meta?.clientVersion)  /*  "1.0.0"  */
+          console.log(info.meta?.requestId)      /*  "123"    */
+          return `hello ${arg}`
+      })
+
 - **Event Subscription**:<br/>
 
       /*  (simplified TypeScript API method signature)  */
@@ -208,17 +295,28 @@ The **MQTT+** API provides the following methods:
           event:    string,
           callback: (
               ...params: any[],
-              info: { sender: string, receiver?: string }
+              info: {
+                  sender:         string,
+                  receiver?:      string,
+                  authenticated?: boolean,
+                  meta?:          Record<string, any>
+              }
           ) => void | Promise<void>
       ): Promise<Subscription>
       subscribe({
           event:    string,
           callback: (
               ...params: any[],
-              info: { sender: string, receiver?: string }
+              info: {
+                  sender:         string,
+                  receiver?:      string,
+                  authenticated?: boolean,
+                  meta?:          Record<string, any>
+              }
           ) => void | Promise<void>,
           options?: MQTT::IClientSubscribeOptions,
-          share?:   string
+          share?:   string,
+          auth?:    "require" | "optional" | { mode: "require" | "optional", roles: string[] }
       }): Promise<Subscription>
 
   Subscribe to an event.
@@ -229,6 +327,11 @@ The **MQTT+** API provides the following methods:
   The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
   (MQTT 5.0) for load-balancing messages across multiple subscribers by specifying
   a group name. This internally prefixes the event with `$share/<share>/`.
+  The optional `auth` enables authentication validation on incoming events.
+  When set to `"require"` or `"optional"`, or an object `{ mode, roles }`,
+  the `info.authenticated` field indicates whether the sender provided valid tokens.
+  With `"require"`, unauthenticated events are rejected. With `"optional"`,
+  all events are accepted but `info.authenticated` reflects the validation result.
 
   Internally, on the MQTT broker, the topics generated by
   `topicMake(event, "event-emission")` (default: `${event}/event-emission/any` and
@@ -242,17 +345,28 @@ The **MQTT+** API provides the following methods:
           service:  string,
           callback: (
               ...params: any[],
-              info: { sender: string, receiver?: string }
+              info: {
+                  sender:         string,
+                  receiver?:      string,
+                  authenticated?: boolean,
+                  meta?:          Record<string, any>
+              }
           ) => any | Promise<any>
       ): Promise<Registration>
       register({
           service:  string,
           callback: (
               ...params: any[],
-              info: { sender: string, receiver?: string }
+              info: {
+                  sender:         string,
+                  receiver?:      string,
+                  authenticated?: boolean,
+                  meta?:          Record<string, any>
+              }
           ) => any | Promise<any>,
           options?: MQTT::IClientSubscribeOptions,
-          share?:   string
+          share?:   string,
+          auth?:    "require" | "optional" | { mode: "require" | "optional", roles: string[] }
       }): Promise<Registration>
 
   Register a service.
@@ -263,6 +377,11 @@ The **MQTT+** API provides the following methods:
   The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
   (MQTT 5.0) for load-balancing service calls across multiple registrants by specifying
   a group name. This internally prefixes the service with `$share/<share>/`.
+  The optional `auth` enables authentication validation on incoming service calls.
+  When set to `"require"` or `"optional"`, or an object `{ mode, roles }`,
+  the `info.authenticated` field indicates whether the caller provided valid tokens.
+  With `"require"`, unauthenticated calls are rejected with an error response.
+  With `"optional"`, all calls are accepted but `info.authenticated` reflects the validation result.
 
   Internally, on the MQTT broker, the topics generated by
   `topicMake(service, "service-call-request")` (default: `${service}/service-call-request/any` and
@@ -277,11 +396,12 @@ The **MQTT+** API provides the following methods:
           callback: (
               ...params: any[],
               info: {
-                  sender:    string,
-                  receiver?: string,
-                  meta?:     Record<string, any>,
-                  stream?:   Readable,
-                  buffer?:   Promise<Uint8Array>
+                  sender:         string,
+                  receiver?:      string,
+                  authenticated?: boolean,
+                  meta?:          Record<string, any>,
+                  stream?:        Readable,
+                  buffer?:        Promise<Uint8Array>
               }
           ) => void | Promise<void>
       ): Promise<Provisioning>
@@ -290,15 +410,17 @@ The **MQTT+** API provides the following methods:
           callback: (
               ...params: any[],
               info: {
-                  sender:    string,
-                  receiver?: string,
-                  meta?:     Record<string, any>,
-                  stream?:   Readable,
-                  buffer?:   Promise<Uint8Array>
+                  sender:         string,
+                  receiver?:      string,
+                  authenticated?: boolean,
+                  meta?:          Record<string, any>,
+                  stream?:        Readable,
+                  buffer?:        Promise<Uint8Array>
               }
           ) => void | Promise<void>,
           options?: MQTT::IClientSubscribeOptions,
-          share?:   string
+          share?:   string,
+          auth?:    "require" | "optional" | { mode: "require" | "optional", roles: string[] }
       }): Promise<Provisioning>
 
   Provision a resource for both fetch requests and pushed data.
@@ -307,6 +429,11 @@ The **MQTT+** API provides the following methods:
   The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
   (MQTT 5.0) for load-balancing resource requests across multiple provisioners by specifying
   a group name. This internally prefixes the resource with `$share/<share>/`.
+  The optional `auth` enables authentication validation on incoming resource requests.
+  When set to `"require"` or `"optional"`, or an object `{ mode, roles }`,
+  the `info.authenticated` field indicates whether the requester provided valid tokens.
+  With `"require"`, unauthenticated requests are rejected. With `"optional"`,
+  all requests are accepted but `info.authenticated` reflects the validation result.
 
   For **fetch requests**: The `callback` is called with the `params` passed to a remote `fetch()`.
   The `callback` should set `info.stream` to a `Readable` or `info.buffer` to a `Promise<Uint8Array>` containing the resource data.
@@ -334,19 +461,23 @@ The **MQTT+** API provides the following methods:
           event:     string,
           params:    any[],
           receiver?: string,
-          options?:  MQTT::IClientSubscribeOptions
+          options?:  MQTT::IClientSubscribeOptions,
+          meta?:     Record<string, any>
       }): void
       emit({
           event:     string,
           params:    any[],
           receiver?: string,
           options?:  MQTT::IClientSubscribeOptions,
+          meta?:     Record<string, any>,
           dry:       true
       }): { topic: string, payload: Uint8Array, options: IClientPublishOptions }
 
   Emit an event to all subscribers or a specific subscriber ("fire and forget").
   The optional `receiver` directs the event to a specific subscriber only.
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+  The optional `meta` sends additional metadata alongside the event,
+  which is merged with instance-level metadata set via `meta()`.
   The optional `dry` flag, when set to `true`, returns the publish information
   (`topic`, `payload`, `options`) instead of actually publishing to the MQTT broker.
   This is useful for generating MQTT "last will" messages (see example below).
@@ -394,12 +525,15 @@ The **MQTT+** API provides the following methods:
           service:   string,
           params:    any[],
           receiver?: string,
-          options?:  MQTT::IClientPublishOptions
+          options?:  MQTT::IClientPublishOptions,
+          meta?:     Record<string, any>
       }): Promise<any>
 
   Call a service on all registrants or on a specific registrant ("request and response").
   The optional `receiver` directs the call to a specific registrant only.
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+  The optional `meta` sends additional metadata alongside the service call,
+  which is merged with instance-level metadata set via `meta()`.
 
   The remote `register()` `callback` is called with `params` and its
   return value resolves the returned `Promise`. If the remote `callback`
@@ -424,7 +558,8 @@ The **MQTT+** API provides the following methods:
           resource:  string,
           params:    any[],
           receiver?: string,
-          options?:  MQTT::IClientSubscribeOptions
+          options?:  MQTT::IClientSubscribeOptions,
+          meta?:     Record<string, any>
       }): Promise<{
           stream:    Readable,
           buffer:    Promise<Uint8Array>,
@@ -434,6 +569,8 @@ The **MQTT+** API provides the following methods:
   Fetches a resource from any resource provisioner or from a specific provisioner.
   The optional `receiver` directs the call to a specific provisioner only.
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+  The optional `meta` sends additional metadata alongside the fetch request,
+  which is merged with instance-level metadata set via `meta()`.
 
   Returns an object with a `stream` (`Readable`) for consuming the transferred data,
   a lazy `buffer` (`Promise<Uint8Array>`) that resolves to the complete data once the stream ends,
