@@ -23,6 +23,7 @@
 */
 
 /*  built-in requirements  */
+import { Buffer }   from "node:buffer"
 import { Readable } from "node:stream"
 
 /*  external requirements  */
