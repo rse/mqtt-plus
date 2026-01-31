@@ -57,6 +57,7 @@ type API = {
     "example/server/upload":           Resource<(name: string) => void>
     "example/server/download":         Resource<(filename: string) => void>
     "example/server/download-invalid": Resource<(filename: string) => void>
+    "example/server/login":            Service<(password: string) => Promise<string>>
 }
 
 /*  Mosquitto ACL  */
@@ -149,6 +150,7 @@ describe("MQTT+ Library", function () {
     let mqttS:     MQTT.MqttClient
     let mqttpC:    MQTTp<API>
     let mqttpS:    MQTTp<API>
+    const logs:    string[] = []
 
     /*  actions before all test cases  */
     before(async function () {
@@ -174,6 +176,15 @@ describe("MQTT+ Library", function () {
         await new Promise<void>((resolve, reject) => {
             mqttS.once("connect", ()         => { resolve() })
             mqttS.once("error",   (err: any) => { reject(err) })
+        })
+
+        mqttpS.on("log", async (entry) => {
+            await entry.resolve()
+            logs.push(`server: ${entry}`)
+        })
+        mqttpC.on("log", async (entry) => {
+            await entry.resolve()
+            logs.push(`client: ${entry}`)
         })
     })
 
@@ -396,6 +407,93 @@ describe("MQTT+ Library", function () {
             .to.be.deep.equal([ "open", "close" ])
     })
 
+    /*  test case: Authentication  */
+    it("MQTT+ Authentication", async function () {
+        /*  setup  */
+        this.timeout(3000)
+        const spy = sinon.spy()
+
+        /*  credentials  */
+        const serverCred = "my-secret"
+        const userCred   = "my-password"
+
+        /*  server-side: provide login  */
+        mqttpS.credential(serverCred)
+        let userToken = ""
+        const registration = await mqttpS.register("example/server/login", async (password: string, info) => {
+            spy("login")
+            if (password !== userCred)
+                throw new Error("invalid password")
+            expect(password).to.be.equal(userCred)
+            const token = await mqttpS.issue({
+                id: info.sender,
+                roles: [ "user" ]
+            })
+            userToken = token
+            return token
+        })
+
+        /*  server-side: provide   */
+        const registration2 = await mqttpS.register({
+            service: "example/server/hello",
+            auth: { mode: "require", roles: [ "user" ] },
+            callback: (str: string, num: number) => {
+                spy("hello")
+                return `${str}:${num}`
+            }
+        })
+
+        /*  call service (without token)  */
+        await mqttpC.call("example/server/hello", "world", 42).then(async (result) => {
+            spy("call1-success")
+        }).catch((err: Error) => {
+            spy("call1-error")
+        })
+        expect(spy.getCalls()
+            .map((call) => call.firstArg))
+            .to.be.deep.equal([ "call1-error" ])
+        spy.resetHistory()
+
+        /*  retrieve token  */
+        await mqttpC.call("example/server/login", userCred).then(async (token) => {
+            spy("login-success")
+            expect(token).to.be.equal(userToken)
+        }).catch((err: Error) => {
+            spy("login-error")
+        })
+        expect(spy.getCalls()
+            .map((call) => call.firstArg))
+            .to.be.deep.equal([ "login", "login-success" ])
+        spy.resetHistory()
+
+        /*  call service (with wrong token)  */
+        await mqttpC.authenticate("wrong")
+        await mqttpC.call("example/server/hello", "world", 42).then(async (result) => {
+            spy("call2-success")
+        }).catch((err: Error) => {
+            spy("call2-error")
+        })
+        expect(spy.getCalls()
+            .map((call) => call.firstArg))
+            .to.be.deep.equal([ "call2-error" ])
+        spy.resetHistory()
+
+        /*  call service (with correct token)  */
+        await mqttpC.authenticate(userToken)
+        await mqttpC.call("example/server/hello", "world", 42).then(async (result) => {
+            spy("call3-success")
+        }).catch((err: Error) => {
+            spy("call3-error")
+        })
+        expect(spy.getCalls()
+            .map((call) => call.firstArg))
+            .to.be.deep.equal([ "hello", "call3-success" ])
+
+        /*  destroy service  */
+        await registration.unregister()
+        await registration2.unregister()
+    })
+
     /*  actions after each test cases  */
     let testsFailed = 0
     afterEach(function () {
@@ -415,8 +513,10 @@ describe("MQTT+ Library", function () {
         await new Promise((resolve) => { setTimeout(resolve, 1000) })
 
         /*  in case of any failed tests, show the Mosquitto logs  */
-        if (testsFailed > 0)
+        if (testsFailed > 0) {
+            logs.forEach((entry) => console.log(entry))
             console.log(mosquitto.logs())
+        }
     })
 })
 
