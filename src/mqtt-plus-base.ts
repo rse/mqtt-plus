@@ -33,11 +33,11 @@ import { MqttClient,
 /*  internal requirements  */
 import { APISchema }                         from "./mqtt-plus-api"
 import { APIOptions }                        from "./mqtt-plus-options"
-import { MetaTrait }                         from "./mqtt-plus-meta"
+import { TraceTrait }                        from "./mqtt-plus-trace"
 import { JSONX }                             from "./mqtt-plus-codec"
 
 /*  MQTTp Base class with shared infrastructure  */
-export class BaseTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
+export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     protected mqtt: MqttClient
     private _messageHandler: OnMessageCallback
 

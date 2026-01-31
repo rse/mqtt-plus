@@ -23,8 +23,8 @@
 */
 
 /*  internal requirements  */
-import { APISchema }  from "./mqtt-plus-api"
-import { CodecTrait } from "./mqtt-plus-codec"
+import { APISchema }    from "./mqtt-plus-api"
+import { EncodeTrait }  from "./mqtt-plus-encode"
 
 /*  message types  */
 type MessageType =
@@ -264,7 +264,7 @@ class Msg {
 }
 
 /*  message trait  */
-export class MsgTrait<T extends APISchema = APISchema> extends CodecTrait<T> {
+export class MsgTrait<T extends APISchema = APISchema> extends EncodeTrait<T> {
     protected msg = new Msg()
 }
 

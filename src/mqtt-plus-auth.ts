@@ -27,8 +27,8 @@ import { SignJWT }     from "jose/jwt/sign"
 import { jwtVerify }   from "jose/jwt/verify"
 
 /*  internal requirements  */
-import { APISchema }   from "./mqtt-plus-api"
-import { EncodeTrait } from "./mqtt-plus-encode"
+import { APISchema }  from "./mqtt-plus-api"
+import { MetaTrait }  from "./mqtt-plus-meta"
 
 /*  type of the "auth" options  */
 export type AuthMode   = "require" | "optional"
@@ -36,7 +36,7 @@ export type AuthOption = AuthMode | { mode: AuthMode, roles: string[] }
 export type TokenPayload = { roles: string[], id?: string }
 
 /*  authentication trait  */
-export class AuthTrait<T extends APISchema = APISchema> extends EncodeTrait<T> {
+export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
     /*  internal state  */
     private _credential: string | null = null
     private _tokens = new Set<string>()

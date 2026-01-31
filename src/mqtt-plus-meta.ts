@@ -24,10 +24,10 @@
 
 /*  internal requirements  */
 import { APISchema }  from "./mqtt-plus-api"
-import { TraceTrait } from "./mqtt-plus-trace"
+import { BaseTrait }  from "./mqtt-plus-base"
 
 /*  Meta trait with meta information management  */
-export class MetaTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
+export class MetaTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
     /*  internal state  */
     private _meta: Map<string, any> = new Map()
 

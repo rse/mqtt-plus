@@ -23,11 +23,11 @@
 */
 
 /*  internal requirements  */
-import { APISchema } from "./mqtt-plus-api"
-import { BaseTrait } from "./mqtt-plus-base"
+import { APISchema }   from "./mqtt-plus-api"
+import { CodecTrait }  from "./mqtt-plus-codec"
 
 /*  encoding trait  */
-export class EncodeTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
+export class EncodeTrait<T extends APISchema = APISchema> extends CodecTrait<T> {
     /*  convert character string to buffer  */
     str2buf (data: string): Uint8Array {
         return new TextEncoder().encode(data)
@@ -54,11 +54,11 @@ export class EncodeTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
     buf2arr (data: Uint8Array, type: new () => Int8Array): Int8Array
     buf2arr <T extends (Buffer | Uint8Array | Int8Array)>(data: Uint8Array, cons: new (...args: any[]) => T): T {
         let arr: any
-        if (cons === Buffer.prototype.constructor)
+        if (cons === (Buffer as unknown as new (...args: any[]) => T))
             arr = Buffer.from(data.buffer, data.byteOffset, data.byteLength)
-        else if (cons === Uint8Array.prototype.constructor)
+        else if (cons === (Uint8Array as unknown as new (...args: any[]) => T))
             arr = data
-        else if (cons === Int8Array.prototype.constructor)
+        else if (cons === (Int8Array as unknown as new (...args: any[]) => T))
             arr = new Int8Array(data.buffer, data.byteOffset, data.byteLength)
         else
             throw new Error("invalid data type")
