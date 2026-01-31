@@ -224,21 +224,18 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const topic = this.options.topicMake(service, "service-call-response", this.options.id)
 
         /*  subscribe to MQTT topic and remember subscription  */
-        if (!this.responseSubscriptions.has(topic)) {
-            this.responseSubscriptions.set(topic, 0)
-            this.mqtt.subscribe(topic, options, (err: Error | null) => {
-                if (err) {
-                    const count = this.responseSubscriptions.get(topic) ?? 0
-                    if (count > 1)
-                        this.responseSubscriptions.set(topic, count - 1)
-                    else
-                        this.responseSubscriptions.delete(topic)
-                    this.mqtt.emit("error", err)
-                }
-            })
-        }
         const count = this.responseSubscriptions.get(topic) ?? 0
         this.responseSubscriptions.set(topic, count + 1)
+        if (count === 0) {
+            this._subscribeTopic(topic, options).catch((err: Error) => {
+                const currentCount = this.responseSubscriptions.get(topic) ?? 0
+                if (currentCount > 1)
+                    this.responseSubscriptions.set(topic, currentCount - 1)
+                else
+                    this.responseSubscriptions.delete(topic)
+                this.error(err)
+            })
+        }
     }
 
     /*  unsubscribe from RPC response  */
