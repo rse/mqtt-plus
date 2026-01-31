@@ -368,7 +368,7 @@ describe("MQTT+ Library", function () {
         const mqttClient = MQTT.connect("mqtt://127.0.0.1:1883", {
             will: {
                 topic:   will.topic,
-                payload: will.payload,
+                payload: Buffer.from(will.payload),
                 qos:     will.options.qos
             }
         })
