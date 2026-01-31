@@ -40,7 +40,7 @@ export default Vite.defineConfig(({ command, mode }) => ({
             prebuild:       true
         }),
         ...(formats === "umd" ? [ nodePolyfills({
-            include: [ "stream", "buffer" ],
+            include: [ "events", "stream", "buffer" ],
             globals: {},
             protocolImports: true
         }) ] : [])
@@ -48,6 +48,7 @@ export default Vite.defineConfig(({ command, mode }) => ({
     build: {
         rollupOptions: {
             external: formats === "umd" ? [] : [
+                "node:events",
                 "node:stream",
                 "node:buffer",
                 "nanoid",
