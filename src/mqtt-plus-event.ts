@@ -146,7 +146,7 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             options?:  IClientPublishOptions,
             dry:       true
         }
-    ): { topic: string, payload: Buffer, options: IClientPublishOptions }
+    ): { topic: string, payload: string | Uint8Array, options: IClientPublishOptions }
     emit<K extends EventKeys<T> & string> (
         eventOrConfig: K | {
             event:     K,
@@ -156,7 +156,7 @@ export class EventTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
             dry?:      true
         },
         ...args:       any[]
-    ): void | { topic: string, payload: Buffer, options: IClientPublishOptions } {
+    ): void | { topic: string, payload: string | Uint8Array, options: IClientPublishOptions } {
         /*  determine actual parameters  */
         let event:     K
         let params:    Parameters<T[K]>
