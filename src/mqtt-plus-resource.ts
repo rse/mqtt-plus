@@ -409,7 +409,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 if (parsed.meta)
                     info.meta = parsed.meta
                 if (handler?.auth)
-                    info.authenticated = await this.authenticated(parsed.id, parsed.auth, handler.auth)
+                    info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
 
                 /*  generate corresponding MQTT topic  */
                 const responseTopic = this.options.topicMake(resource, "resource-transfer-response", sender)
@@ -500,7 +500,7 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                         if (parsed.meta)
                             info.meta = meta
                         if (handler?.auth)
-                            info.authenticated = await this.authenticated(parsed.id, parsed.auth, handler.auth)
+                            info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
                         info.stream = readable
                         info.buffer = promise
 

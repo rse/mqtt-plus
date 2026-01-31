@@ -292,7 +292,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 if (parsed.meta)
                     info.meta = parsed.meta
                 if (handler?.auth)
-                    info.authenticated = await this.authenticated(parsed.id, parsed.auth, handler.auth)
+                    info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
                 if (info.authenticated !== undefined && !info.authenticated) {
                     const error = new Error(`authentication on service "${name}" failed`)
                     this.error(error)
