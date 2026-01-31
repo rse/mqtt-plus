@@ -2,7 +2,7 @@
 ChangeLog
 =========
 
-1.0.1 (2026-01-25)
+1.1.0 (2026-01-31)
 ------------------
 
 - IMPROVEMENT: allow "meta" information for emit()/call()/push()/fetch()
@@ -10,6 +10,7 @@ ChangeLog
 - IMPROVEMENT: provide utility functions for string/buffer conversions
 - IMPROVEMENT: MQTTp API is now an event emitter for emitting errors and logs
 - IMPROVEMENT: use client/server scenario in test suite
+- BUGFIX: avoid race condition in service facility
 
 1.0.0 (2026-01-25)
 ------------------
