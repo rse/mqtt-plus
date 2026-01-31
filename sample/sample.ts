@@ -40,8 +40,6 @@ mqtt.on("close",     ()               => { console.log("mqtt: CLOSE") })
 mqtt.on("reconnect", ()               => { console.log("mqtt: RECONNECT") })
 
 mqttp.on("log", async (entry) => {
-    if (entry.level === "debug")
-        return
     await entry.resolve()
     console.log(`mqttp: ${entry}`)
 })
