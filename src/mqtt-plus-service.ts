@@ -279,36 +279,29 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             && topicMatch.operation === "service-call-request"
             && parsed instanceof ServiceCallRequest) {
             /*  deliver service request and send response  */
-            const rid = parsed.id
-            const name = parsed.service
+            const rid     = parsed.id
+            const name    = parsed.service
             const handler = this.registrations.get(name)
-            let response: Promise<any>
-            if (handler !== undefined) {
-                /*  execute service handler  */
-                const params = parsed.params ?? []
-                const info: InfoService = { sender: parsed.sender ?? "" }
-                if (parsed.receiver)
-                    info.receiver = parsed.receiver
-                if (parsed.meta)
-                    info.meta = parsed.meta
-                if (handler?.auth)
-                    info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
-                if (info.authenticated !== undefined && !info.authenticated) {
-                    const error = new Error(`authentication on service "${name}" failed`)
-                    this.error(error)
-                    response = Promise.reject(error)
-                }
-                else
-                    response = Promise.resolve().then(() => handler.callback(...params, info))
-            }
-            else
-                response = Promise.reject(new Error(`method not found: ${name}`))
-            response.then((result: any) => {
+            const params  = parsed.params ?? []
+            const info: InfoService = { sender: parsed.sender ?? "" }
+            if (parsed.receiver)
+                info.receiver = parsed.receiver
+            if (parsed.meta)
+                info.meta = parsed.meta
+            if (handler?.auth)
+                info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
+            Promise.resolve().then(() => {
+                if (handler === undefined)
+                    throw new Error(`service "${name}" not found`)
+                if (info.authenticated !== undefined && !info.authenticated)
+                    throw new Error(`service "${name}" failed authentication`)
+                return handler.callback(...params, info)
+            }).then((result: any) => {
                 /*  create success response  */
                 return this.msg.makeServiceCallResponse(rid, result,
                     undefined, this.options.id, parsed.sender)
             }, (result: any) => {
-                /*  determine error message and build error response  */
+                /*  create error response  */
                 let errorMessage: string
                 if (result === undefined || result === null)
                     errorMessage = "undefined error"
@@ -318,6 +311,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     errorMessage = result.message
                 else
                     errorMessage = String(result)
+                this.error(new Error(errorMessage))
                 return this.msg.makeServiceCallResponse(rid, undefined,
                     errorMessage, this.options.id, parsed.sender)
             }).then((rpcResponse) => {
@@ -327,7 +321,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     throw new Error("invalid request: missing sender")
                 const encoded = this.codec.encode(rpcResponse)
                 const topic = this.options.topicMake(name, "service-call-response", senderPeerId)
-                this._publishToTopic(topic, encoded, { qos: 2 }).catch(() => {})
+                return this._publishToTopic(topic, encoded, { qos: 2 })
             }).catch((err: Error) => {
                 this.error(err)
             })
