@@ -471,7 +471,7 @@ The **MQTT+** API provides the following methods:
           options?:  MQTT::IClientSubscribeOptions,
           meta?:     Record<string, any>,
           dry:       true
-      }): { topic: string, payload: Uint8Array, options: IClientPublishOptions }
+      }): { topic: string, payload: string | Uint8Array, options: IClientPublishOptions }
 
   Emit an event to all subscribers or a specific subscriber ("fire and forget").
   The optional `receiver` directs the event to a specific subscriber only.
@@ -592,12 +592,12 @@ The **MQTT+** API provides the following methods:
       /*  (simplified TypeScript API method signature)  */
       push(
           resource:       string,
-          streamOrBuffer: Readable | Uint8Array,
+          data:           Readable | Uint8Array,
           ...params:      any[]
       ): Promise<void>
       push({
           resource:       string,
-          streamOrBuffer: Readable | Uint8Array,
+          data:           Readable | Uint8Array,
           params:         any[]
           meta?:          Record<string, any>,
           receiver?:      string,
@@ -605,13 +605,13 @@ The **MQTT+** API provides the following methods:
       }): Promise<void>
 
   Pushes a resource to all provisioners or a specific provisioner.
-  The `streamOrBuffer` is either a Node.js `Readable` stream or a `Uint8Array` providing the data to push.
+  The `data` is either a Node.js `Readable` stream or a `Uint8Array` providing the data to push.
   The optional `meta` sends metadata alongside the resource data,
   which becomes available on the provisioner side via `info.meta`.
   The optional `receiver` directs the push to a specific provisioner only.
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
 
-  The data is read from `streamOrBuffer` in chunks (default: 16KB,
+  The data is read from `data` in chunks (default: 16KB,
   configurable via `chunkSize` option) and sent over MQTT until the
   stream is closed or the buffer is fully transferred.
   The returned `Promise` resolves when the entire data has been pushed.
