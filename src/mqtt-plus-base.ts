@@ -114,7 +114,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
         }
         catch (_err: unknown) {
             const err = _err instanceof Error
-                ? new Error(`failed to parse message: ${_err.message}`)
+                ? new Error(`failed to parse message: ${_err.message}`, { cause: _err })
                 : new Error("failed to parse message")
             this.mqtt.emit("error", err)
             return
