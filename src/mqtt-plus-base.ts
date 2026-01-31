@@ -68,9 +68,10 @@ export class BaseTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
         /*  hook into the MQTT message processing  */
         this.log("info", "hooking into MQTT client")
         this._messageHandler = (topic, message, packet) => {
-            /*  NOTICE: MQTT.js uses Buffer in its handler signature only,
+            /*  convert message to codec-specific input format
+                (NOTICE: MQTT.js uses Buffer in its handler signature only,
                 but internally supports string or Buffer, while we are
-                dealing with string or Uint8Array only  */
+                dealing with string or Uint8Array only)  */
             let input: Uint8Array | string
             if (this.options.codec === "json")
                 input = message.toString()
