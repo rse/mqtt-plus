@@ -937,7 +937,8 @@ Notice
 > or CBOR (default), uses an own packet format (allowing sender and
 > receiver information), uses shorter NanoIDs instead of longer UUIDs
 > for identification of sender, receiver and requests, and additionally
-> provides resource transfer support (with fetch and push capabilities).
+> provides resource transfer support (with fetch and push capabilities),
+> has an authentication mechanism, supports meta-data passing, and many more.
 
 License
 -------
