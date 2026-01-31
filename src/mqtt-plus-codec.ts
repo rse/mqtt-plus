@@ -30,7 +30,7 @@ import { APISchema }                 from "./mqtt-plus-api"
 import { APIOptions, OptionsTrait }  from "./mqtt-plus-options"
 
 /*  JSON encode/decode with Uint8Array support  */
-class JSONX {
+export class JSONX {
     private static uint8ArrayToBase64 (arr: Uint8Array): string {
         return btoa(String.fromCharCode(...arr))
     }
