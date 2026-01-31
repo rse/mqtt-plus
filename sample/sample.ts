@@ -34,11 +34,17 @@ type API = {
 
 const mqttp = new MQTTp<API>(mqtt, { codec: "json" })
 
-mqtt.on("error",     (err)            => { console.log("ERROR", err) })
-mqtt.on("offline",   ()               => { console.log("OFFLINE") })
-mqtt.on("close",     ()               => { console.log("CLOSE") })
-mqtt.on("reconnect", ()               => { console.log("RECONNECT") })
-mqtt.on("message",   (topic, message) => { console.log("RECEIVED", topic, message.toString()) })
+mqtt.on("error",     (err)            => { console.log("mqtt: ERROR", err) })
+mqtt.on("offline",   ()               => { console.log("mqtt: OFFLINE") })
+mqtt.on("close",     ()               => { console.log("mqtt: CLOSE") })
+mqtt.on("reconnect", ()               => { console.log("mqtt: RECONNECT") })
+
+mqttp.on("log", async (entry) => {
+    if (entry.level === "debug")
+        return
+    await entry.resolve()
+    console.log(`mqttp: ${entry}`)
+})
 
 mqtt.on("connect", async () => {
     console.log("CONNECT")
