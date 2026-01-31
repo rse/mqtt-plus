@@ -187,13 +187,13 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
         this.log("debug", `received from MQTT topic "${topic}"`, { message: parsed })
 
         /*  dispatch to trait handlers  */
-        this._dispatchMessage(topic, parsed)
+        this._dispatchMessage(topic, parsed).catch(() => {})
     }
 
     /*  dispatch parsed message to appropriate handler
         (base implementation, to be overridden in sub-traits)  */
-    protected _dispatchMessage (
+    protected async _dispatchMessage (
         _topic:  string,
         _parsed: any
-    ): void {}
+    ): Promise<void> {}
 }
