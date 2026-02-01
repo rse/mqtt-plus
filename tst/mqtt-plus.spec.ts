@@ -41,8 +41,8 @@ import MQTT             from "mqtt"
 /*  internal dependencies  */
 import MQTTp            from "mqtt-plus"
 import type { Event,
-    Service, Resource,
-    InfoResource }      from "mqtt-plus"
+    Service, Source, Sink,
+    InfoSource, InfoSink } from "mqtt-plus"
 
 /*  setup test suite infrastructure  */
 chai.config.includeStack = true
@@ -54,13 +54,14 @@ type API = {
     "example/server/connection":       Event<(state: "open" | "close") => void>
     "example/server/sample":           Event<(a1: string, a2: number) => void>
     "example/server/hello":            Service<(a1: string, a2: number) => string>
-    "example/server/upload":           Resource<(name: string) => void>
-    "example/server/download":         Resource<(filename: string) => void>
-    "example/server/download-invalid": Resource<(filename: string) => void>
+    "example/server/upload":           Sink<(name: string) => void>
+    "example/server/download":         Source<(filename: string) => void>
+    "example/server/download-invalid": Source<(filename: string) => void>
     "example/server/login":            Service<(password: string) => Promise<string>>
 }
 
-/*  Mosquitto ACL  */
+/*  Mosquitto ACL
+    NOTICE: schema is <app>/<tier>/<topic>/<operation>/<receiver>  */
 const ACL = textframe(`
     #   ==== shared/anonymous ACL ====
 
@@ -70,35 +71,36 @@ const ACL = textframe(`
 
     #   ---- event emission ----
 
-    #   client -> server
     topic   write     example/server/+/event-emission/+
 
-    #   client <- server
     topic   read      example/client/+/event-emission/any
     pattern read      example/client/+/event-emission/%c
 
     #   ---- service call ----
 
-    #   client -> server
     topic   write     example/server/+/service-call-request/+
     pattern read      example/server/+/service-call-response/%c
 
-    #   client <- server
     topic   read      example/client/+/service-call-request/any
     pattern read      example/client/+/service-call-request/%c
     pattern write     example/client/+/service-call-response/%c
 
-    #   ---- resource transfer ----
+    #   ---- source fetch ----
 
-    #   client -> server
-    topic   write     example/server/+/resource-transfer-request/+
-    topic   write     example/server/+/resource-transfer-response/+
-    pattern read      example/server/+/resource-transfer-response/%c
+    topic   write     example/server/+/source-fetch-request/+
+    pattern read      example/server/+/source-fetch-response/%c
+    pattern read      example/server/+/source-fetch-chunk/%c
 
-    #   client <- server
-    topic   read      example/client/+/resource-transfer-request/+
-    topic   read      example/client/+/resource-transfer-response/+
-    pattern write     example/client/+/resource-transfer-response/%c
+    topic   read      example/client/+/source-fetch-request/any
+    pattern read      example/client/+/source-fetch-request/%c
+    topic   write     example/client/+/source-fetch-response/+
+    topic   write     example/client/+/source-fetch-chunk/+
+
+    #   ---- sink push ----
+
+    topic   write     example/server/+/sink-push-response/+
+
+    topic   read      example/client/+/sink-push-response/+
 
     #   ==== server/autenticated ACL ====
 
@@ -106,41 +108,45 @@ const ACL = textframe(`
 
     #   ---- event emission ----
 
-    #   client -> server
-    topic   read      example/server/+/event-emission/any
-    pattern read      example/server/+/event-emission/%c
-    topic   read      $share/server/example/server/+/event-emission/any
-
-    #   client <- server
     topic   write     example/client/+/event-emission/+
+
+    topic   read      example/server/+/event-emission/any
+    topic   read      $share/server/example/server/+/event-emission/any
+    pattern read      example/server/+/event-emission/%c
+    pattern read      $share/server/example/server/+/event-emission/%c
 
     #   ---- service call ----
 
-    #   client -> server
     topic   read      example/server/+/service-call-request/any
     topic   read      $share/server/example/server/+/service-call-request/any
     pattern read      example/server/+/service-call-request/%c
+    pattern read      $share/server/example/server/+/service-call-request/%c
     pattern write     example/server/+/service-call-response/+
 
-    #   client <- server
     topic   write     example/client/+/service-call-request/+
     pattern read      example/client/+/service-call-response/%c
 
-    #   ---- resource transfer ----
+    #   ---- source fetch ----
 
-    #   client -> server
-    topic   read      example/server/+/resource-transfer-request/any
-    topic   read      $share/server/example/server/+/resource-transfer-request/any
-    pattern read      example/server/+/resource-transfer-request/%c
-    topic   write     example/server/+/resource-transfer-response/+
-    topic   read      example/server/+/resource-transfer-response/any
-    topic   read      $share/server/example/server/+/resource-transfer-response/any
-    pattern read      example/server/+/resource-transfer-response/%c
+    topic   read      example/server/+/source-fetch-request/any
+    topic   read      $share/server/example/server/+/source-fetch-request/any
+    pattern read      example/server/+/source-fetch-request/%c
+    pattern read      $share/server/example/server/+/source-fetch-request/%c
+    topic   write     example/server/+/source-fetch-response/+
+    topic   write     example/server/+/source-fetch-chunk/+
 
-    #   client <- server
-    topic   write     example/client/+/resource-transfer-request/+
-    topic   write     example/client/+/resource-transfer-response/+
-    pattern read      example/client/+/resource-transfer-response/%c
+    topic   write     example/client/+/source-fetch-request/+
+    pattern read      example/client/+/source-fetch-response/%c
+    pattern read      example/client/+/source-fetch-chunk/%c
+
+    #   ---- sink push ----
+
+    topic   read      example/server/+/sink-push-response/any
+    topic   read      $share/server/example/server/+/sink-push-response/any
+    pattern read      example/server/+/sink-push-response/%c
+    pattern read      $share/server/example/server/+/sink-push-response/%c
+
+    topic   write     example/client/+/sink-push-response/+
 `)
 
 /*  test suite  */
@@ -194,14 +200,16 @@ describe("MQTT+ Library", function () {
         expect(MQTTp.prototype).to.be.an("object")
         expect(MQTTp.prototype.constructor).to.equal(MQTTp)
 
-        expect(mqttpC).to.respondTo("subscribe")
+        expect(mqttpC).to.respondTo("event")
         expect(mqttpC).to.respondTo("emit")
 
-        expect(mqttpC).to.respondTo("register")
+        expect(mqttpC).to.respondTo("service")
         expect(mqttpC).to.respondTo("call")
 
-        expect(mqttpC).to.respondTo("provision")
+        expect(mqttpC).to.respondTo("source")
         expect(mqttpC).to.respondTo("fetch")
+
+        expect(mqttpC).to.respondTo("sink")
         expect(mqttpC).to.respondTo("push")
     })
 
@@ -211,19 +219,19 @@ describe("MQTT+ Library", function () {
         this.timeout(1000)
         const spy = sinon.spy()
 
-        /*  subscribe to event  */
-        const subscription = await mqttpS.subscribe("example/server/sample", (str: string, num: number) => {
-            spy("subscribe")
+        /*  register to event  */
+        const registration = await mqttpS.event("example/server/sample", (str: string, num: number) => {
+            spy("event")
         })
 
         /*  emit event  */
         mqttpC.emit("example/server/sample", "world", 42)
         await new Promise((resolve) => { setTimeout(resolve, 10) })
         expect(spy.getCalls().map((call) => call.firstArg))
-            .to.be.deep.equal([ "subscribe" ])
+            .to.be.deep.equal([ "event" ])
 
-        /*  destroy service  */
-        await subscription.unsubscribe()
+        /*  destroy registration  */
+        await registration.destroy()
     })
 
     /*  test case: Service Call  */
@@ -233,8 +241,8 @@ describe("MQTT+ Library", function () {
         const spy = sinon.spy()
 
         /*  provide service  */
-        const registration = await mqttpS.register("example/server/hello", (str: string, num: number) => {
-            spy("register")
+        const registration = await mqttpS.service("example/server/hello", (str: string, num: number) => {
+            spy("service")
             if (str !== "world")
                 throw new Error("invalid service call")
             expect(str).to.be.equal("world")
@@ -250,7 +258,7 @@ describe("MQTT+ Library", function () {
             spy("call-error")
         })
         expect(spy.getCalls().map((call) => call.firstArg))
-            .to.be.deep.equal([ "register", "call-success" ])
+            .to.be.deep.equal([ "service", "call-success" ])
         spy.resetHistory()
 
         /*  call service (with error)  */
@@ -261,14 +269,14 @@ describe("MQTT+ Library", function () {
             spy("call-error")
         })
         expect(spy.getCalls().map((call) => call.firstArg))
-            .to.be.deep.equal([ "register", "call-error" ])
+            .to.be.deep.equal([ "service", "call-error" ])
 
         /*  destroy service  */
-        await registration.unregister()
+        await registration.destroy()
     })
 
-    /*  test case: Resource Transfer (Push)  */
-    it("MQTT+ Resource Transfer (Push)", async function () {
+    /*  test case: Sink Push  */
+    it("MQTT+ Sink Push", async function () {
         /*  setup  */
         this.timeout(2000)
         const spy = sinon.spy()
@@ -276,11 +284,11 @@ describe("MQTT+ Library", function () {
         /*  generate random data  */
         const data = Buffer.from(crypto.randomBytes(16 * 1024))
 
-        /*  attach to resource  */
-        const attachment = await mqttpS.provision("example/server/upload", (name: string, info: InfoResource) => {
-            spy("provision")
+        /*  establish sink  */
+        const sinking = await mqttpS.sink("example/server/upload", (name: string, info: InfoSink) => {
+            spy("sink")
             if (name !== "foo")
-                throw new Error("invalid resource transfer")
+                throw new Error("invalid sink push")
             expect(name).to.be.equal("foo")
             expect(info).to.be.of.an("object")
             expect(info.stream).to.be.instanceOf(stream.Readable)
@@ -308,45 +316,45 @@ describe("MQTT+ Library", function () {
         })
         await new Promise((resolve) => { setTimeout(resolve, 1000) })
         expect(spy.getCalls().map((call) => call.firstArg))
-            .to.be.same.deep.members([ "provision", "transfer-success", "end" ])
+            .to.be.same.deep.members([ "sink", "transfer-success", "end" ])
 
-        /*  destroy service  */
-        await attachment.unprovision()
+        /*  destroy sink  */
+        await sinking.destroy()
     })
 
-    /*  test case: Resource Transfer  */
-    it("MQTT+ Resource Transfer (Fetch)", async function () {
+    /*  test case: Source Fetch  */
+    it("MQTT+ Source Fetch", async function () {
         this.timeout(3000)
 
-        /*  provide resource  */
-        const provisioning = await mqttpS.provision("example/server/download", async (filename, info) => {
+        /*  establish source  */
+        const sourcing = await mqttpS.source("example/server/download", async (filename, info) => {
             if (filename === "foo")
                 info.buffer = Promise.resolve(Buffer.from(`the ${filename} content`))
             else
-                throw new Error("invalid resource")
+                throw new Error("invalid source")
         })
 
-        /*  fetch existing resource (valid resource argument)  */
+        /*  fetch existing source (valid source argument)  */
         const result = await mqttpC.fetch("example/server/download", "foo")
         const buffer = await result.buffer
         const str = new TextDecoder().decode(buffer)
         expect(str).to.be.equal("the foo content")
 
-        /*  fetch non-existing resource (invalid resource argument)  */
+        /*  fetch non-existing source (invalid source argument)  */
         const result2 = await mqttpC.fetch("example/server/download", "bar")
         const error2 = await result2.buffer.catch((err: Error) => {
             return err.message
         })
-        expect(error2).to.be.equal("invalid resource")
+        expect(error2).to.be.equal("invalid source")
 
-        /*  fetch non-existing resource (invalid resource name)  */
+        /*  fetch non-existing source (invalid source name)  */
         const result3 = await mqttpC.fetch("example/server/download-invalid", "foo").catch((err) => err.message)
         const error3 = await result3.buffer.catch((err: Error) => {
             return err.message
         })
         expect(error3).to.be.equal("communication timeout")
 
-        await provisioning.unprovision()
+        await sourcing.destroy()
     })
 
     /*  test case: Dry-Run & Last-Will */
@@ -370,7 +378,7 @@ describe("MQTT+ Library", function () {
 
         /*  observe connection events  */
         const spy = sinon.spy()
-        mqttpServer.subscribe("example/server/connection", (state) => {
+        mqttpServer.event("example/server/connection", (state) => {
             expect(state).to.match(/^(?:open|close)$/)
             spy(state)
         })
@@ -420,7 +428,7 @@ describe("MQTT+ Library", function () {
         /*  server-side: provide login  */
         mqttpS.credential(serverCred)
         let userToken = ""
-        const registration = await mqttpS.register("example/server/login", async (password: string, info) => {
+        const registration = await mqttpS.service("example/server/login", async (password: string, info) => {
             spy("login")
             if (password !== userCred)
                 throw new Error("invalid password")
@@ -433,9 +441,9 @@ describe("MQTT+ Library", function () {
             return token
         })
 
-        /*  server-side: provide   */
-        const registration2 = await mqttpS.register({
-            service: "example/server/hello",
+        /*  server-side: provide hello service  */
+        const registration2 = await mqttpS.service({
+            name: "example/server/hello",
             auth: { mode: "require", roles: [ "user" ] },
             callback: (str: string, num: number) => {
                 spy("hello")
@@ -490,8 +498,8 @@ describe("MQTT+ Library", function () {
             .to.be.deep.equal([ "hello", "call3-success" ])
 
         /*  destroy service  */
-        await registration.unregister()
-        await registration2.unregister()
+        await registration.destroy()
+        await registration2.destroy()
     })
 
     /*  actions after each test cases  */

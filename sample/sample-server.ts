@@ -30,19 +30,19 @@ mqtt.on("message",   (topic, message) => { console.log("RECEIVED", topic, messag
 mqtt.on("connect", () => {
     console.log("CONNECT")
 
-    /*  subscribe to an event (fire and forget)  */
-    mqttp.subscribe("example/sample", (a1, a2, info) => {
+    /*  register to an event (fire and forget)  */
+    mqttp.event("example/sample", (a1, a2, info) => {
         console.log("example/sample: event: ", a1, a2, info)
     })
 
-    /*  register a service (request and response)  */
-    mqttp.register("example/hello", (a1, a2, info) => {
+    /*  provide a service (request and response)  */
+    mqttp.service("example/hello", (a1, a2, info) => {
         console.log("example/hello: request: ", a1, a2, info)
         return `${a1}:${a2}`
     })
 
-    /*  provision a resource (chunked content)  */
-    mqttp.provision("example/data", (a1, info) => {
+    /*  establish a source for fetch (chunked content)  */
+    mqttp.source("example/data", (a1, info) => {
         console.log("example/data: request: ", a1, info)
         info.buffer = Promise.resolve(new TextEncoder().encode(`data-for-${a1}`))
         info.meta = { type: "text/plain" }

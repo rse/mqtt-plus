@@ -1,0 +1,20 @@
+shape: sequence_diagram
+
+client: "Client"
+broker: "Broker"
+server: "Server"
+
+broker.class: brown
+
+sink("foo/bar") {
+    server -> broker: "op: subscribe\ntopic: foo/bar/sink-push-response/any"
+}
+
+push("foo/bar") {
+    client -> broker: "op: publish\ntopic: foo/bar/sink-push-response/any\ndata: Sink-Push-Response #1"
+    broker -> server: "op: publish\ntopic: foo/bar/sink-push-response/any\ndata: Sink-Push-Response #1"
+    client -> broker: "op: publish\ntopic: foo/bar/sink-push-response/any\ndata: Sink-Push-Response #N"
+    broker -> server: "op: publish\ntopic: foo/bar/sink-push-response/any\ndata: Sink-Push-Response #N"
+    client -> broker: "op: publish\ntopic: foo/bar/sink-push-response/any\ndata: Sink-Push-Response EoS"
+    broker -> server: "op: publish\ntopic: foo/bar/sink-push-response/any\ndata: Sink-Push-Response EoS"
+}

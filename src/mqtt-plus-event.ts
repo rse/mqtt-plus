@@ -29,75 +29,70 @@ import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
 import { EventEmission }              from "./mqtt-plus-msg"
-import { APISchema,
-    APIEndpointEvent, EventKeys }     from "./mqtt-plus-api"
+import { APISchema, APIEndpointEvent,
+    EventKeys, Registration }         from "./mqtt-plus-api"
 import type { WithInfo, InfoEvent }   from "./mqtt-plus-info"
 import { AuthTrait, type AuthOption } from "./mqtt-plus-auth"
-
-/*  the subscription result type  */
-export interface Subscription {
-    unsubscribe (): Promise<void>
-}
 
 /*  Event Communication Trait  */
 export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
     /*  internal state  */
-    private subscriptions = new Map<string, {
+    private events = new Map<string, {
         callback: WithInfo<APIEndpointEvent, InfoEvent>,
         auth?:    AuthOption
     }>()
 
-    /*  subscribe to an RPC event  */
-    async subscribe<K extends EventKeys<T> & string> (
-        event:    K,
+    /*  register to an RPC event  */
+    async event<K extends EventKeys<T> & string> (
+        name:     K,
         callback: WithInfo<T[K], InfoEvent>
-    ): Promise<Subscription>
-    async subscribe<K extends EventKeys<T> & string> (
+    ): Promise<Registration>
+    async event<K extends EventKeys<T> & string> (
         config: {
-            event:     K,
+            name:      K,
             callback:  WithInfo<T[K], InfoEvent>,
             options?:  Partial<IClientSubscribeOptions>,
             share?:    string,
             auth?:     AuthOption
         }
-    ): Promise<Subscription>
-    async subscribe<K extends EventKeys<T> & string> (
-        eventOrConfig: K | {
-            event:     K,
+    ): Promise<Registration>
+    async event<K extends EventKeys<T> & string> (
+        nameOrConfig: K | {
+            name:      K,
             callback:  WithInfo<T[K], InfoEvent>,
             options?:  Partial<IClientSubscribeOptions>,
             share?:    string,
             auth?:     AuthOption
         },
         ...args:       any[]
-    ): Promise<Subscription> {
+    ): Promise<Registration> {
         /*  determine actual parameters  */
-        let event:    K
+        let name:     K
         let callback: WithInfo<T[K], InfoEvent>
         let options:  Partial<IClientSubscribeOptions> = {}
         let share:    string | undefined
         let auth:     AuthOption | undefined
-        if (typeof eventOrConfig === "object" && eventOrConfig !== null) {
+        if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
-            event    = eventOrConfig.event
-            callback = eventOrConfig.callback
-            options  = eventOrConfig.options ?? {}
-            auth     = eventOrConfig.auth
+            name     = nameOrConfig.name
+            callback = nameOrConfig.callback
+            options  = nameOrConfig.options ?? {}
+            auth     = nameOrConfig.auth
         }
         else {
             /*  positional API  */
-            event    = eventOrConfig as K
+            name     = nameOrConfig as K
             callback = args[0] as WithInfo<T[K], InfoEvent>
         }
 
         /*  sanity check situation  */
-        if (this.subscriptions.has(event))
-            throw new Error(`subscribe: event "${event}" already subscribed`)
+        if (this.events.has(name))
+            throw new Error(`event: event "${name}" already registered`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const name = share ? `$share/${share}/${event}` : event
-        const topicB = this.options.topicMake(name, "event-emission")
-        const topicD = this.options.topicMake(name, "event-emission", this.options.id)
+        const topic = share ? `$share/${share}/${name}` : name
+        const topicB = this.options.topicMake(topic, "event-emission")
+        const topicD = this.options.topicMake(topic, "event-emission", this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([
@@ -109,26 +104,26 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             throw err
         })
 
-        /*  remember the subscription  */
-        this.subscriptions.set(event, {
+        /*  remember the registration  */
+        this.events.set(name, {
             callback: callback as WithInfo<APIEndpointEvent, InfoEvent>,
             auth
         })
 
-        /*  provide a subscription for subsequent unsubscribing  */
+        /*  provide a registration for subsequent destruction  */
         const self = this
-        const subscription: Subscription = {
-            async unsubscribe (): Promise<void> {
-                if (!self.subscriptions.has(event))
-                    throw new Error(`unsubscribe: event "${event}" not subscribed`)
-                self.subscriptions.delete(event)
+        const registration: Registration = {
+            async destroy (): Promise<void> {
+                if (!self.events.has(name))
+                    throw new Error(`destroy: event "${name}" not registered`)
+                self.events.delete(name)
                 return Promise.all([
                     self._unsubscribeTopic(topicB),
                     self._unsubscribeTopic(topicD)
                 ]).then(() => {})
             }
         }
-        return subscription
+        return registration
     }
 
     /*  emit event ("fire and forget")  */
@@ -217,8 +212,8 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             && topicMatch.operation === "event-emission"
             && parsed instanceof EventEmission) {
             /*  just deliver event  */
-            const name = parsed.event
-            const handler = this.subscriptions.get(name)
+            const name = parsed.name
+            const handler = this.events.get(name)
             const params = parsed.params ?? []
             const info: InfoEvent = { sender: parsed.sender ?? "" }
             if (parsed.receiver)

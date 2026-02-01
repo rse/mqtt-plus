@@ -2,9 +2,10 @@
 ChangeLog
 =========
 
-1.1.0 (2026-01-31)
+1.1.0 (2026-02-XX)
 ------------------
 
+- REFACTORING: split Resource Transfer into Sink Push and Source Fetch
 - IMPROVEMENT: allow "meta" information for emit()/call()/push()/fetch()
 - IMPROVEMENT: provide JWT-based authentication facility
 - IMPROVEMENT: provide utility functions for string/buffer conversions

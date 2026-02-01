@@ -24,7 +24,7 @@
 
 /*  import necessary types  */
 import type { APISchema } from "./mqtt-plus-api"
-import { ResourceTrait }  from "./mqtt-plus-resource"
+import { SinkTrait }      from "./mqtt-plus-sink"
 
 /*  re-export most important types  */
 export type *             from "./mqtt-plus-api"
@@ -32,5 +32,4 @@ export type *             from "./mqtt-plus-info"
 
 /*  export the default API class  */
 export default class MQTTp<T extends APISchema = APISchema>
-    extends ResourceTrait<T> {}
-
+    extends SinkTrait<T> {}

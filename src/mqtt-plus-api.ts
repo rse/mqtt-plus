@@ -26,15 +26,17 @@
 type Brand<T> = T & { readonly __brand: unique symbol }
 
 /*  endpoint types  */
-export type APIEndpoint         = APIEndpointEvent | APIEndpointService | APIEndpointResource
-export type APIEndpointEvent    = (...args: any[]) => void | Promise<void>
-export type APIEndpointService  = (...args: any[]) => any  | Promise<any>
-export type APIEndpointResource = (...args: any[]) => void | Promise<void>
+export type APIEndpoint        = APIEndpointEvent | APIEndpointService | APIEndpointSource | APIEndpointSink
+export type APIEndpointEvent   = (...args: any[]) => void | Promise<void>
+export type APIEndpointService = (...args: any[]) => any  | Promise<any>
+export type APIEndpointSource  = (...args: any[]) => void | Promise<void>
+export type APIEndpointSink    = (...args: any[]) => void | Promise<void>
 
 /*  API marker types  */
-export type Event<T    extends APIEndpointEvent>    = Brand<T>
-export type Service<T  extends APIEndpointService>  = Brand<T>
-export type Resource<T extends APIEndpointResource> = Brand<T>
+export type Event<T   extends APIEndpointEvent>   = Brand<T>
+export type Service<T extends APIEndpointService> = Brand<T>
+export type Source<T  extends APIEndpointSource>  = Brand<T>
+export type Sink<T    extends APIEndpointSink>    = Brand<T>
 
 /*  type utilities for generic API  */
 export type APISchema = Record<string, APIEndpoint>
@@ -49,7 +51,17 @@ export type ServiceKeys<T> = string extends keyof T ? string : {
     [ K in keyof T ]: T[K] extends Service<infer _F> ? K : never
 }[ keyof T ]
 
-/*  extract resource keys where type is branded as Resource  */
-export type ResourceKeys<T> = string extends keyof T ? string : {
-    [ K in keyof T ]: T[K] extends Resource<infer _F> ? K : never
+/*  extract source keys where type is branded as Source  */
+export type SourceKeys<T> = string extends keyof T ? string : {
+    [ K in keyof T ]: T[K] extends Source<infer _F> ? K : never
 }[ keyof T ]
+
+/*  extract sink keys where type is branded as Sink  */
+export type SinkKeys<T> = string extends keyof T ? string : {
+    [ K in keyof T ]: T[K] extends Sink<infer _F> ? K : never
+}[ keyof T ]
+
+/*  registration result type  */
+export interface Registration {
+    destroy(): Promise<void>
+}

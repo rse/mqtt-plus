@@ -30,79 +30,74 @@ import { nanoid }                     from "nanoid"
 /*  internal requirements  */
 import { ServiceCallRequest,
     ServiceCallResponse }             from "./mqtt-plus-msg"
-import { APISchema,
-    APIEndpointService, ServiceKeys } from "./mqtt-plus-api"
+import { APISchema, APIEndpointService,
+    ServiceKeys, Registration }       from "./mqtt-plus-api"
 import type { WithInfo, InfoService } from "./mqtt-plus-info"
 import { EventTrait }                 from "./mqtt-plus-event"
 import type { AuthOption }            from "./mqtt-plus-auth"
 
-/*  the registration result type  */
-export interface Registration {
-    unregister (): Promise<void>
-}
-
 /*  Service Communication Trait  */
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
     /*  internal state  */
-    private registrations         = new Map<string, {
+    private services = new Map<string, {
         callback: WithInfo<APIEndpointService, InfoService>
         auth?:    AuthOption
     }>()
-    private responseCallback      = new Map<string, { service: string, callback: (err: any, result: any) => void }>()
+    private responseCallback      = new Map<string, { name: string, callback: (err: any, result: any) => void }>()
     private responseSubscriptions = new Map<string, number>()
 
     /*  register an RPC service  */
-    async register<K extends ServiceKeys<T> & string> (
-        service:  K,
+    async service<K extends ServiceKeys<T> & string> (
+        name:     K,
         callback: WithInfo<T[K], InfoService>
     ): Promise<Registration>
-    async register<K extends ServiceKeys<T> & string> (
+    async service<K extends ServiceKeys<T> & string> (
         config: {
-            service:   K,
+            name:      K,
             callback:  WithInfo<T[K], InfoService>,
             options?:  Partial<IClientSubscribeOptions>,
             share?:    string,
             auth?:     AuthOption
         }
     ): Promise<Registration>
-    async register<K extends ServiceKeys<T> & string> (
-        serviceOrConfig: K | {
-            service:   K,
+    async service<K extends ServiceKeys<T> & string> (
+        nameOrConfig: K | {
+            name:      K,
             callback:  WithInfo<T[K], InfoService>,
             options?:  Partial<IClientSubscribeOptions>,
             share?:    string,
             auth?:     AuthOption
         },
-        ...args:  any[]
+        ...args:       any[]
     ): Promise<Registration> {
         /*  determine actual parameters  */
-        let service:  K
+        let name:     K
         let callback: WithInfo<T[K], InfoService>
         let options:  Partial<IClientSubscribeOptions> = {}
-        let share:    string | undefined
+        let share     = "default"
         let auth:     AuthOption | undefined
-        if (typeof serviceOrConfig === "object" && serviceOrConfig !== null) {
+        if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
-            service  = serviceOrConfig.service
-            callback = serviceOrConfig.callback
-            options  = serviceOrConfig.options ?? {}
-            share    = serviceOrConfig.share
-            auth     = serviceOrConfig.auth
+            name     = nameOrConfig.name
+            callback = nameOrConfig.callback
+            options  = nameOrConfig.options ?? {}
+            share    = nameOrConfig.share ?? "default"
+            auth     = nameOrConfig.auth
         }
         else {
             /*  positional API  */
-            service  = serviceOrConfig as K
+            name     = nameOrConfig as K
             callback = args[0] as WithInfo<T[K], InfoService>
         }
 
         /*  sanity check situation  */
-        if (this.registrations.has(service))
-            throw new Error(`register: service "${service}" already registered`)
+        if (this.services.has(name))
+            throw new Error(`register: service "${name}" already registered`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const name = share ? `$share/${share}/${service}` : service
-        const topicB = this.options.topicMake(name, "service-call-request")
-        const topicD = this.options.topicMake(name, "service-call-request", this.options.id)
+        const topic  = `$share/${share}/${name}`
+        const topicB = this.options.topicMake(topic, "service-call-request")
+        const topicD = this.options.topicMake(topic, "service-call-request", this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([
@@ -115,18 +110,18 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         })
 
         /*  remember the registration  */
-        this.registrations.set(service, {
+        this.services.set(name, {
             callback: callback as WithInfo<APIEndpointService, InfoService>,
             auth
         })
 
-        /*  provide a registration for subsequent unregistering  */
+        /*  provide a registration for subsequent destruction  */
         const self = this
         const registration: Registration = {
-            async unregister (): Promise<void> {
-                if (!self.registrations.has(service))
-                    throw new Error(`unregister: service "${service}" not registered`)
-                self.registrations.delete(service)
+            async destroy (): Promise<void> {
+                if (!self.services.has(name))
+                    throw new Error(`unregister: service "${name}" not registered`)
+                self.services.delete(name)
                 return Promise.all([
                     self._unsubscribeTopic(topicB),
                     self._unsubscribeTopic(topicD)
@@ -138,12 +133,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
     /*  call service ("request and response")  */
     call<K extends ServiceKeys<T> & string> (
-        service:       K,
+        name:          K,
         ...params:     Parameters<T[K]>
     ): Promise<ReturnType<T[K]>>
     call<K extends ServiceKeys<T> & string> (
         config: {
-            service:   K,
+            name:      K,
             params:    Parameters<T[K]>,
             receiver?: string,
             options?:  IClientPublishOptions,
@@ -151,8 +146,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         }
     ): Promise<ReturnType<T[K]>>
     call<K extends ServiceKeys<T> & string> (
-        serviceOrConfig: K | {
-            service:   K,
+        nameOrConfig: K | {
+            name:      K,
             params:    Parameters<T[K]>,
             receiver?: string,
             options?:  IClientPublishOptions,
@@ -161,22 +156,22 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         ...args:       any[]
     ): Promise<ReturnType<T[K]>> {
         /*  determine actual parameters  */
-        let service:   K
+        let name:      K
         let params:    Parameters<T[K]>
         let receiver:  string | undefined
         let options:   IClientPublishOptions = {}
         let meta:      Record<string, any> = {}
-        if (typeof serviceOrConfig === "object" && serviceOrConfig !== null) {
+        if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
-            service  = serviceOrConfig.service
-            params   = serviceOrConfig.params
-            receiver = serviceOrConfig.receiver
-            options  = serviceOrConfig.options ?? {}
-            meta     = serviceOrConfig.meta ?? {}
+            name     = nameOrConfig.name
+            params   = nameOrConfig.params
+            receiver = nameOrConfig.receiver
+            options  = nameOrConfig.options ?? {}
+            meta     = nameOrConfig.meta ?? {}
         }
         else {
             /*  positional API  */
-            service  = serviceOrConfig as K
+            name      = nameOrConfig as K
             params   = args as Parameters<T[K]>
         }
 
@@ -184,18 +179,18 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const rid = nanoid()
 
         /*  subscribe to MQTT response topic  */
-        this._responseSubscribe(service, { qos: options.qos ?? 2 })
+        this._responseSubscribe(name, { qos: options.qos ?? 2 })
 
         /*  create promise for MQTT response handling  */
         const promise: Promise<Awaited<ReturnType<T[K]>>> = new Promise((resolve, reject) => {
             let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
                 this.responseCallback.delete(rid)
-                this._responseUnsubscribe(service)
+                this._responseUnsubscribe(name)
                 timer = null
                 reject(new Error("communication timeout"))
             }, this.options.timeout)
             this.responseCallback.set(rid, {
-                service,
+                name,
                 callback: (err: any, result: Awaited<ReturnType<T[K]>>) => {
                     if (timer !== null) {
                         clearTimeout(timer)
@@ -210,11 +205,11 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         /*  generate encoded message  */
         const auth      = this.authenticate()
         const metaStore = this.metaStore(meta)
-        const request   = this.msg.makeServiceCallRequest(rid, service, params, this.options.id, receiver, auth, metaStore)
+        const request   = this.msg.makeServiceCallRequest(rid, name, params, this.options.id, receiver, auth, metaStore)
         const message   = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
-        const topic = this.options.topicMake(service, "service-call-request", receiver)
+        const topic = this.options.topicMake(name, "service-call-request", receiver)
 
         /*  publish message to MQTT topic  */
         this._publishToTopic(topic, message, { qos: 2, ...options }).catch((err: Error) => {
@@ -222,7 +217,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             const pendingRequest = this.responseCallback.get(rid)
             if (pendingRequest !== undefined) {
                 this.responseCallback.delete(rid)
-                this._responseUnsubscribe(service)
+                this._responseUnsubscribe(name)
                 pendingRequest.callback(err, undefined)
             }
         })
@@ -280,8 +275,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             && parsed instanceof ServiceCallRequest) {
             /*  deliver service request and send response  */
             const rid     = parsed.id
-            const name    = parsed.service
-            const handler = this.registrations.get(name)
+            const name    = parsed.name
+            const handler = this.services.get(name)
             const params  = parsed.params ?? []
             const info: InfoService = { sender: parsed.sender ?? "" }
             if (parsed.receiver)
@@ -342,7 +337,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
                 /*  unsubscribe from response  */
                 this.responseCallback.delete(rid)
-                this._responseUnsubscribe(request.service)
+                this._responseUnsubscribe(request.name)
             }
         }
     }

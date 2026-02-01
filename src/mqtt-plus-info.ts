@@ -34,9 +34,13 @@ export interface InfoBase {
 }
 
 /*  specialized info types  */
-export interface InfoEvent    extends InfoBase {}
-export interface InfoService  extends InfoBase {}
-export interface InfoResource extends InfoBase {
+export interface InfoEvent   extends InfoBase {}
+export interface InfoService extends InfoBase {}
+export interface InfoSource  extends InfoBase {
+    stream?:  Readable
+    buffer?:  Promise<Uint8Array>
+}
+export interface InfoSink    extends InfoBase {
     stream?:  Readable
     buffer?:  Promise<Uint8Array>
 }

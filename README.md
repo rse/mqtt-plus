@@ -30,26 +30,27 @@ communication patterns with type safety:
 - **Event Emission**:
 
   Event Emission is a *uni-directional* communication pattern.
-  An Event is the combination of an event name and optionally zero or more arguments.
-  You *subscribe* to events.
-  When an event is *emitted*, either a single particular subscriber (in case of
-  a directed event emission) or all subscribers are called and receive the
-  arguments as extra information.
+  An Event is the combination of an event name and optionally zero or more parameters.
+  You *register* for events.
+  When an event is *emitted*, either a single particular receiver (in
+  case of a directed event emission) or *all* receivers are called and
+  receive the parameters as extra information.
 
   In contrast to the regular MQTT message publish/subscribe, this
-  pattern allows to direct the event to particular subscribers and
-  provides optional information about the sender and receiver to subscribers.
+  pattern allows to direct the event to particular receivers and
+  provides optional information about the sender and receiver to
+  receivers.
 
   ![Event Emission](doc/mqtt-plus-1-event-emission.svg)
 
 - **Service Call**:
 
   Service Call is a *bi-directional* communication pattern.
-  A Service is the combination of a service name and optionally zero or more arguments.
-  You *register* for a service.
-  When a service is *called*, a single particular registrant (in case
-  of a directed service call) or one arbitrary registrant is called and
-  receives the arguments as the request. The registrant then has to
+  A Service is the combination of a service name and optionally zero or more parameters.
+  You *register* a service.
+  When a service is *called*, a single particular receiver (in case
+  of a directed service call) or *one* arbitrary receiver is called and
+  receives the arguments as the request. The receiver then has to
   provide the service response.
 
   In contrast to the regular uni-directional MQTT message
@@ -59,23 +60,37 @@ communication patterns with type safety:
 
   ![Service Call](doc/mqtt-plus-2-service-call.svg)
 
-- **Resource Transfer**:
+- **Sink Push**:
 
-  Resource Transfer is a *bi-directional* communication pattern.
-  A Resource is the combination of a resource name and optionally zero or more arguments.
-  You *provision* for a resource transfer.
-  When a resource is *fetched*, a single particular provisioner (in case
-  of a directed resource transfer) or one arbitrary provisioner is called and
-  sends the resource and its arguments.
-  When a resource is *pushed*, the provisioner receives the resource data
-  as a stream with arguments.
+  Sink Push is a *uni-directional* communication pattern for pushing data.
+  A Sink is the combination of a sink name and optionally zero or more parameters.
+  You *register* a *sink* for receiving pushed data chunks.
+  When data is *pushed*, a single particular sink (in case of a directed
+  sink push) or *one* arbitrary sink is called and receives the data
+  chunks as a stream with arguments.
 
   In contrast to the regular MQTT message publish/subscribe, this
   pattern allows to transfer arbitrary amounts of arbitrary data by
   chunking the data via a stream. Additionally, it supports optional
-  metadata transfer alongside the resource data.
+  meta-data transfer alongside the data.
 
-  ![Resource Transfer](doc/mqtt-plus-3-resource-transfer.svg)
+  ![Sink Push](doc/mqtt-plus-3-sink-push.svg)
+
+- **Source Fetch**:
+
+  Source Fetch is a *bi-directional* communication pattern for fetching data.
+  A Source is the combination of a source name and optionally zero or more parameters.
+  You *register* a *source* for sending data chunks.
+  When data is *fetched*, a single particular source (in case of a
+  directed source fetch) or *one* arbitrary source is called and sends the
+  data chunks as a stream with arguments.
+
+  In contrast to the regular MQTT message publish/subscribe, this
+  pattern allows to transfer arbitrary amounts of arbitrary data by
+  chunking the data via a stream. Additionally, it supports optional
+  meta-data transfer alongside the data.
+
+  ![Source Fetch](doc/mqtt-plus-4-source-fetch.svg)
 
 Usage
 -----
@@ -83,23 +98,25 @@ Usage
 ### API:
 
 The API type defines the available endpoints. Use the marker types
-`Event<T>`, `Service<T>`, and `Resource<T>` to declare the communication
-pattern of each endpoint:
+`Event<T>`, `Service<T>`, `Source<T>`, and `Sink<T>` to declare the
+communication pattern of each endpoint:
 
 ```ts
-import type { Event, Service, Resource } from "mqtt-plus"
+import type { Event, Service, Source, Sink } from "mqtt-plus"
 
 export type API = {
     "example/sample":   Event<(a1: string, a2: number) => void>
     "example/hello":    Service<(a1: string, a2: number) => string>
-    "example/resource": Resource<(filename: string) => void>
+    "example/download": Source<(filename: string) => void>
+    "example/upload":   Sink<(filename: string) => void>
 }
 ```
 
-The marker types ensure that `subscribe()` and `emit()` only accept
-`Event<T>` endpoints, `register()` and `call()` only accept
-`Service<T>` endpoints, and `provision()`, `fetch()` and `push()` only
-accept `Resource<T>` endpoints.
+The marker types ensure that `event()` and `emit()` only accept
+`Event<T>` endpoints, `service()` and `call()` only accept
+`Service<T>` endpoints, `source()` and `fetch()` only
+accept `Source<T>` endpoints, and `sink()` and `push()` only
+accept `Sink<T>` endpoints.
 
 ### Server:
 
@@ -112,16 +129,21 @@ const mqtt  = MQTT.connect("wss://127.0.0.1:8883", { [...] })
 const mqttp = new MQTTp<API>(mqtt)
 
 mqtt.on("connect", async () => {
-    await mqttp.subscribe("example/sample", (a1, a2, info) => {
+    await mqttp.event("example/sample", (a1, a2, info) => {
         console.log("example/sample: SERVER:", a1, a2, info.sender)
     })
-    await mqttp.register("example/hello", (a1, a2, info) => {
+    await mqttp.service("example/hello", (a1, a2, info) => {
         console.log("example/hello: SERVER:", a1, a2, info.sender)
         return `${a1}:${a2}`
     })
-    await mqttp.provision("example/resource", async (filename, info) => {
-        console.log("example/resource: SERVER:", filename, info.sender)
-        info.buffer = Promise.resolve(new TextEncoder().encode(`the ${filename} content`))
+    await mqttp.source("example/download", async (filename, info) => {
+        console.log("example/download: SERVER:", filename, info.sender)
+        info.buffer = Promise.resolve(mqttp.str2buf(`the ${filename} content`))
+    })
+    await mqttp.sink("example/upload", async (filename, info) => {
+        console.log("example/upload: SERVER:", filename, info.sender)
+        const data = await info.buffer
+        console.log("received", data.length, "bytes")
     })
 })
 ```
@@ -139,12 +161,15 @@ const mqttp = new MQTTp<API>(mqtt)
 mqtt.on("connect", async () => {
     mqttp.emit("example/sample", "world", 42)
 
-    const response = await mqttp.call("example/hello", "world", 42)
-    console.log("example/hello CLIENT:", response)
+    const callOutput = await mqttp.call("example/hello", "world", 42)
+    console.log("example/hello: CLIENT:", callOutput)
 
-    const result = await mqttp.fetch("example/resource", "foo")
-    const data = new TextDecoder().decode(await result.buffer)
-    console.log("example/resource CLIENT:", data)
+    const fetchOutput = await mqttp.fetch("example/download", "foo")
+    const data = mqttp.buf2str(await fetchOutput.buffer)
+    console.log("example/download: CLIENT:", data)
+
+    const pushInput = mqttp.str2buf("uploaded content")
+    await mqttp.push("example/upload", pushInput, "myfile.txt")
 
     mqtt.end()
 })
@@ -161,7 +186,8 @@ The **MQTT+** API provides the following methods:
       constructor<API extends Record<string,
           Event<   (...args: any[]) => void | Promise<void>> |
           Service< (...args: any[]) => any  | Promise<any> > |
-          Resource<(...args: any[]) => void | Promise<void>>
+          Source<  (...args: any[]) => void | Promise<void>> |
+          Sink<    (...args: any[]) => void | Promise<void>>
       >>(
           mqtt: MqttClient | null,
           options?: {
@@ -174,8 +200,9 @@ The **MQTT+** API provides the following methods:
           }
       )
 
-  The `API` is an optional TypeScript type,
-  describing the available events, services and resources.
+  The `API` is a TypeScript type,
+  describing the available events, services, sources, and sinks.
+
   The `mqtt` is the [MQTT.js](https://www.npmjs.com/package/mqtt) instance,
   which has to be established separately. A `null` MQTT instance can be
   used for performing dry-runs (see *Dry-Run Publishing for MQTT Last-Will* under
@@ -185,9 +212,9 @@ The **MQTT+** API provides the following methods:
   - `id`: Custom MQTT peer identifier (default: auto-generated NanoID).
   - `codec`: Encoding format, either `cbor` or `json` (default: `cbor`).
   - `timeout`: Communication timeout in milliseconds (default: `10000`).
-  - `chunkSize`: Chunk size in bytes for resource transfers (default: `16384`).
+  - `chunkSize`: Chunk size in bytes for source/sink transfers (default: `16384`).
   - `topicMake`: Custom topic generation function.
-    The `operation` parameter is one of: `event-emission`, `service-call-request`, `service-call-response`, `resource-transfer-request`, `resource-transfer-response`.
+    The `operation` parameter is one of: `event-emission`, `service-call-request`, `service-call-response`, `source-fetch-request`, `source-fetch-response`, `source-fetch-chunk`, `sink-push-response`.
     (default: `` (name, operation, peerId) => `${name}/${protocol}/${peerId ?? "any"}` ``)
   - `topicMatch`: Custom topic matching function.
     Returns `{ name, operation, peerId? }` or `null` if no match.
@@ -200,11 +227,12 @@ The **MQTT+** API provides the following methods:
 
   Clean up the MQTT+ instance by removing all event listeners.
   Call this method when the instance is no longer needed.
+  The companion MQTT.js instance has to be destroyed separately.
 
 - **Authentication**:<br/>
 
   MQTT+ provides JWT-based authentication for securing events, services,
-  and resources. Authentication works by issuing tokens on the
+  sources, and sinks. Authentication works by issuing tokens on the
   server-side and validating them when messages are received.
 
       /*  store server-side secret credential  */
@@ -233,11 +261,11 @@ The **MQTT+** API provides the following methods:
 
   Example:
 
-      /*  server-side: set credential and issue token  */
+      /*  server: set credential and issue token  */
       mqttp.credential("my-secret-key")
       const token = await mqttp.issue({ roles: [ "admin", "user" ] })
 
-      /*  client-side: add token for authentication  */
+      /*  client: add token for authentication  */
       mqttp.authenticate(token)
 
 - **Meta Information**:<br/>
@@ -262,37 +290,34 @@ The **MQTT+** API provides the following methods:
   Per-request meta-data takes precedence over instance-level metadata.
 
   On the receiving side, meta-data is available via the `info.meta`
-  field in callbacks for `subscribe()`, `register()`, and `provision()`.
+  field in callbacks for `event()`, `service()`, `source()`, and `sink()`.
   For `fetch()`, the returned `meta` promise resolves to the meta-data
-  sent by the provisioner.
+  sent by the source.
 
   Example usage:
 
-      /*  sender: set instance-level metadata  */
+      /*  client: set instance-level metadata  */
       mqttp.meta("clientVersion", "1.0.0")
       mqttp.meta("environment", "production")
 
-      /*  sender: retrieve all metadata  */
-      const allMeta = mqttp.meta()
-
-      /*  sender: delete a metadata entry  */
+      /*  client: delete a metadata entry  */
       mqttp.meta("environment")
 
-      /*  sender: per-request metadata (merged with instance-level)  */
-      mqttp.call({ service: "example/hello", params: [ "world" ], meta: { requestId: "123" } })
+      /*  client: per-request metadata (merged with instance-level)  */
+      mqttp.call({ name: "example/hello", params: [ "world" ], meta: { requestId: "123" } })
 
-      /*  receiver: access metadata in callback  */
-      await mqttp.register("example/hello", (arg, info) => {
+      /*  server: access meta-data in callback  */
+      await mqttp.service("example/hello", (arg, info) => {
           console.log(info.meta?.clientVersion)  /*  "1.0.0"  */
           console.log(info.meta?.requestId)      /*  "123"    */
           return `hello ${arg}`
       })
 
-- **Event Subscription**:<br/>
+- **Event Registration**:<br/>
 
       /*  (simplified TypeScript API method signature)  */
-      subscribe(
-          event:    string,
+      event(
+          name:     string,
           callback: (
               ...params: any[],
               info: {
@@ -302,9 +327,9 @@ The **MQTT+** API provides the following methods:
                   meta?:          Record<string, any>
               }
           ) => void | Promise<void>
-      ): Promise<Subscription>
-      subscribe({
-          event:    string,
+      ): Promise<Registration>
+      event({
+          name:     string,
           callback: (
               ...params: any[],
               info: {
@@ -316,33 +341,34 @@ The **MQTT+** API provides the following methods:
           ) => void | Promise<void>,
           options?: MQTT::IClientSubscribeOptions,
           share?:   string,
-          auth?:    "require" | "optional" | { mode: "require" | "optional", roles: string[] }
-      }): Promise<Subscription>
+          auth?:    string | { mode: "require" | "optional", roles: string[] }
+      }): Promise<Registration>
 
-  Subscribe to an event.
-  The `event` has to be a valid MQTT topic name.
+  Register for an event.
+  The `name` has to be a valid MQTT topic name.
   The `callback` is called with the `params` passed to a remote `emit()`.
   There is no return value of `callback`.
   The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
   The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
-  (MQTT 5.0) for load-balancing messages across multiple subscribers by specifying
+  (MQTT 5.0) for load-balancing messages across multiple registrations by specifying
   a group name. This internally prefixes the event with `$share/<share>/`.
   The optional `auth` enables authentication validation on incoming events.
-  When set to `"require"` or `"optional"`, or an object `{ mode, roles }`,
-  the `info.authenticated` field indicates whether the sender provided valid tokens.
-  With `"require"`, unauthenticated events are rejected. With `"optional"`,
-  all events are accepted but `info.authenticated` reflects the validation result.
+  When set to a role name string (e.g., `"admin"`), authentication is required
+  and the token must include that role. When set to an object `{ mode, roles }`,
+  the mode can be `"require"` (reject unauthenticated) or `"optional"` (accept all
+  but reflect validation result in `info.authenticated`), and roles specifies
+  the required role names.
 
   Internally, on the MQTT broker, the topics generated by
-  `topicMake(event, "event-emission")` (default: `${event}/event-emission/any` and
-  `${event}/event-emission/${peerId}`) are subscribed. Returns a
-  `Subscription` object with an `unsubscribe()` method.
+  `topicMake(name, "event-emission")` (default: `${name}/event-emission/any` and
+  `${name}/event-emission/${peerId}`) are subscribed. Returns an
+  `EventRegistration` object with a `destroy()` method.
 
-- **Service Registration**:<br/>
+- **Service Establishment**:<br/>
 
       /*  (simplified TypeScript API method signature)  */
-      register(
-          service:  string,
+      service(
+          name:     string,
           callback: (
               ...params: any[],
               info: {
@@ -353,8 +379,8 @@ The **MQTT+** API provides the following methods:
               }
           ) => any | Promise<any>
       ): Promise<Registration>
-      register({
-          service:  string,
+      service({
+          name:     string,
           callback: (
               ...params: any[],
               info: {
@@ -366,33 +392,35 @@ The **MQTT+** API provides the following methods:
           ) => any | Promise<any>,
           options?: MQTT::IClientSubscribeOptions,
           share?:   string,
-          auth?:    "require" | "optional" | { mode: "require" | "optional", roles: string[] }
+          auth?:    string | { mode: "require" | "optional", roles: string[] }
       }): Promise<Registration>
 
   Register a service.
-  The `service` has to be a valid MQTT topic name.
+  The `name` has to be a valid MQTT topic name.
   The `callback` is called with the `params` passed to a remote `call()`.
   The return value of `callback` will resolve the `Promise` returned by the remote `call()`.
   The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
   The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
-  (MQTT 5.0) for load-balancing service calls across multiple registrants by specifying
+  (MQTT 5.0) for load-balancing service calls across multiple services by specifying
   a group name. This internally prefixes the service with `$share/<share>/`.
+  By default a share named `default` is used.
   The optional `auth` enables authentication validation on incoming service calls.
-  When set to `"require"` or `"optional"`, or an object `{ mode, roles }`,
-  the `info.authenticated` field indicates whether the caller provided valid tokens.
-  With `"require"`, unauthenticated calls are rejected with an error response.
-  With `"optional"`, all calls are accepted but `info.authenticated` reflects the validation result.
+  When set to a role name string (e.g., `"admin"`), authentication is required
+  and the token must include that role. When set to an object `{ mode, roles }`,
+  the mode can be `"require"` (reject unauthenticated with error response) or
+  `"optional"` (accept all but reflect validation result in `info.authenticated`),
+  and roles specifies the required role names.
 
   Internally, on the MQTT broker, the topics generated by
-  `topicMake(service, "service-call-request")` (default: `${service}/service-call-request/any` and
-  `${service}/service-call-request/${peerId}`) are subscribed. Returns a
-  `Registration` object with an `unregister()` method.
+  `topicMake(name, "service-call-request")` (default: `${name}/service-call-request/any` and
+  `${name}/service-call-request/${peerId}`) are subscribed. Returns a
+  `Registration` object with a `destroy()` method.
 
-- **Resource Provisioning**:<br/>
+- **Source Establishment (for Fetch)**:<br/>
 
       /*  (simplified TypeScript API method signature)  */
-      provision(
-          resource: string,
+      source(
+          name:     string,
           callback: (
               ...params: any[],
               info: {
@@ -404,9 +432,9 @@ The **MQTT+** API provides the following methods:
                   buffer?:        Promise<Uint8Array>
               }
           ) => void | Promise<void>
-      ): Promise<Provisioning>
-      provision({
-          resource: string,
+      ): Promise<Registration>
+      source({
+          name:     string,
           callback: (
               ...params: any[],
               info: {
@@ -420,35 +448,90 @@ The **MQTT+** API provides the following methods:
           ) => void | Promise<void>,
           options?: MQTT::IClientSubscribeOptions,
           share?:   string,
-          auth?:    "require" | "optional" | { mode: "require" | "optional", roles: string[] }
-      }): Promise<Provisioning>
+          auth?:    string | { mode: "require" | "optional", roles: string[] }
+      }): Promise<Registration>
 
-  Provision a resource for both fetch requests and pushed data.
-  The `resource` has to be a valid MQTT topic name.
+  Register a source for sending data.
+  The `name` has to be a valid MQTT topic name.
   The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
   The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
-  (MQTT 5.0) for load-balancing resource requests across multiple provisioners by specifying
-  a group name. This internally prefixes the resource with `$share/<share>/`.
-  The optional `auth` enables authentication validation on incoming resource requests.
-  When set to `"require"` or `"optional"`, or an object `{ mode, roles }`,
-  the `info.authenticated` field indicates whether the requester provided valid tokens.
-  With `"require"`, unauthenticated requests are rejected. With `"optional"`,
-  all requests are accepted but `info.authenticated` reflects the validation result.
+  (MQTT 5.0) for load-balancing source requests across multiple sources by specifying
+  a group name. This internally prefixes the source with `$share/<share>/`.
+  By default a share named `default` is used.
+  The optional `auth` enables authentication validation on incoming source requests.
+  When set to a role name string (e.g., `"admin"`), authentication is required
+  and the token must include that role. When set to an object `{ mode, roles }`,
+  the mode can be `"require"` (reject unauthenticated) or `"optional"` (accept all
+  but reflect validation result in `info.authenticated`), and roles specifies
+  the required role names.
 
-  For **fetch requests**: The `callback` is called with the `params` passed to a remote `fetch()`.
-  The `callback` should set `info.stream` to a `Readable` or `info.buffer` to a `Promise<Uint8Array>` containing the resource data.
+  The `callback` is called with the `params` passed to a remote `fetch()`.
+  The `callback` should set `info.stream` to a `Readable` or `info.buffer` to a `Promise<Uint8Array>` containing the data.
   Optionally, the `callback` can set `info.meta` to a `Record<string, any>` to send metadata back with the response.
 
-  For **pushed data**: The `callback` is called with the `params` passed to a remote `push()`.
+  Internally, on the MQTT broker, the topics by
+  `topicMake(name, "source-fetch-request")`
+  (default: `${name}/source-fetch-request/any` and `${name}/source-fetch-request/${peerId}`)
+  are subscribed. Returns a `Sourcing` object with a `destroy()` method.
+
+- **Sink Establishment (for Push)**:<br/>
+
+      /*  (simplified TypeScript API method signature)  */
+      sink(
+          name:     string,
+          callback: (
+              ...params: any[],
+              info: {
+                  sender:         string,
+                  receiver?:      string,
+                  authenticated?: boolean,
+                  meta?:          Record<string, any>,
+                  stream?:        Readable,
+                  buffer?:        Promise<Uint8Array>
+              }
+          ) => void | Promise<void>
+      ): Promise<Registration>
+      sink({
+          name:     string,
+          callback: (
+              ...params: any[],
+              info: {
+                  sender:         string,
+                  receiver?:      string,
+                  authenticated?: boolean,
+                  meta?:          Record<string, any>,
+                  stream?:        Readable,
+                  buffer?:        Promise<Uint8Array>
+              }
+          ) => void | Promise<void>,
+          options?: MQTT::IClientSubscribeOptions,
+          share?:   string,
+          auth?:    string | { mode: "require" | "optional", roles: string[] }
+      }): Promise<Registration>
+
+  Register a sink for receiving data.
+  The `name` has to be a valid MQTT topic name.
+  The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
+  The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
+  (MQTT 5.0) for load-balancing sink pushes across multiple sink handlers by specifying
+  a group name. This internally prefixes the sink with `$share/<share>/`.
+  By default a share named `default` is used.
+  The optional `auth` enables authentication validation on incoming sink pushes.
+  When set to a role name string (e.g., `"admin"`), authentication is required
+  and the token must include that role. When set to an object `{ mode, roles }`,
+  the mode can be `"require"` (reject unauthenticated) or `"optional"` (accept all
+  but reflect validation result in `info.authenticated`), and roles specifies
+  the required role names.
+
+  The `callback` is called with the `params` passed to a remote `push()`.
   The `info.stream` provides a Node.js `Readable` stream for consuming the pushed data.
   The `info.buffer` provides a lazy `Promise<Uint8Array>` that resolves to the complete data once the stream ends.
   The `info.meta` contains optional metadata sent by the pusher via `push()`.
 
   Internally, on the MQTT broker, the topics by
-  `topicMake(resource, "resource-transfer-request")` and `topicMake(resource, "resource-transfer-response")`
-  (default: `${resource}/resource-transfer-request/any`, `${resource}/resource-transfer-request/${peerId}`,
-  `${resource}/resource-transfer-response/any`, and `${resource}/resource-transfer-response/${peerId}`)
-  are subscribed. Returns a `Provisioning` object with an `unprovision()` method.
+  `topicMake(name, "sink-push-response")`
+  (default: `${name}/sink-push-response/any` and `${name}/sink-push-response/${peerId}`)
+  are subscribed. Returns a `Sinking` object with a `destroy()` method.
 
 - **Event Emission**:<br/>
 
@@ -518,11 +601,11 @@ The **MQTT+** API provides the following methods:
 
       /*  (simplified TypeScript API method signature)  */
       call(
-          service:   string,
+          name:      string,
           ...params: any[]
       ): Promise<any>
       call({
-          service:   string,
+          name:      string,
           params:    any[],
           receiver?: string,
           options?:  MQTT::IClientPublishOptions,
@@ -535,7 +618,7 @@ The **MQTT+** API provides the following methods:
   The optional `meta` sends additional metadata alongside the service call,
   which is merged with instance-level metadata set via `meta()`.
 
-  The remote `register()` `callback` is called with `params` and its
+  The remote `service()` `callback` is called with `params` and its
   return value resolves the returned `Promise`. If the remote `callback`
   throws an exception, this rejects the returned `Promise`.
 
@@ -543,11 +626,11 @@ The **MQTT+** API provides the following methods:
   (default: `${service}/service-call-response/${peerId}`) is temporarily subscribed
   for receiving the response.
 
-- **Resource Fetch**:<br/>
+- **Source Fetch**:<br/>
 
       /*  (simplified TypeScript API method signature)  */
       fetch(
-          resource:  string,
+          name:      string,
           ...params: any[]
       ): Promise<{
           stream:    Readable,
@@ -555,7 +638,7 @@ The **MQTT+** API provides the following methods:
           meta:      Promise<Record<string, any> | undefined>
       }>
       fetch({
-          resource:  string,
+          name:      string,
           params:    any[],
           receiver?: string,
           options?:  MQTT::IClientSubscribeOptions,
@@ -566,8 +649,8 @@ The **MQTT+** API provides the following methods:
           meta:      Promise<Record<string, any> | undefined>
       }>
 
-  Fetches a resource from any resource provisioner or from a specific provisioner.
-  The optional `receiver` directs the call to a specific provisioner only.
+  Fetches data from any source or from a specific source.
+  The optional `receiver` directs the call to a specific source only.
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
   The optional `meta` sends additional metadata alongside the fetch request,
   which is merged with instance-level metadata set via `meta()`.
@@ -575,28 +658,28 @@ The **MQTT+** API provides the following methods:
   Returns an object with a `stream` (`Readable`) for consuming the transferred data,
   a lazy `buffer` (`Promise<Uint8Array>`) that resolves to the complete data once the stream ends,
   and a `meta` (`Promise<Record<string, any> | undefined>`) that resolves to optional metadata
-  sent by the provisioner when the first chunk arrives.
+  sent by the source when the first chunk arrives.
 
-  The remote `provision()` `callback` is called with `params` and
-  should set `info.stream` to a `Readable` or `info.buffer` to a `Promise<Uint8Array>` containing the resource data.
+  The remote `source()` `callback` is called with `params` and
+  should set `info.stream` to a `Readable` or `info.buffer` to a `Promise<Uint8Array>` containing the data.
   Optionally, the `callback` can set `info.meta` to send metadata back with the response.
   If the remote `callback` throws an exception, this destroys the stream with the error.
 
-  Internally, on the MQTT broker, the topic by
-  `topicMake(resource, "resource-transfer-response", peerId)` (default:
-  `${resource}/resource-transfer-response/${peerId}`) is temporarily subscribed
-  for receiving the response.
+  Internally, on the MQTT broker, the topics by
+  `topicMake(name, "source-fetch-response", peerId)` and `topicMake(name, "source-fetch-chunk", peerId)` (default:
+  `${name}/source-fetch-response/${peerId}` and `${name}/source-fetch-chunk/${peerId}`) are temporarily subscribed
+  for receiving the response and data chunks.
 
-- **Resource Push**:<br/>
+- **Sink Push**:<br/>
 
       /*  (simplified TypeScript API method signature)  */
       push(
-          resource:       string,
+          name:           string,
           data:           Readable | Uint8Array,
           ...params:      any[]
       ): Promise<void>
       push({
-          resource:       string,
+          name:           string,
           data:           Readable | Uint8Array,
           params:         any[]
           meta?:          Record<string, any>,
@@ -604,11 +687,11 @@ The **MQTT+** API provides the following methods:
           options?:       MQTT::IClientPublishOptions
       }): Promise<void>
 
-  Pushes a resource to all provisioners or a specific provisioner.
+  Pushes data to all established sinks or a specific sink handler.
   The `data` is either a Node.js `Readable` stream or a `Uint8Array` providing the data to push.
-  The optional `meta` sends metadata alongside the resource data,
-  which becomes available on the provisioner side via `info.meta`.
-  The optional `receiver` directs the push to a specific provisioner only.
+  The optional `meta` sends metadata alongside the data,
+  which becomes available on the sink handler side via `info.meta`.
+  The optional `receiver` directs the push to a specific sink handler only.
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
 
   The data is read from `data` in chunks (default: 16KB,
@@ -616,19 +699,19 @@ The **MQTT+** API provides the following methods:
   stream is closed or the buffer is fully transferred.
   The returned `Promise` resolves when the entire data has been pushed.
 
-  The remote `provision()` `callback` is called with `params` and an `info` object
+  The remote `sink()` `callback` is called with `params` and an `info` object
   containing `stream` (`Readable`) for consuming the pushed data,
   `buffer` (lazy `Promise<Uint8Array>`) that resolves to the complete data once the stream ends,
   and `meta` (`Record<string, any> | undefined`) containing the metadata sent by the pusher.
 
-  Internally, publishes to the MQTT topic by `topicMake(resource, "resource-transfer-response", peerId)`
-  (default: `${resource}/resource-transfer-response/any` or `${resource}/resource-transfer-response/${peerId}`).
+  Internally, publishes to the MQTT topic by `topicMake(name, "sink-push-response", peerId)`
+  (default: `${name}/sink-push-response/any` or `${name}/sink-push-response/${peerId}`).
 
 - **Data Type Conversion Utilities**:<br/>
 
   MQTT+ provides utility methods for converting between strings,
   buffers, and typed arrays. These are useful when working with binary
-  data in resource transfers or when interfacing with API methods that
+  data in source/sink transfers or when interfacing with API methods that
   expect specific data types.
 
       /*  convert character string to buffer  */
@@ -690,16 +773,16 @@ pseudo ones):
 {
     "type":    "service-call-request",
     "id":      "vwLzfQDu2uEeOdOfIlT42",
-    "service": "example/hello",
+    "name":    "example/hello",
     "params":  [ "world", 42 ],
     "sender":  "2IBMSk0NPnrz1AeTERoea"
 }
 ```
 
-Beforehand, this `example/hello` service should have been registered with...
+Beforehand, this `example/hello` service should have been established with...
 
 ```ts
-mqttp.register("example/hello", (a1, a2) => {
+mqttp.service("example/hello", (a1, a2) => {
     return `${a1}:${a2}`
 })
 ```
@@ -723,96 +806,6 @@ The `sender` field is the NanoID of the MQTT+ sender instance and
 `id` is the NanoID of the particular service request. The `sender` is
 used for sending back the response message to the requestor only. The
 `id` is used for correlating the response to the request only.
-
-Example
--------
-
-You can test-drive MQTT+, in a temporary MQTT broker environment,
-with a complete [sample](sample/sample.ts) to see it in action and
-tracing its communication:
-
-```ts
-import Mosquitto                         from "mosquitto"
-import MQTT                              from "mqtt"
-import MQTTp                             from "mqtt-plus"
-import type { Event, Service, Resource } from "mqtt-plus"
-
-const mosquitto = new Mosquitto()
-await mosquitto.start()
-await new Promise((resolve) => { setTimeout(resolve, 500) })
-
-const mqtt = MQTT.connect("mqtt://127.0.0.1:1883", {
-    username: "example",
-    password: "example"
-})
-
-type API = {
-    "example/sample":   Event<(a1: string, a2: number) => void>
-    "example/hello":    Service<(a1: string, a2: number) => string>
-    "example/resource": Resource<(filename: string) => void>
-}
-
-const mqttp = new MQTTp<API>(mqtt, { codec: "json" })
-
-mqtt.on("error",     (err)            => { console.log("ERROR", err) })
-mqtt.on("offline",   ()               => { console.log("OFFLINE") })
-mqtt.on("close",     ()               => { console.log("CLOSE") })
-mqtt.on("reconnect", ()               => { console.log("RECONNECT") })
-mqtt.on("message",   (topic, message) => { console.log("RECEIVED", topic, message.toString()) })
-
-mqtt.on("connect", async () => {
-    console.log("CONNECT")
-
-    /*  event emission example  */
-    const sub = await mqttp.subscribe("example/sample", (a1, a2, info) => {
-        console.log("example/sample: received:", a1, a2, "from:", info.sender)
-    })
-    mqttp.emit("example/sample", "world", 42)
-    await new Promise((resolve) => { setTimeout(resolve, 100) })
-    await sub.unsubscribe()
-
-    /*  service call example  */
-    const reg = await mqttp.register("example/hello", (a1, a2, info) => {
-        console.log("example/hello: request:", a1, a2, "from:", info.sender)
-        return `${a1}:${a2}`
-    })
-    const result = await mqttp.call("example/hello", "world", 42)
-    console.log("example/hello: success:", result)
-    await reg.unregister()
-
-    /*  resource fetch example  */
-    const prov = await mqttp.provision("example/resource", async (filename, info) => {
-        console.log("example/resource: request:", filename, "from:", info.sender)
-        const data = `the ${filename} content`
-        info.buffer = Promise.resolve(new TextEncoder().encode(data))
-    })
-    const res = await mqttp.fetch("example/resource", "foo")
-    const data = new TextDecoder().decode(await res.buffer)
-    console.log("example/resource: result:", data)
-    await prov.unprovision()
-
-    mqtt.end()
-    await mosquitto.stop()
-})
-```
-
-The output will be:
-
-```
-$ node sample.ts
-CONNECT
-RECEIVED example/sample/event-emission/any {"type":"event-emission","id":"...","sender":"...","event":"example/sample","params":["world",42]}
-example/sample: received: world 42 from: ...
-RECEIVED example/hello/service-call-request/any {"type":"service-call-request","id":"...","sender":"...","service":"example/hello","params":["world",42]}
-example/hello: request: world 42 from: ...
-RECEIVED example/hello/service-call-response/... {"type":"service-call-response","id":"...","sender":"...","receiver":"...","result":"world:42"}
-example/hello: success: world:42
-RECEIVED example/resource/resource-transfer-request/any {"type":"resource-transfer-request","id":"...","sender":"...","resource":"example/resource","params":["foo"]}
-example/resource: request: foo from: ...
-RECEIVED example/resource/resource-transfer-response/... {"type":"resource-transfer-response","id":"...","sender":"...","receiver":"...","chunk":...,"final":true}
-example/resource: result: the foo content
-CLOSE
-```
 
 Broker Setup
 ------------
@@ -848,35 +841,36 @@ pattern write     $SYS/broker/connection/%c/state
 
 #   ---- event emission ----
 
-#   client -> server
 topic   write     example/server/+/event-emission/+
 
-#   client <- server
 topic   read      example/client/+/event-emission/any
 pattern read      example/client/+/event-emission/%c
 
 #   ---- service call ----
 
-#   client -> server
 topic   write     example/server/+/service-call-request/+
 pattern read      example/server/+/service-call-response/%c
 
-#   client <- server
 topic   read      example/client/+/service-call-request/any
 pattern read      example/client/+/service-call-request/%c
 pattern write     example/client/+/service-call-response/%c
 
-#   ---- resource transfer ----
+#   ---- source fetch ----
 
-#   client -> server
-topic   write     example/server/+/resource-transfer-request/+
-topic   write     example/server/+/resource-transfer-response/+
-pattern read      example/server/+/resource-transfer-response/%c
+topic   write     example/server/+/source-fetch-request/+
+pattern read      example/server/+/source-fetch-response/%c
+pattern read      example/server/+/source-fetch-chunk/%c
 
-#   client <- server
-topic   read      example/client/+/resource-transfer-request/+
-topic   read      example/client/+/resource-transfer-response/+
-pattern write     example/client/+/resource-transfer-response/%c
+topic   read      example/client/+/source-fetch-request/any
+pattern read      example/client/+/source-fetch-request/%c
+topic   write     example/client/+/source-fetch-response/+
+topic   write     example/client/+/source-fetch-chunk/+
+
+#   ---- sink push ----
+
+topic   write     example/server/+/sink-push-response/+
+
+topic   read      example/client/+/sink-push-response/+
 
 #   ==== server/autenticated ACL ====
 
@@ -884,41 +878,45 @@ user    example
 
 #   ---- event emission ----
 
-#   client -> server
-topic   read      example/server/+/event-emission/any
-pattern read      example/server/+/event-emission/%c
-topic   read      $share/server/example/server/+/event-emission/any
-
-#   client <- server
 topic   write     example/client/+/event-emission/+
+
+topic   read      example/server/+/event-emission/any
+topic   read      $share/server/example/server/+/event-emission/any
+pattern read      example/server/+/event-emission/%c
+pattern read      $share/server/example/server/+/event-emission/%c
 
 #   ---- service call ----
 
-#   client -> server
 topic   read      example/server/+/service-call-request/any
 topic   read      $share/server/example/server/+/service-call-request/any
 pattern read      example/server/+/service-call-request/%c
+pattern read      $share/server/example/server/+/service-call-request/%c
 pattern write     example/server/+/service-call-response/+
 
-#   client <- server
 topic   write     example/client/+/service-call-request/+
 pattern read      example/client/+/service-call-response/%c
 
-#   ---- resource transfer ----
+#   ---- source fetch ----
 
-#   client -> server
-topic   read      example/server/+/resource-transfer-request/any
-topic   read      $share/server/example/server/+/resource-transfer-request/any
-pattern read      example/server/+/resource-transfer-request/%c
-topic   write     example/server/+/resource-transfer-response/+
-topic   read      example/server/+/resource-transfer-response/any
-topic   read      $share/server/example/server/+/resource-transfer-response/any
-pattern read      example/server/+/resource-transfer-response/%c
+topic   read      example/server/+/source-fetch-request/any
+topic   read      $share/server/example/server/+/source-fetch-request/any
+pattern read      example/server/+/source-fetch-request/%c
+pattern read      $share/server/example/server/+/source-fetch-request/%c
+topic   write     example/server/+/source-fetch-response/+
+topic   write     example/server/+/source-fetch-chunk/+
 
-#   client <- server
-topic   write     example/client/+/resource-transfer-request/+
-topic   write     example/client/+/resource-transfer-response/+
-pattern read      example/client/+/resource-transfer-response/%c
+topic   write     example/client/+/source-fetch-request/+
+pattern read      example/client/+/source-fetch-response/%c
+pattern read      example/client/+/source-fetch-chunk/%c
+
+#   ---- sink push ----
+
+topic   read      example/server/+/sink-push-response/any
+topic   read      $share/server/example/server/+/sink-push-response/any
+pattern read      example/server/+/sink-push-response/%c
+pattern read      $share/server/example/server/+/sink-push-response/%c
+
+topic   write     example/client/+/sink-push-response/+
 ```
 
 ...and an `example` user (with password `example`) in `mosquitto-pwd.txt` like:
@@ -937,7 +935,7 @@ Notice
 > or CBOR (default), uses an own packet format (allowing sender and
 > receiver information), uses shorter NanoIDs instead of longer UUIDs
 > for identification of sender, receiver and requests, and additionally
-> provides resource transfer support (with fetch and push capabilities),
+> provides source/sink transfer support (with fetch and push capabilities),
 > has an authentication mechanism, supports meta-data passing, and many more.
 
 License
@@ -963,4 +961,3 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
 CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-

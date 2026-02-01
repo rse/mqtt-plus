@@ -1,0 +1,26 @@
+shape: sequence_diagram
+
+client: "Client"
+broker: "Broker"
+server: "Server"
+
+broker.class: brown
+
+source("foo/bar") {
+    server -> broker: "op: subscribe\ntopic: foo/bar/source-fetch-request/any"
+}
+
+fetch("foo/bar") {
+    client -> broker: "op: subscribe\ntopic: foo/bar/source-fetch-response/XXX"
+    client -> broker: "op: subscribe\ntopic: foo/bar/source-fetch-chunk/XXX"
+    client -> broker: "op: publish\ntopic: foo/bar/source-fetch-request/any\ndata: Source-Fetch-Request"
+    broker -> server: "op: publish\ntopic: foo/bar/source-fetch-request/any\ndata: Source-Fetch-Request"
+    broker <- server: "op: publish\ntopic: foo/bar/source-fetch-response/XXX\ndata: Source-Fetch-Response"
+    client <- broker: "op: publish\ntopic: foo/bar/source-fetch-response/XXX\ndata: Source-Fetch-Response"
+    broker <- server: "op: publish\ntopic: foo/bar/source-fetch-chunk/XXX\ndata: Source-Fetch-Chunk #1 (first)"
+    client <- broker: "op: publish\ntopic: foo/bar/source-fetch-chunk/XXX\ndata: Source-Fetch-Chunk #1 (first)"
+    broker <- server: "op: publish\ntopic: foo/bar/source-fetch-chunk/XXX\ndata: Source-Fetch-Chunk #N (final)"
+    client <- broker: "op: publish\ntopic: foo/bar/source-fetch-chunk/XXX\ndata: Source-Fetch-Chunk #N (final)"
+    client -> broker: "op: unsubscribe\ntopic: foo/bar/source-fetch-response/XXX"
+    client -> broker: "op: unsubscribe\ntopic: foo/bar/source-fetch-chunk/XXX"
+}
