@@ -868,9 +868,14 @@ topic   write     example/client/+/source-fetch-chunk/+
 
 #   ---- sink push ----
 
-topic   write     example/server/+/sink-push-response/+
+topic   write     example/server/+/sink-push-request/+
+pattern read      example/server/+/sink-push-response/%c
+topic   write     example/server/+/sink-push-chunk/+
 
-topic   read      example/client/+/sink-push-response/+
+topic   read      example/client/+/sink-push-request/any
+pattern read      example/client/+/sink-push-request/%c
+pattern write     example/client/+/sink-push-response/%c
+pattern read      example/client/+/sink-push-chunk/%c
 
 #   ==== server/autenticated ACL ====
 
@@ -911,12 +916,17 @@ pattern read      example/client/+/source-fetch-chunk/%c
 
 #   ---- sink push ----
 
-topic   read      example/server/+/sink-push-response/any
-topic   read      $share/server/example/server/+/sink-push-response/any
-pattern read      example/server/+/sink-push-response/%c
-pattern read      $share/server/example/server/+/sink-push-response/%c
+topic   read      example/server/+/sink-push-request/any
+topic   read      $share/default/example/server/+/sink-push-request/any
+pattern read      example/server/+/sink-push-request/%c
+pattern read      $share/default/example/server/+/sink-push-request/%c
+topic   write     example/server/+/sink-push-response/+
+pattern read      example/server/+/sink-push-chunk/%c
+pattern read      $share/default/example/server/+/sink-push-chunk/%c
 
-topic   write     example/client/+/sink-push-response/+
+topic   write     example/client/+/sink-push-request/+
+pattern read      example/client/+/sink-push-response/%c
+topic   write     example/client/+/sink-push-chunk/+
 ```
 
 ...and an `example` user (with password `example`) in `mosquitto-pwd.txt` like:
