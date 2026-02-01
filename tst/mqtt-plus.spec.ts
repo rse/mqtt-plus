@@ -158,7 +158,6 @@ describe("MQTT+ Library", function () {
         this.timeout(8000)
         mosquitto = new Mosquitto({ acl: ACL })
         await mosquitto.start()
-        await new Promise((resolve) => { setTimeout(resolve, 1000) })
 
         /*  connect with MQTT as client  */
         mqttC = MQTT.connect("mqtt://127.0.0.1:1883",
