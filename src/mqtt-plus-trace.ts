@@ -97,7 +97,13 @@ export class TraceTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
     protected emitEvent (event: "error", error: Error):  void
     protected emitEvent (event: "log",   log: LogEvent): void
     protected emitEvent (...args: Parameters<typeof this._events.emit>): ReturnType<typeof this._events.emit> {
-        return this._events.emit(...args)
+        try {
+            return this._events.emit(...args)
+        }
+        catch (_err) {
+            /*  ignore error (usually caused by no existing listeners)  */
+            return false
+        }
     }
 
     /*  log an event  */
