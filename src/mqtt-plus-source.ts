@@ -342,6 +342,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         throw new Error(`source "${name}" failed authentication`)
                     return handler.callback(...params, info)
                 }).then(async () => {
+                    /*  check for valid data source  */
+                    if (!(info.stream instanceof Readable) && !(info.buffer instanceof Promise))
+                        throw new Error("handler did not provide data via info.stream or info.buffer fields")
+
                     /*  send ack response  */
                     sendResponse()
 
@@ -353,10 +357,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     /*  handle Buffer result  */
                     else if (info.buffer instanceof Promise)
                         sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk)
-
-                    /*  fail  */
-                    else
-                        throw new Error("handler did not provide data via info.stream or info.buffer fields")
                 }).catch((err: Error) => {
                     /*  send error (nak response)  */
                     this.error(err)
