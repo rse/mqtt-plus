@@ -62,7 +62,7 @@ communication patterns with type safety:
 
 - **Sink Push**:
 
-  Sink Push is a *uni-directional* communication pattern for pushing data.
+  Sink Push is a *bi-directional* communication pattern for pushing data.
   A Sink is the combination of a sink name and optionally zero or more parameters.
   You *register* a *sink* for receiving pushed data chunks.
   When data is *pushed*, a single particular sink (in case of a directed
