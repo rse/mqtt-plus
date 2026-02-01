@@ -356,7 +356,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
                     /*  fail  */
                     else
-                        throw new Error("handler did not provide data via info.stream or info.buffer field")
+                        throw new Error("handler did not provide data via info.stream or info.buffer fields")
                 }).catch((err: Error) => {
                     /*  send error (nak response)  */
                     this.error(err)
