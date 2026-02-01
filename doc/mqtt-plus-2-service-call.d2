@@ -17,5 +17,6 @@ call("foo/bar") {
     broker -> server: "op: publish\ntopic: foo/bar/service-call-request/any\ndata: Service-Call-Request"
     broker <- server: "op: publish\ntopic: foo/bar/service-call-response/XXX\ndata: Service-Call-Response"
     client <- broker: "op: publish\ntopic: foo/bar/service-call-response/XXX\ndata: Service-Call-Response"
+    client -> broker: "op: unsubscribe\ntopic: foo/bar/service-call-response/XXX"
 }
 
