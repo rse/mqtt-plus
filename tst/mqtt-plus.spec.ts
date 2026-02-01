@@ -177,6 +177,7 @@ describe("MQTT+ Library", function () {
             mqttS.once("error",   (err: any) => { reject(err) })
         })
 
+        /*  capture MQTT+ logs  */
         mqttpS.on("log", async (entry) => {
             await entry.resolve()
             logs.push(`server: ${entry}`)
