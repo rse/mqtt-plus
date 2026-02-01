@@ -31,7 +31,9 @@ type MessageType =
     | "event-emission"
     | "service-call-request"
     | "service-call-response"
+    | "sink-push-request"
     | "sink-push-response"
+    | "sink-push-chunk"
     | "source-fetch-request"
     | "source-fetch-response"
     | "source-fetch-chunk"
@@ -83,20 +85,43 @@ export class ServiceCallResponse extends Base {
     ) { super("service-call-response", id, sender, receiver) }
 }
 
-/*  sink push response (chunks for push)  */
+/*  sink push request  */
+export class SinkPushRequest extends Base {
+    constructor (
+        id:              string,
+        public name:     string,
+        public params?:  any[],
+        sender?:         string,
+        receiver?:       string,
+        public auth?:    string[],
+        public meta?:    Record<string, any>
+    ) { super("sink-push-request", id, sender, receiver) }
+}
+
+/*  sink push response (ack/nak)  */
 export class SinkPushResponse extends Base {
     constructor (
-        id:            string,
-        public name?:  string,
-        public params?:   any[],
-        public chunk?:    Uint8Array,
-        public error?:    string,
-        public final?:    boolean,
-        sender?:          string,
-        receiver?:        string,
-        public auth?:     string[],
-        public meta?:     Record<string, any>
+        id:              string,
+        public name:     string,
+        public error?:   string,
+        sender?:         string,
+        receiver?:       string,
+        public auth?:    string[],
+        public meta?:    Record<string, any>
     ) { super("sink-push-response", id, sender, receiver) }
+}
+
+/*  sink push chunk (actual data transfer)  */
+export class SinkPushChunk extends Base {
+    constructor (
+        id:              string,
+        public name:     string,
+        public chunk?:   Uint8Array,
+        public error?:   string,
+        public final?:   boolean,
+        sender?:         string,
+        receiver?:       string
+    ) { super("sink-push-chunk", id, sender, receiver) }
 }
 
 /*  source fetch request  */
@@ -177,20 +202,43 @@ class Msg {
         return new ServiceCallResponse(id, result, error, sender, receiver)
     }
 
+    /*  factory for sink push request  */
+    makeSinkPushRequest (
+        id:             string,
+        name:           string,
+        params?:        any[],
+        sender?:        string,
+        receiver?:      string,
+        auth?:          string[],
+        meta?:          Record<string, any>
+    ): SinkPushRequest {
+        return new SinkPushRequest(id, name, params, sender, receiver, auth, meta)
+    }
+
     /*  factory for sink push response  */
     makeSinkPushResponse (
         id:             string,
-        name?:          string,
-        params?:        any[],
-        chunk?:         Uint8Array,
+        name:           string,
         error?:         string,
-        final?:         boolean,
         sender?:        string,
         receiver?:      string,
         auth?:          string[],
         meta?:          Record<string, any>
     ): SinkPushResponse {
-        return new SinkPushResponse(id, name, params, chunk, error, final, sender, receiver, auth, meta)
+        return new SinkPushResponse(id, name, error, sender, receiver, auth, meta)
+    }
+
+    /*  factory for sink push chunk  */
+    makeSinkPushChunk (
+        id:             string,
+        name:           string,
+        chunk?:         Uint8Array,
+        error?:         string,
+        final?:         boolean,
+        sender?:        string,
+        receiver?:      string
+    ): SinkPushChunk {
+        return new SinkPushChunk(id, name, chunk, error, final, sender, receiver)
     }
 
     /*  factory for source fetch request  */
@@ -237,7 +285,9 @@ class Msg {
         EventEmission        |
         ServiceCallRequest   |
         ServiceCallResponse  |
+        SinkPushRequest      |
         SinkPushResponse     |
+        SinkPushChunk        |
         SourceFetchRequest   |
         SourceFetchResponse  |
         SourceFetchChunk {
@@ -282,28 +332,44 @@ class Msg {
             return this.makeServiceCallRequest(obj.id, obj.name, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
         }
         else if (obj.type === "service-call-response") {
-            /*  detect and parse service response success  */
+            /*  detect and parse service response  */
             if (anyFieldsExcept(obj, [ "type", "id", "result", "error", "sender", "receiver" ]))
                 throw new Error("invalid ServiceCallResponse object: contains unknown fields")
             return this.makeServiceCallResponse(obj.id, obj.result, obj.error, obj.sender, obj.receiver)
         }
+        else if (obj.type === "sink-push-request") {
+            /*  detect and parse sink push request  */
+            if (typeof obj.name !== "string")
+                throw new Error("invalid SinkPushRequest object: \"name\" field must be a string")
+            if (anyFieldsExcept(obj, [ "type", "id", "name", "params", "sender", "receiver", "auth", "meta" ]))
+                throw new Error("invalid SinkPushRequest object: contains unknown fields")
+            if (!validParams(obj))
+                throw new Error("invalid SinkPushRequest object: \"params\" field must be an array")
+            return this.makeSinkPushRequest(obj.id, obj.name, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
+        }
         else if (obj.type === "sink-push-response") {
-            /*  detect and parse sink push response  */
-            if (obj.name !== undefined && typeof obj.name !== "string")
+            /*  detect and parse sink push response (ack/nak)  */
+            if (typeof obj.name !== "string")
                 throw new Error("invalid SinkPushResponse object: \"name\" field must be a string")
-            if (obj.chunk !== undefined && (obj.chunk === null || typeof obj.chunk !== "object"))
-                throw new Error("invalid SinkPushResponse object: \"chunk\" field must be an object")
             if (obj.error !== undefined && typeof obj.error !== "string")
                 throw new Error("invalid SinkPushResponse object: \"error\" field must be a string")
-            if (obj.final !== undefined && typeof obj.final !== "boolean")
-                throw new Error("invalid SinkPushResponse object: \"final\" field must be a boolean")
-            if (!validParams(obj))
-                throw new Error("invalid SinkPushResponse object: \"params\" field must be an array")
-            if (anyFieldsExcept(obj, [ "type", "id", "name", "params",
-                "chunk", "error", "final", "sender", "receiver", "auth", "meta" ]))
+            if (anyFieldsExcept(obj, [ "type", "id", "name", "error", "sender", "receiver", "auth", "meta" ]))
                 throw new Error("invalid SinkPushResponse object: contains unknown fields")
-            return this.makeSinkPushResponse(obj.id, obj.name, obj.params,
-                obj.chunk, obj.error, obj.final, obj.sender, obj.receiver, obj.auth, obj.meta)
+            return this.makeSinkPushResponse(obj.id, obj.name, obj.error, obj.sender, obj.receiver, obj.auth, obj.meta)
+        }
+        else if (obj.type === "sink-push-chunk") {
+            /*  detect and parse sink push chunk (actual data transfer)  */
+            if (typeof obj.name !== "string")
+                throw new Error("invalid SinkPushChunk object: \"name\" field must be a string")
+            if (obj.chunk !== undefined && (obj.chunk === null || typeof obj.chunk !== "object"))
+                throw new Error("invalid SinkPushChunk object: \"chunk\" field must be an object")
+            if (obj.error !== undefined && typeof obj.error !== "string")
+                throw new Error("invalid SinkPushChunk object: \"error\" field must be a string")
+            if (obj.final !== undefined && typeof obj.final !== "boolean")
+                throw new Error("invalid SinkPushChunk object: \"final\" field must be a boolean")
+            if (anyFieldsExcept(obj, [ "type", "id", "name", "chunk", "error", "final", "sender", "receiver" ]))
+                throw new Error("invalid SinkPushChunk object: contains unknown fields")
+            return this.makeSinkPushChunk(obj.id, obj.name, obj.chunk, obj.error, obj.final, obj.sender, obj.receiver)
         }
         else if (obj.type === "source-fetch-request") {
             /*  detect and parse source fetch request  */

@@ -31,7 +31,7 @@ import { nanoid }                                                 from "nanoid"
 
 /*  internal requirements  */
 import { streamToBuffer, sendBufferAsChunks, sendStreamAsChunks } from "./mqtt-plus-util"
-import { SinkPushResponse }                                       from "./mqtt-plus-msg"
+import { SinkPushRequest, SinkPushResponse, SinkPushChunk }       from "./mqtt-plus-msg"
 import { APISchema, SinkKeys, APIEndpointSink, Registration }     from "./mqtt-plus-api"
 import type { WithInfo, InfoSink }                                from "./mqtt-plus-info"
 import { SourceTrait }                                            from "./mqtt-plus-source"
@@ -46,8 +46,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     }>()
     private pushStreams = new Map<string, Readable>()
     private pushTimers  = new Map<string, ReturnType<typeof setTimeout>>()
+    private pushCallbacks = new Map<string, {
+        name:     string,
+        callback: (parsed: SinkPushResponse) => void,
+    }>()
 
-    /*  establish a sink (for receiving pushed data)  */
+    /*  register a sink  */
     async sink<K extends SinkKeys<T> & string> (
         name:     K,
         callback: WithInfo<T[K], InfoSink>
@@ -96,27 +100,30 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             throw new Error(`sink: sink "${name}" already established`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topic     = `$share/${share}/${name}`
-        const topicResB = this.options.topicMake(topic, "sink-push-response")
-        const topicResD = this.options.topicMake(topic, "sink-push-response", this.options.id)
+        const topic       = `$share/${share}/${name}`
+        const topicReqB   = this.options.topicMake(topic, "sink-push-request")
+        const topicReqD   = this.options.topicMake(topic, "sink-push-request", this.options.id)
+        const topicChunkD = this.options.topicMake(topic, "sink-push-chunk",   this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([
-            this._subscribeTopic(topicResB, { qos: 2, ...options }),
-            this._subscribeTopic(topicResD, { qos: 2, ...options })
+            this._subscribeTopic(topicReqB,   { qos: 2, ...options }),
+            this._subscribeTopic(topicReqD,   { qos: 2, ...options }),
+            this._subscribeTopic(topicChunkD, { qos: 2, ...options })
         ]).catch((err: Error) => {
-            this._unsubscribeTopic(topicResB).catch(() => {})
-            this._unsubscribeTopic(topicResD).catch(() => {})
+            this._unsubscribeTopic(topicReqB).catch(() => {})
+            this._unsubscribeTopic(topicReqD).catch(() => {})
+            this._unsubscribeTopic(topicChunkD).catch(() => {})
             throw err
         })
 
-        /*  remember the sinking  */
+        /*  remember the registration  */
         this.sinks.set(name, {
             callback: callback as WithInfo<APIEndpointSink, InfoSink>,
             auth
         })
 
-        /*  provide a sinking object for subsequent destroying  */
+        /*  provide a registration for subsequent destruction  */
         const self = this
         const registration: Registration = {
             async destroy (): Promise<void> {
@@ -124,8 +131,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     throw new Error(`destroy: sink "${name}" not established`)
                 self.sinks.delete(name)
                 return Promise.all([
-                    self._unsubscribeTopic(topicResB),
-                    self._unsubscribeTopic(topicResD)
+                    self._unsubscribeTopic(topicReqB),
+                    self._unsubscribeTopic(topicReqD),
+                    self._unsubscribeTopic(topicChunkD)
                 ]).then(() => {})
             }
         }
@@ -148,7 +156,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             meta?:     Record<string, any>
         }
     ): Promise<void>
-    push<K extends SinkKeys<T> & string> (
+    async push<K extends SinkKeys<T> & string> (
         nameOrConfig: K | {
             name:      K,
             data:      Readable | Uint8Array,
@@ -161,60 +169,103 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     ): Promise<void> {
         /*  determine actual parameters  */
         let name:           K
-        let streamOrBuffer: Readable | Uint8Array
+        let data:           Readable | Uint8Array
         let params:         Parameters<T[K]>
         let receiver:       string | undefined
         let options:        IClientPublishOptions = {}
         let meta:           Record<string, any> | undefined
         if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
-            name           = nameOrConfig.name
-            streamOrBuffer = nameOrConfig.data
-            params         = nameOrConfig.params
-            receiver       = nameOrConfig.receiver
-            options        = nameOrConfig.options ?? {}
-            meta           = nameOrConfig.meta
+            name     = nameOrConfig.name
+            data     = nameOrConfig.data
+            params   = nameOrConfig.params
+            receiver = nameOrConfig.receiver
+            options  = nameOrConfig.options ?? {}
+            meta     = nameOrConfig.meta
         }
         else {
             /*  positional API  */
-            name           = nameOrConfig as K
-            streamOrBuffer = args[0] as Readable | Uint8Array
-            params         = args.slice(1) as Parameters<T[K]>
+            name     = nameOrConfig as K
+            data     = args[0] as Readable | Uint8Array
+            params   = args.slice(1) as Parameters<T[K]>
         }
 
         /*  generate unique request id  */
-        const rid = nanoid()
+        const requestId = nanoid()
 
-        /*  generate corresponding MQTT topic  */
-        const topic = this.options.topicMake(name, "sink-push-response", receiver)
+        /*  subscribe to response topic (for ack/nak)  */
+        const responseTopic = this.options.topicMake(name, "sink-push-response", this.options.id)
+        await this._subscribeTopic(responseTopic, { qos: 2 })
 
-        /*  track whether first chunk has been sent (for meta)  */
-        let firstChunk = true
+        /*  define timer  */
+        let timer: ReturnType<typeof setTimeout> | null = null
+
+        /*  utility function for cleanup  */
+        const cleanup = () => {
+            if (timer !== null) {
+                clearTimeout(timer)
+                timer = null
+            }
+            this._unsubscribeTopic(responseTopic).catch(() => {})
+            this.pushCallbacks.delete(requestId)
+        }
+
+        /*  send request and wait for response before sending chunks  */
+        await new Promise<void>((resolve, reject) => {
+            /*  start timeout handler  */
+            timer = setTimeout(() => {
+                cleanup()
+                reject(new Error("communication timeout"))
+            }, this.options.timeout)
+
+            /*  register callback for response  */
+            this.pushCallbacks.set(requestId, {
+                name,
+                callback: (response: SinkPushResponse) => {
+                    const error = response.error
+                    if (error)
+                        reject(new Error(error))
+                    else {
+                        if (response.sender)
+                            receiver = response.sender
+                        resolve()
+                    }
+                }
+            })
+
+            /*  generate and send request message  */
+            const auth      = this.authenticate()
+            const metaStore = this.metaStore(meta)
+            const request   = this.msg.makeSinkPushRequest(requestId,
+                name, params, this.options.id, receiver, auth, metaStore)
+            const message   = this.codec.encode(request)
+            const requestTopic = this.options.topicMake(name, "sink-push-request", receiver)
+            this._publishToTopic(requestTopic, message, { qos: 2, ...options }).catch(() => {})
+        }).finally(() => {
+            cleanup()
+        })
+
+        /*  generate corresponding MQTT topic for chunks  */
+        const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
 
         /*  callback for creating and sending a chunk message  */
         const sendChunk = (chunk: Uint8Array | undefined, error: string | undefined, final: boolean) => {
-            const auth = this.authenticate()
-            const metaStore = firstChunk ? this.metaStore(meta) : undefined
-            firstChunk = false
-            const request = this.msg.makeSinkPushResponse(rid, name,
-                params, chunk, error, final, this.options.id, receiver, auth, metaStore)
-            const message = this.codec.encode(request)
-            this._publishToTopic(topic, message, { qos: 2, ...options }).catch(() => {})
+            const chunkMsg = this.msg.makeSinkPushChunk(requestId,
+                name, chunk, error, final, this.options.id, receiver)
+            const message = this.codec.encode(chunkMsg)
+            this._publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
         }
 
         /*  iterate over all chunks of the buffer  */
         return new Promise((resolve, reject) => {
-            if (streamOrBuffer instanceof Readable) {
+            if (data instanceof Readable) {
                 /*  attach to the readable  */
-                sendStreamAsChunks(
-                    streamOrBuffer, this.options.chunkSize, sendChunk,
-                    () => resolve(),
-                    (err) => reject(err)
-                )
+                sendStreamAsChunks(data, this.options.chunkSize, sendChunk,
+                    () => resolve(), (err) => reject(err))
             }
-            else if (streamOrBuffer instanceof Uint8Array) {
+            else if (data instanceof Uint8Array) {
                 /*  split buffer into chunks and send them  */
-                sendBufferAsChunks(streamOrBuffer, this.options.chunkSize, sendChunk)
+                sendBufferAsChunks(data, this.options.chunkSize, sendChunk)
                 resolve()
             }
         })
@@ -225,86 +276,122 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
 
-        /*  handle sink push response (on server-side for push)  */
+        /*  handle sink push request (on server-side for push)  */
         if (topicMatch !== null
+            && topicMatch.operation === "sink-push-request"
+            && parsed instanceof SinkPushRequest) {
+            const name = parsed.name
+            const handler = this.sinks.get(name)
+            if (handler !== undefined) {
+                /*  determine information  */
+                const requestId = parsed.id
+                const params    = parsed.params ?? []
+                const sender    = parsed.sender ?? ""
+                const receiver  = parsed.receiver
+                const info: InfoSink = { sender }
+                if (receiver)
+                    info.receiver = receiver
+                if (parsed.meta)
+                    info.meta = parsed.meta
+                if (handler?.auth)
+                    info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
+
+                /*  generate corresponding MQTT topic for response  */
+                const responseTopic = this.options.topicMake(name, "sink-push-response", sender)
+
+                /*  callback for sending the ack/nak response  */
+                const sendResponse = (error?: string) => {
+                    const auth = this.authenticate()
+                    const metaStore = this.metaStore(info.meta)
+                    const response = this.msg.makeSinkPushResponse(requestId,
+                        name, error, this.options.id, sender, auth, metaStore)
+                    const message = this.codec.encode(response)
+                    this._publishToTopic(responseTopic, message, { qos: 2 }).catch(() => {})
+                }
+
+                /*  check authentication and prepare stream  */
+                Promise.resolve().then(() => {
+                    if (info.authenticated !== undefined && !info.authenticated)
+                        throw new Error(`sink "${name}" failed authentication`)
+
+                    /*  create readable for buffering received chunks  */
+                    const readable = new Readable({ read (_size) {} })
+                    this.pushStreams.set(requestId, readable)
+
+                    /*  start timeout for push stream cleanup  */
+                    const timer = setTimeout(() => {
+                        const stream = this.pushStreams.get(requestId)
+                        if (stream !== undefined) {
+                            stream.destroy(new Error("push stream timeout"))
+                            this.pushStreams.delete(requestId)
+                            this.pushTimers.delete(requestId)
+                        }
+                    }, this.options.timeout)
+                    this.pushTimers.set(requestId, timer)
+
+                    /*  prepare info object  */
+                    const promise = streamToBuffer(readable)
+                    info.stream = readable
+                    info.buffer = promise
+
+                    /*  send ack response  */
+                    sendResponse()
+
+                    /*  call handler  */
+                    return handler.callback(...params, info)
+                }).catch((err: Error) => {
+                    /*  send error (nak response)  */
+                    this.error(err)
+                    sendResponse(err.message)
+                })
+            }
+        }
+
+        /*  handle sink push response (on client-side for push)  */
+        else if (topicMatch !== null
             && topicMatch.operation === "sink-push-response"
             && parsed instanceof SinkPushResponse) {
+            const requestId = parsed.id
+            const handler   = this.pushCallbacks.get(requestId)
+            if (handler !== undefined)
+                handler.callback(parsed)
+        }
+
+        /*  handle sink push chunk (on server-side for push)  */
+        else if (topicMatch !== null
+            && topicMatch.operation === "sink-push-chunk"
+            && parsed instanceof SinkPushChunk) {
             /*  determine information  */
             const requestId = parsed.id
             const error = parsed.error
-            const meta  = parsed.meta
             const final = parsed.final
             const chunk = (parsed.chunk !== undefined && !(parsed.chunk instanceof Uint8Array))
                 ? Uint8Array.from(parsed.chunk) : parsed.chunk
 
-            /*  handle response on push  */
-            if (parsed.name !== undefined) {
-                const name = parsed.name
-                const handler = this.sinks.get(name)
-                if (handler !== undefined) {
-                    let readable = this.pushStreams.get(requestId)
-                    if (readable === undefined) {
-                        readable = new Readable({ read (_size) {} })
-                        this.pushStreams.set(requestId, readable)
-
-                        /*  start timeout for push stream cleanup  */
-                        const timer = setTimeout(() => {
-                            const stream = this.pushStreams.get(requestId)
-                            if (stream !== undefined) {
-                                stream.destroy(new Error("push stream timeout"))
-                                this.pushStreams.delete(requestId)
-                                this.pushTimers.delete(requestId)
-                            }
-                        }, this.options.timeout)
-                        this.pushTimers.set(requestId, timer)
-
-                        /*  prepare info object  */
-                        const promise = streamToBuffer(readable)
-                        const params = parsed.params ?? []
-                        const info: InfoSink = { sender: parsed.sender ?? "" }
-                        if (parsed.receiver)
-                            info.receiver = parsed.receiver
-                        if (parsed.meta)
-                            info.meta = meta
-                        if (handler?.auth)
-                            info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
-                        info.stream = readable
-                        info.buffer = promise
-
-                        /*  call handler  */
-                        const stream = readable
-                        Promise.resolve().then(() => {
-                            if (info.authenticated !== undefined && !info.authenticated)
-                                throw new Error(`sink "${name}" failed authentication`)
-                            return handler.callback(...params, info)
-                        }).catch((err: Error) => {
-                            this.error(err)
-                            stream.destroy(err)
-                        })
+            /*  handle chunk on push  */
+            const readable = this.pushStreams.get(requestId)
+            if (readable !== undefined) {
+                /*  utility to cleanup timer  */
+                const clearPushTimer = () => {
+                    const timer = this.pushTimers.get(requestId)
+                    if (timer !== undefined) {
+                        clearTimeout(timer)
+                        this.pushTimers.delete(requestId)
                     }
+                }
 
-                    /*  utility to cleanup timer  */
-                    const clearPushTimer = () => {
-                        const timer = this.pushTimers.get(requestId)
-                        if (timer !== undefined) {
-                            clearTimeout(timer)
-                            this.pushTimers.delete(requestId)
-                        }
-                    }
-
-                    if (error !== undefined) {
+                if (error !== undefined) {
+                    clearPushTimer()
+                    readable.destroy(new Error(error))
+                    this.pushStreams.delete(requestId)
+                }
+                else {
+                    if (chunk !== undefined)
+                        readable.push(chunk)
+                    if (final) {
                         clearPushTimer()
-                        readable.destroy(new Error(error))
+                        readable.push(null)
                         this.pushStreams.delete(requestId)
-                    }
-                    else {
-                        if (chunk !== undefined)
-                            readable.push(chunk)
-                        if (final) {
-                            clearPushTimer()
-                            readable.push(null)
-                            this.pushStreams.delete(requestId)
-                        }
                     }
                 }
             }

@@ -118,13 +118,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             throw err
         })
 
-        /*  remember the sourcing  */
+        /*  remember the registration  */
         this.sources.set(name, {
             callback: callback as WithInfo<APIEndpointSource, InfoSource>,
             auth
         })
 
-        /*  provide a sourcing object for subsequent destroying  */
+        /*  provide a registration for subsequent destruction  */
         const self = this
         const registration: Registration = {
             async destroy (): Promise<void> {
