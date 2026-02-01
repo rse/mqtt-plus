@@ -37,7 +37,6 @@ export interface InfoBase {
 export interface InfoEvent    extends InfoBase {}
 export interface InfoService  extends InfoBase {}
 export interface InfoResource extends InfoBase {
-    meta?:    Record<string, any>
     stream?:  Readable
     buffer?:  Promise<Uint8Array>
 }
