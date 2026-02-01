@@ -271,12 +271,15 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         })
     }
 
-    /*  dispatch message (Sink Push pattern handling)  */
+    /*  dispatch incoming MQTT message  */
     protected async _dispatchMessage (topic: string, parsed: any) {
+        /*  forward dispatching to other traits  */
         super._dispatchMessage(topic, parsed)
+
+        /*  match the MQTT topic  */
         const topicMatch = this.options.topicMatch(topic)
 
-        /*  handle sink push request (on server-side for push)  */
+        /*  handle sink push request (on server-side)  */
         if (topicMatch !== null
             && topicMatch.operation === "sink-push-request"
             && parsed instanceof SinkPushRequest) {
@@ -347,7 +350,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             }
         }
 
-        /*  handle sink push response (on client-side for push)  */
+        /*  handle sink push response (on client-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "sink-push-response"
             && parsed instanceof SinkPushResponse) {
@@ -357,7 +360,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 handler.callback(parsed)
         }
 
-        /*  handle sink push chunk (on server-side for push)  */
+        /*  handle sink push chunk (on server-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "sink-push-chunk"
             && parsed instanceof SinkPushChunk) {
