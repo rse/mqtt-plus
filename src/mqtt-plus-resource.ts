@@ -427,29 +427,28 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                 }
 
                 /*  call the handler callback  */
-                if (info.authenticated !== undefined && !info.authenticated)
-                    this.error(new Error(`authentication on resource "${name}" failed`))
-                else
-                    Promise.resolve()
-                        .then(() => handler.callback(...params, info))
-                        .then(async () => {
-                            /*  handle Readable stream result  */
-                            if (info.stream instanceof Readable)
-                                sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk,
-                                    () => {}, (err) => sendChunk(undefined, err.message, true))
+                Promise.resolve().then(() => {
+                    if (info.authenticated !== undefined && !info.authenticated)
+                        throw new Error(`resource "${name}" failed authentication`)
+                    return handler.callback(...params, info)
+                }).then(async () => {
+                    /*  handle Readable stream result  */
+                    if (info.stream instanceof Readable)
+                        sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk,
+                            () => {}, (err) => sendChunk(undefined, err.message, true))
 
-                            /*  handle Buffer result  */
-                            else if (info.buffer instanceof Promise)
-                                sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk)
+                    /*  handle Buffer result  */
+                    else if (info.buffer instanceof Promise)
+                        sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk)
 
-                            /*  fail  */
-                            else
-                                throw new Error("handler did not provide data via info.stream or info.buffer field")
-                        })
-                        .catch((err: Error) => {
-                            /*  send error  */
-                            sendChunk(undefined, err.message, true)
-                        })
+                    /*  fail  */
+                    else
+                        throw new Error("handler did not provide data via info.stream or info.buffer field")
+                }).catch((err: Error) => {
+                    /*  send error  */
+                    this.error(err)
+                    sendChunk(undefined, err.message, true)
+                })
             }
         }
 
@@ -505,14 +504,15 @@ export class ResourceTrait<T extends APISchema = APISchema> extends ServiceTrait
                         info.buffer = promise
 
                         /*  call handler  */
-                        if (info.authenticated !== undefined && !info.authenticated)
-                            this.error(new Error(`authentication on resource "${name}" failed`))
-                        else
-                            Promise.resolve()
-                                .then(() => handler.callback(...params, info))
-                                .catch((err: Error) => {
-                                    this.error(err)
-                                })
+                        const stream = readable
+                        Promise.resolve().then(() => {
+                            if (info.authenticated !== undefined && !info.authenticated)
+                                throw new Error(`resource "${name}" failed authentication`)
+                            return handler.callback(...params, info)
+                        }).catch((err: Error) => {
+                            this.error(err)
+                            stream.destroy(err)
+                        })
                     }
 
                     /*  utility to cleanup timer  */
