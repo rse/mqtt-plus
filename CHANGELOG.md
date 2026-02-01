@@ -2,7 +2,7 @@
 ChangeLog
 =========
 
-1.1.0 (2026-02-XX)
+1.1.0 (2026-02-02)
 ------------------
 
 - REFACTORING: split Resource Transfer into Sink Push and Source Fetch
@@ -12,6 +12,7 @@ ChangeLog
 - IMPROVEMENT: MQTTp API is now an event emitter for emitting errors and logs
 - IMPROVEMENT: use client/server scenario in test suite
 - BUGFIX: avoid race condition in service facility
+- UPDATE: upgrade NPM dependencies
 
 1.0.0 (2026-01-25)
 ------------------
