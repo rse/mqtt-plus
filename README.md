@@ -364,7 +364,7 @@ The **MQTT+** API provides the following methods:
   `${name}/event-emission/${peerId}`) are subscribed. Returns an
   `EventRegistration` object with a `destroy()` method.
 
-- **Service Establishment**:<br/>
+- **Service Registration**:<br/>
 
       /*  (simplified TypeScript API method signature)  */
       service(
@@ -416,7 +416,7 @@ The **MQTT+** API provides the following methods:
   `${name}/service-call-request/${peerId}`) are subscribed. Returns a
   `Registration` object with a `destroy()` method.
 
-- **Source Establishment (for Fetch)**:<br/>
+- **Source Registration**:<br/>
 
       /*  (simplified TypeScript API method signature)  */
       source(
@@ -474,7 +474,7 @@ The **MQTT+** API provides the following methods:
   (default: `${name}/source-fetch-request/any` and `${name}/source-fetch-request/${peerId}`)
   are subscribed. Returns a `Sourcing` object with a `destroy()` method.
 
-- **Sink Establishment (for Push)**:<br/>
+- **Sink Registration**:<br/>
 
       /*  (simplified TypeScript API method signature)  */
       sink(
@@ -830,7 +830,27 @@ protocol             mqtt
 [...]
 ```
 
-...and an access control list in `mosquitto-acl.txt` like...
+...and an access control list in `mosquitto-acl.txt` like a simple and "allow-everything" ACL list...
+
+```
+#   ==== shared/anonymous ACL ====
+
+topic   read      $SYS/#
+pattern write     $SYS/broker/connection/%c/state
+
+topic   read      example/#
+topic   write     example/#
+
+#   ==== server/autenticated ACL ====
+
+user    example
+
+topic   read      example/#
+topic   write     example/#
+```
+
+...or a comprehensive and "allow-minimum" ACL list...
+
 
 ```
 #   ==== shared/anonymous ACL ====
