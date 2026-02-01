@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
         "outDir":                  "../dst-stage1",
+        "tsBuildInfoFile":         "../dst-stage1/tsc.tsbuildinfo",
         "target":                  "es2022",
         "module":                  "ESNext",
         "moduleResolution":        "Bundler",
