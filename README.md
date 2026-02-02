@@ -12,13 +12,6 @@ MQTT+
 [![github (author stars)](https://img.shields.io/github/stars/rse?logo=github&label=author%20stars&color=%233377aa)](https://github.com/rse)
 [![github (author followers)](https://img.shields.io/github/followers/rse?label=author%20followers&logo=github&color=%234477aa)](https://github.com/rse)
 
-Installation
-------------
-
-```shell
-$ npm install mqtt mqtt-plus
-```
-
 About
 -----
 
@@ -27,72 +20,14 @@ API [MQTT.js](https://www.npmjs.com/package/mqtt), providing
 additional communication patterns with full type safety for
 [MQTT](http://mqtt.org/). Currently the essential communication patterns
 *Event Emission*, *Service Call*, *Sink Push* and *Source Fetch* are
-supported:
+supported.
 
-- **Event Emission**:
+Installation
+------------
 
-  Event Emission is a *uni-directional* communication pattern.
-  An Event is the combination of an event name and optionally zero or more parameters.
-  You *register* for events.
-  When an event is *emitted*, either a single particular receiver (in
-  case of a directed event emission) or *all* receivers are called and
-  receive the parameters as extra information.
-
-  > In contrast to the regular MQTT message publish/subscribe, this
-  > pattern allows to direct the event to particular receivers,
-  > provides optional information about the sender and receiver to
-  > receivers, supports authentication and meta-data, etc.
-
-  ![Event Emission](doc/mqtt-plus-1-event-emission.svg)
-
-- **Service Call**:
-
-  Service Call is a *bi-directional* communication pattern.
-  A Service is the combination of a service name and optionally zero or more parameters.
-  You *register* a service.
-  When a service is *called*, a single particular receiver (in case
-  of a directed service call) or *one* arbitrary receiver is called and
-  receives the arguments as the request. The receiver then has to
-  provide the service response.
-
-  > In contrast to the regular uni-directional MQTT message
-  > publish/subscribe communication, this allows a bi-directional [Remote
-  > Procedure Call](https://en.wikipedia.org/wiki/Remote_procedure_call)
-  > (RPC) style communication, supports authentication and meta-data, etc.
-
-  ![Service Call](doc/mqtt-plus-2-service-call.svg)
-
-- **Sink Push**:
-
-  Sink Push is a *bi-directional* communication pattern for pushing data.
-  A Sink is the combination of a sink name and optionally zero or more parameters.
-  You *register* a *sink* for receiving pushed data chunks.
-  When data is *pushed*, a single particular sink (in case of a directed
-  sink push) or *one* arbitrary sink is called and receives the data
-  chunks as a stream with arguments.
-
-  > In contrast to the regular MQTT message publish/subscribe, this
-  > pattern allows to transfer arbitrary amounts of arbitrary data by
-  > chunking the data via a stream. Additionally, it supports authentication
-  > and meta-data, etc.
-
-  ![Sink Push](doc/mqtt-plus-3-sink-push.svg)
-
-- **Source Fetch**:
-
-  Source Fetch is a *bi-directional* communication pattern for fetching data.
-  A Source is the combination of a source name and optionally zero or more parameters.
-  You *register* a *source* for sending data chunks.
-  When data is *fetched*, a single particular source (in case of a
-  directed source fetch) or *one* arbitrary source is called and sends the
-  data chunks as a stream with arguments.
-
-  > In contrast to the regular MQTT message publish/subscribe, this
-  > pattern allows to transfer arbitrary amounts of arbitrary data by
-  > chunking the data via a stream. Additionally, it supports
-  > authentication and meta-data, etc.
-
-  ![Source Fetch](doc/mqtt-plus-4-source-fetch.svg)
+```shell
+$ npm install mqtt mqtt-plus
+```
 
 Usage
 -----
@@ -176,6 +111,74 @@ mqtt.on("connect", async () => {
     mqtt.end()
 })
 ```
+
+Communication Patterns
+----------------------
+
+- **Event Emission**:
+
+  Event Emission is a *uni-directional* communication pattern.
+  An Event is the combination of an event name and optionally zero or more parameters.
+  You *register* for events.
+  When an event is *emitted*, either a single particular receiver (in
+  case of a directed event emission) or *all* receivers are called and
+  receive the parameters as extra information.
+
+  > In contrast to the regular MQTT message publish/subscribe, this
+  > pattern allows to direct the event to particular receivers,
+  > provides optional information about the sender and receiver to
+  > receivers, supports authentication and meta-data, etc.
+
+  ![Event Emission](doc/mqtt-plus-1-event-emission.svg)
+
+- **Service Call**:
+
+  Service Call is a *bi-directional* communication pattern.
+  A Service is the combination of a service name and optionally zero or more parameters.
+  You *register* a service.
+  When a service is *called*, a single particular receiver (in case
+  of a directed service call) or *one* arbitrary receiver is called and
+  receives the arguments as the request. The receiver then has to
+  provide the service response.
+
+  > In contrast to the regular uni-directional MQTT message
+  > publish/subscribe communication, this allows a bi-directional [Remote
+  > Procedure Call](https://en.wikipedia.org/wiki/Remote_procedure_call)
+  > (RPC) style communication, supports authentication and meta-data, etc.
+
+  ![Service Call](doc/mqtt-plus-2-service-call.svg)
+
+- **Sink Push**:
+
+  Sink Push is a *bi-directional* communication pattern for pushing data.
+  A Sink is the combination of a sink name and optionally zero or more parameters.
+  You *register* a *sink* for receiving pushed data chunks.
+  When data is *pushed*, a single particular sink (in case of a directed
+  sink push) or *one* arbitrary sink is called and receives the data
+  chunks as a stream with arguments.
+
+  > In contrast to the regular MQTT message publish/subscribe, this
+  > pattern allows to transfer arbitrary amounts of arbitrary data by
+  > chunking the data via a stream. Additionally, it supports authentication
+  > and meta-data, etc.
+
+  ![Sink Push](doc/mqtt-plus-3-sink-push.svg)
+
+- **Source Fetch**:
+
+  Source Fetch is a *bi-directional* communication pattern for fetching data.
+  A Source is the combination of a source name and optionally zero or more parameters.
+  You *register* a *source* for sending data chunks.
+  When data is *fetched*, a single particular source (in case of a
+  directed source fetch) or *one* arbitrary source is called and sends the
+  data chunks as a stream with arguments.
+
+  > In contrast to the regular MQTT message publish/subscribe, this
+  > pattern allows to transfer arbitrary amounts of arbitrary data by
+  > chunking the data via a stream. Additionally, it supports
+  > authentication and meta-data, etc.
+
+  ![Source Fetch](doc/mqtt-plus-4-source-fetch.svg)
 
 Application Programming Interface
 ---------------------------------
