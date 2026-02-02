@@ -183,6 +183,10 @@ describe("MQTT+ Library", function () {
             mqttC.once("connect", ()         => { resolve() })
             mqttC.once("error",   (err: any) => { reject(err) })
         })
+        mqttpC.on("log", async (entry) => {
+            await entry.resolve()
+            logs.push(`client: ${entry}`)
+        })
 
         /*  connect with MQTT as server  */
         mqttS = MQTT.connect("mqtt://127.0.0.1:1883",
@@ -192,15 +196,9 @@ describe("MQTT+ Library", function () {
             mqttS.once("connect", ()         => { resolve() })
             mqttS.once("error",   (err: any) => { reject(err) })
         })
-
-        /*  capture MQTT+ logs  */
         mqttpS.on("log", async (entry) => {
             await entry.resolve()
             logs.push(`server: ${entry}`)
-        })
-        mqttpC.on("log", async (entry) => {
-            await entry.resolve()
-            logs.push(`client: ${entry}`)
         })
     })
 
