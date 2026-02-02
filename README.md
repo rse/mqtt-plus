@@ -36,10 +36,11 @@ communication patterns with type safety:
   case of a directed event emission) or *all* receivers are called and
   receive the parameters as extra information.
 
-  In contrast to the regular MQTT message publish/subscribe, this
-  pattern allows to direct the event to particular receivers and
-  provides optional information about the sender and receiver to
-  receivers.
+  > [!Note]
+  > In contrast to the regular MQTT message publish/subscribe, this
+  > pattern allows to direct the event to particular receivers,
+  > provides optional information about the sender and receiver to
+  > receivers, supports authentication and meta-data, etc.
 
   ![Event Emission](doc/mqtt-plus-1-event-emission.svg)
 
@@ -53,10 +54,11 @@ communication patterns with type safety:
   receives the arguments as the request. The receiver then has to
   provide the service response.
 
-  In contrast to the regular uni-directional MQTT message
-  publish/subscribe communication, this allows a bi-directional [Remote
-  Procedure Call](https://en.wikipedia.org/wiki/Remote_procedure_call)
-  (RPC) style communication.
+  > [!Note]
+  > In contrast to the regular uni-directional MQTT message
+  > publish/subscribe communication, this allows a bi-directional [Remote
+  > Procedure Call](https://en.wikipedia.org/wiki/Remote_procedure_call)
+  > (RPC) style communication, supports authentication and meta-data, etc.
 
   ![Service Call](doc/mqtt-plus-2-service-call.svg)
 
@@ -69,10 +71,11 @@ communication patterns with type safety:
   sink push) or *one* arbitrary sink is called and receives the data
   chunks as a stream with arguments.
 
-  In contrast to the regular MQTT message publish/subscribe, this
-  pattern allows to transfer arbitrary amounts of arbitrary data by
-  chunking the data via a stream. Additionally, it supports optional
-  meta-data transfer alongside the data.
+  > [!Note]
+  > In contrast to the regular MQTT message publish/subscribe, this
+  > pattern allows to transfer arbitrary amounts of arbitrary data by
+  > chunking the data via a stream. Additionally, it supports authentication
+  > and meta-data, etc.
 
   ![Sink Push](doc/mqtt-plus-3-sink-push.svg)
 
@@ -85,10 +88,11 @@ communication patterns with type safety:
   directed source fetch) or *one* arbitrary source is called and sends the
   data chunks as a stream with arguments.
 
-  In contrast to the regular MQTT message publish/subscribe, this
-  pattern allows to transfer arbitrary amounts of arbitrary data by
-  chunking the data via a stream. Additionally, it supports optional
-  meta-data transfer alongside the data.
+  > [!Note]
+  > In contrast to the regular MQTT message publish/subscribe, this
+  > pattern allows to transfer arbitrary amounts of arbitrary data by
+  > chunking the data via a stream. Additionally, it supports
+  > authentication and meta-data, etc.
 
   ![Source Fetch](doc/mqtt-plus-4-source-fetch.svg)
 
