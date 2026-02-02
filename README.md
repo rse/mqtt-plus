@@ -183,7 +183,7 @@ Communication Patterns
 Application Programming Interface
 ---------------------------------
 
-The **MQTT+** API provides the following methods:
+The **MQTT+** API provides the following functionalities:
 
 - **Construction**:<br/>
 
@@ -350,13 +350,18 @@ The **MQTT+** API provides the following methods:
       }): Promise<Registration>
 
   Register for an event.
+
   The `name` has to be a valid MQTT topic name.
+
   The `callback` is called with the `params` passed to a remote `emit()`.
   There is no return value of `callback`.
+
   The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
+
   The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
   (MQTT 5.0) for load-balancing messages across multiple registrations by specifying
   a group name. This internally prefixes the event with `$share/<share>/`.
+
   The optional `auth` enables authentication validation on incoming events.
   When set to a role name string (e.g., `"admin"`), authentication is required
   and the token must include that role. When set to an object `{ mode, roles }`,
@@ -401,14 +406,19 @@ The **MQTT+** API provides the following methods:
       }): Promise<Registration>
 
   Register a service.
+
   The `name` has to be a valid MQTT topic name.
+
   The `callback` is called with the `params` passed to a remote `call()`.
   The return value of `callback` will resolve the `Promise` returned by the remote `call()`.
+
   The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
+
   The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
   (MQTT 5.0) for load-balancing service calls across multiple services by specifying
   a group name. This internally prefixes the service with `$share/<share>/`.
   By default a share named `default` is used.
+
   The optional `auth` enables authentication validation on incoming service calls.
   When set to a role name string (e.g., `"admin"`), authentication is required
   and the token must include that role. When set to an object `{ mode, roles }`,
@@ -457,22 +467,26 @@ The **MQTT+** API provides the following methods:
       }): Promise<Registration>
 
   Register a source for sending data.
+
   The `name` has to be a valid MQTT topic name.
+
+  The `callback` is called with the `params` passed to a remote `fetch()`.
+  The `callback` should set `info.stream` to a `Readable` or `info.buffer` to a `Promise<Uint8Array>` containing the data.
+  Optionally, the `callback` can set `info.meta` to a `Record<string, any>` to send metadata back with the response.
+
   The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
+
   The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
   (MQTT 5.0) for load-balancing source requests across multiple sources by specifying
   a group name. This internally prefixes the source with `$share/<share>/`.
   By default a share named `default` is used.
+
   The optional `auth` enables authentication validation on incoming source requests.
   When set to a role name string (e.g., `"admin"`), authentication is required
   and the token must include that role. When set to an object `{ mode, roles }`,
   the mode can be `"require"` (reject unauthenticated) or `"optional"` (accept all
   but reflect validation result in `info.authenticated`), and roles specifies
   the required role names.
-
-  The `callback` is called with the `params` passed to a remote `fetch()`.
-  The `callback` should set `info.stream` to a `Readable` or `info.buffer` to a `Promise<Uint8Array>` containing the data.
-  Optionally, the `callback` can set `info.meta` to a `Record<string, any>` to send metadata back with the response.
 
   Internally, on the MQTT broker, the topics by
   `topicMake(name, "source-fetch-request")`
@@ -515,23 +529,27 @@ The **MQTT+** API provides the following methods:
       }): Promise<Registration>
 
   Register a sink for receiving data.
+
   The `name` has to be a valid MQTT topic name.
+
+  The `callback` is called with the `params` passed to a remote `push()`.
+  The `info.stream` provides a Node.js `Readable` stream for consuming the pushed data.
+  The `info.buffer` provides a lazy `Promise<Uint8Array>` that resolves to the complete data once the stream ends.
+  The `info.meta` contains optional metadata sent by the pusher via `push()`.
+
   The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
+
   The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
   (MQTT 5.0) for load-balancing sink pushes across multiple sink handlers by specifying
   a group name. This internally prefixes the sink with `$share/<share>/`.
   By default a share named `default` is used.
+
   The optional `auth` enables authentication validation on incoming sink pushes.
   When set to a role name string (e.g., `"admin"`), authentication is required
   and the token must include that role. When set to an object `{ mode, roles }`,
   the mode can be `"require"` (reject unauthenticated) or `"optional"` (accept all
   but reflect validation result in `info.authenticated`), and roles specifies
   the required role names.
-
-  The `callback` is called with the `params` passed to a remote `push()`.
-  The `info.stream` provides a Node.js `Readable` stream for consuming the pushed data.
-  The `info.buffer` provides a lazy `Promise<Uint8Array>` that resolves to the complete data once the stream ends.
-  The `info.meta` contains optional metadata sent by the pusher via `push()`.
 
   Internally, on the MQTT broker, the topics by
   `topicMake(name, "sink-push-response")`
@@ -562,10 +580,14 @@ The **MQTT+** API provides the following methods:
       }): { topic: string, payload: string | Uint8Array, options: IClientPublishOptions }
 
   Emit an event to all subscribers or a specific subscriber ("fire and forget").
+
   The optional `receiver` directs the event to a specific subscriber only.
+
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+
   The optional `meta` sends additional metadata alongside the event,
   which is merged with instance-level metadata set via `meta()`.
+
   The optional `dry` flag, when set to `true`, returns the publish information
   (`topic`, `payload`, `options`) instead of actually publishing to the MQTT broker.
   This is useful for generating MQTT "last will" messages (see example below).
@@ -618,8 +640,11 @@ The **MQTT+** API provides the following methods:
       }): Promise<any>
 
   Call a service on all registrants or on a specific registrant ("request and response").
+
   The optional `receiver` directs the call to a specific registrant only.
+
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+
   The optional `meta` sends additional metadata alongside the service call,
   which is merged with instance-level metadata set via `meta()`.
 
@@ -655,8 +680,11 @@ The **MQTT+** API provides the following methods:
       }>
 
   Fetches data from any source or from a specific source.
+
   The optional `receiver` directs the call to a specific source only.
+
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+
   The optional `meta` sends additional metadata alongside the fetch request,
   which is merged with instance-level metadata set via `meta()`.
 
@@ -693,10 +721,14 @@ The **MQTT+** API provides the following methods:
       }): Promise<void>
 
   Pushes data to all established sinks or a specific sink handler.
+
   The `data` is either a Node.js `Readable` stream or a `Uint8Array` providing the data to push.
+
   The optional `meta` sends metadata alongside the data,
   which becomes available on the sink handler side via `info.meta`.
+
   The optional `receiver` directs the push to a specific sink handler only.
+
   The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
 
   The data is read from `data` in chunks (default: 16KB,
