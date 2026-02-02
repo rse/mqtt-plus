@@ -28,6 +28,7 @@
         "src/mqtt-plus.ts",
         "etc/eslint.mts",
         "tst/mqtt-plus.spec.ts",
+        "tst/mqtt-plus-mosquitto.ts",
         "etc/vite.mts",
         "etc/d2.mts"
     ],
