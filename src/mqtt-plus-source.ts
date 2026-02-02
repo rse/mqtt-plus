@@ -83,7 +83,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         let name:     K
         let callback: WithInfo<T[K], InfoSource>
         let options:  Partial<IClientSubscribeOptions> = {}
-        let share     = "default"
+        let share:    string = "default"
         let auth:     AuthOption | undefined
         if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */

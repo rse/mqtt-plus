@@ -79,7 +79,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         let name:     K
         let callback: WithInfo<T[K], InfoSink>
         let options:  Partial<IClientSubscribeOptions> = {}
-        let share     = "default"
+        let share:    string = "default"
         let auth:     AuthOption | undefined
         if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
