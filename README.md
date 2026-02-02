@@ -695,27 +695,32 @@ The **MQTT+** API provides the following functionalities:
 
   Fetches data from any source or from a specific source.
 
-  The optional `receiver` directs the call to a specific source only.
+  - The optional `receiver` directs the call to a specific source only.
 
-  The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+  - The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
 
-  The optional `meta` sends additional metadata alongside the fetch request,
-  which is merged with instance-level metadata set via `meta()`.
+  - The optional `meta` sends additional metadata alongside the fetch request,
+    which is merged with instance-level metadata set via `meta()`.
 
-  Returns an object with a `stream` (`Readable`) for consuming the transferred data,
-  a lazy `buffer` (`Promise<Uint8Array>`) that resolves to the complete data once the stream ends,
-  and a `meta` (`Promise<Record<string, any> | undefined>`) that resolves to optional metadata
-  sent by the source when the first chunk arrives.
+  - Returns an object with a `stream` (`Readable`) for consuming the transferred data,
+    a lazy `buffer` (`Promise<Uint8Array>`) that resolves
+    to the complete data once the stream ends, and a `meta`
+    (`Promise<Record<string, any> | undefined>`) that resolves to
+    optional metadata sent by the source when the first chunk arrives.
 
-  The remote `source()` `callback` is called with `params` and
-  should set `info.stream` to a `Readable` or `info.buffer` to a `Promise<Uint8Array>` containing the data.
-  Optionally, the `callback` can set `info.meta` to send metadata back with the response.
-  If the remote `callback` throws an exception, this destroys the stream with the error.
+  - The remote `source()` `callback` is called with `params` and
+    should set `info.stream` to a `Readable` or `info.buffer` to
+    a `Promise<Uint8Array>` containing the data. Optionally, the
+    `callback` can set `info.meta` to send metadata back with the
+    response. If the remote `callback` throws an exception, this
+    destroys the stream with the error.
 
-  Internally, on the MQTT broker, the topics by
-  `topicMake(name, "source-fetch-response", peerId)` and `topicMake(name, "source-fetch-chunk", peerId)` (default:
-  `${name}/source-fetch-response/${peerId}` and `${name}/source-fetch-chunk/${peerId}`) are temporarily subscribed
-  for receiving the response and data chunks.
+  - Internally, on the MQTT broker, the topics by
+    `topicMake(name, "source-fetch-response", peerId)`
+    and `topicMake(name, "source-fetch-chunk", peerId)`
+    (default: `${name}/source-fetch-response/${peerId}` and
+    `${name}/source-fetch-chunk/${peerId}`) are temporarily subscribed
+    for receiving the response and data chunks.
 
 - **Sink Push**:<br/>
 
@@ -736,34 +741,30 @@ The **MQTT+** API provides the following functionalities:
 
   Pushes data to all established sinks or a specific sink handler.
 
-  The `data` is either a Node.js `Readable` stream or a `Uint8Array` providing the data to push.
+  - The `data` is either a Node.js `Readable` stream or a `Uint8Array` providing the data to push.
 
-  The optional `meta` sends metadata alongside the data,
-  which becomes available on the sink handler side via `info.meta`.
+  - The optional `meta` sends metadata alongside the data,
+    which becomes available on the sink handler side via `info.meta`.
 
-  The optional `receiver` directs the push to a specific sink handler only.
+  - The optional `receiver` directs the push to a specific sink handler only.
 
-  The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+  - The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
 
-  The data is read from `data` in chunks (default: 16KB,
-  configurable via `chunkSize` option) and sent over MQTT until the
-  stream is closed or the buffer is fully transferred.
-  The returned `Promise` resolves when the entire data has been pushed.
+  - The data is read from `data` in chunks (default: 16KB,
+    configurable via `chunkSize` option) and sent over MQTT until the
+    stream is closed or the buffer is fully transferred.
+    The returned `Promise` resolves when the entire data has been pushed.
 
-  The remote `sink()` `callback` is called with `params` and an `info` object
-  containing `stream` (`Readable`) for consuming the pushed data,
-  `buffer` (lazy `Promise<Uint8Array>`) that resolves to the complete data once the stream ends,
-  and `meta` (`Record<string, any> | undefined`) containing the metadata sent by the pusher.
+  - The remote `sink()` `callback` is called with `params` and an `info` object
+    containing `stream` (`Readable`) for consuming the pushed data,
+    `buffer` (lazy `Promise<Uint8Array>`) that resolves to the complete
+    data once the stream ends, and `meta` (`Record<string, any> |
+    undefined`) containing the metadata sent by the pusher.
 
-  Internally, publishes to the MQTT topic by `topicMake(name, "sink-push-response", peerId)`
-  (default: `${name}/sink-push-response/any` or `${name}/sink-push-response/${peerId}`).
+  - Internally, publishes to the MQTT topic by `topicMake(name, "sink-push-response", peerId)`
+    (default: `${name}/sink-push-response/any` or `${name}/sink-push-response/${peerId}`).
 
 - **Data Type Conversion Utilities**:<br/>
-
-  MQTT+ provides utility methods for converting between strings,
-  buffers, and typed arrays. These are useful when working with binary
-  data in source/sink transfers or when interfacing with API methods that
-  expect specific data types.
 
       /*  convert character string to buffer  */
       str2buf(data: string): Uint8Array
@@ -779,7 +780,12 @@ The **MQTT+** API provides the following functionalities:
       buf2arr(data: Uint8Array, type: typeof Uint8Array): Uint8Array
       buf2arr(data: Uint8Array, type: typeof Int8Array): Int8Array
 
-  Example usage:
+  MQTT+ provides utility methods for converting between strings,
+  buffers, and typed arrays. These are useful when working with binary
+  data in source/sink transfers or when interfacing with API methods that
+  expect specific data types.
+
+  Example:
 
       /*  string to buffer conversion  */
       const buffer = mqttp.str2buf("Hello, World!")
