@@ -208,23 +208,23 @@ The **MQTT+** API provides the following functionalities:
   The `API` is a TypeScript type,
   describing the available events, services, sources, and sinks.
 
-  The `mqtt` is the [MQTT.js](https://www.npmjs.com/package/mqtt) instance,
-  which has to be established separately. A `null` MQTT instance can be
-  used for performing dry-runs (see *Dry-Run Publishing for MQTT Last-Will* under
-  **Event Emission** below).
+  - The `mqtt` is the [MQTT.js](https://www.npmjs.com/package/mqtt) instance,
+    which has to be established separately. A `null` MQTT instance can be
+    used for performing dry-runs (see *Dry-Run Publishing for MQTT Last-Will* under
+    **Event Emission** below).
 
-  The optional `options` object supports the following fields:
-  - `id`: Custom MQTT peer identifier (default: auto-generated NanoID).
-  - `codec`: Encoding format, either `cbor` or `json` (default: `cbor`).
-  - `timeout`: Communication timeout in milliseconds (default: `10000`).
-  - `chunkSize`: Chunk size in bytes for source/sink transfers (default: `16384`).
-  - `topicMake`: Custom topic generation function.
-    The `operation` parameter is one of: `event-emission`, `service-call-request`, `service-call-response`, `source-fetch-request`, `source-fetch-response`, `source-fetch-chunk`, `sink-push-response`.
-    (default: `` (name, operation, peerId) => `${name}/${protocol}/${peerId ?? "any"}` ``)
-  - `topicMatch`: Custom topic matching function.
-    Returns `{ name, operation, peerId? }` or `null` if no match.
-    The `peerId` is `undefined` for broadcast topics (ending with `/any`).
-    (default: `` (topic) => { const m = topic.match(/^(.+)\/([^/]+)\/([^/]+)$/); return m ? { name: m[1], operation: m[2], peerId: m[3] === "any" ? undefined : m[3] } : null } ``)
+  - The optional `options` object supports the following fields:
+    - `id`: Custom MQTT peer identifier (default: auto-generated NanoID).
+    - `codec`: Encoding format, either `cbor` or `json` (default: `cbor`).
+    - `timeout`: Communication timeout in milliseconds (default: `10000`).
+    - `chunkSize`: Chunk size in bytes for source/sink transfers (default: `16384`).
+    - `topicMake`: Custom topic generation function.
+      The `operation` parameter is one of: `event-emission`, `service-call-request`, `service-call-response`, `source-fetch-request`, `source-fetch-response`, `source-fetch-chunk`, `sink-push-response`.
+      (default: `` (name, operation, peerId) => `${name}/${protocol}/${peerId ?? "any"}` ``)
+    - `topicMatch`: Custom topic matching function.
+      Returns `{ name, operation, peerId? }` or `null` if no match.
+      The `peerId` is `undefined` for broadcast topics (ending with `/any`).
+      (default: `` (topic) => { const m = topic.match(/^(.+)\/([^/]+)\/([^/]+)$/); return m ? { name: m[1], operation: m[2], peerId: m[3] === "any" ? undefined : m[3] } : null } ``)
 
 - **Destruction**:<br/>
 
@@ -236,10 +236,6 @@ The **MQTT+** API provides the following functionalities:
 
 - **Authentication**:<br/>
 
-  MQTT+ provides JWT-based authentication for securing events, services,
-  sources, and sinks. Authentication works by issuing tokens on the
-  server-side and validating them when messages are received.
-
       /*  store server-side secret credential  */
       credential(credential: string): void
 
@@ -250,19 +246,23 @@ The **MQTT+** API provides the following functionalities:
       authenticate(token: string): void
       authenticate(token: string, remove: true): void
 
-  The `credential()` method sets the secret key used for signing and
-  verifying JWT tokens. This must be called before `issue()` can be
-  used.
+  MQTT+ provides JWT-based authentication for securing events, services,
+  sources, and sinks. Authentication works by issuing tokens on the
+  server-side and validating them when messages are received.
 
-  The `issue()` method creates a new JWT token with the specified `roles` array.
-  The optional `id` field can bind the token to a specific client identifier.
+  - The `credential()` method sets the secret key used for signing and
+    verifying JWT tokens. This must be called before `issue()` can be
+    used.
 
-  The `authenticate()` method manages client-side tokens:
-  called with a token, adds the token to the set of active tokens;
-  called with a token and `true`, removes the token from the set.
+  - The `issue()` method creates a new JWT token with the specified `roles` array.
+    The optional `id` field can bind the token to a specific client identifier.
 
-  When a client has tokens set via `authenticate()`, they are automatically
-  included in outgoing `emit()`, `call()`, `push()`, and `fetch()` requests.
+  - The `authenticate()` method manages client-side tokens:
+    called with a token, adds the token to the set of active tokens;
+    called with a token and `true`, removes the token from the set.
+
+  - When a client has tokens set via `authenticate()`, they are automatically
+    included in outgoing `emit()`, `call()`, `push()`, and `fetch()` requests.
 
   Example:
 
@@ -275,31 +275,31 @@ The **MQTT+** API provides the following functionalities:
 
 - **Meta Information**:<br/>
 
-  MQTT+ allows attaching persistent meta-data to an instance that is
-  automatically included in all outgoing messages. This is useful for
-  adding context information like client version, environment, or user
-  identity to every request.
-
       /*  set meta information by key  */
       meta(key: string, value: any): void
 
       /*  delete meta information by key  */
       meta(key: string): void
 
-  The `meta()` method manages instance-level meta-data:
-  called with a key only, deletes the meta-data entry for that key;
-  called with a key and value, sets the meta-data entry.
+  MQTT+ allows attaching persistent meta-data to an instance that is
+  automatically included in all outgoing messages. This is useful for
+  adding context information like client version, environment, or user
+  identity to every request.
 
-  Instance-level meta-data set via `meta()` is merged with any per-request
-  `meta` option passed to `emit()`, `call()`, `push()`, or `fetch()`.
-  Per-request meta-data takes precedence over instance-level metadata.
+  - The `meta()` method manages instance-level meta-data:
+    called with a key only, deletes the meta-data entry for that key;
+    called with a key and value, sets the meta-data entry.
 
-  On the receiving side, meta-data is available via the `info.meta`
-  field in callbacks for `event()`, `service()`, `source()`, and `sink()`.
-  For `fetch()`, the returned `meta` promise resolves to the meta-data
-  sent by the source.
+  - Instance-level meta-data set via `meta()` is merged with any per-request
+    `meta` option passed to `emit()`, `call()`, `push()`, or `fetch()`.
+    Per-request meta-data takes precedence over instance-level metadata.
 
-  Example usage:
+  - On the receiving side, meta-data is available via the `info.meta`
+    field in callbacks for `event()`, `service()`, `source()`, and `sink()`.
+    For `fetch()`, the returned `meta` promise resolves to the meta-data
+    sent by the source.
+
+  Example:
 
       /*  client: set instance-level metadata  */
       mqttp.meta("clientVersion", "1.0.0")
@@ -351,28 +351,30 @@ The **MQTT+** API provides the following functionalities:
 
   Register for an event.
 
-  The `name` has to be a valid MQTT topic name.
+  - The `name` has to be a valid MQTT topic name.
 
-  The `callback` is called with the `params` passed to a remote `emit()`.
-  There is no return value of `callback`.
+  - The `callback` is called with the `params` passed to a remote `emit()`.
+    There is no return value of `callback`.
 
-  The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
+  - The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
 
-  The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
-  (MQTT 5.0) for load-balancing messages across multiple registrations by specifying
-  a group name. This internally prefixes the event with `$share/<share>/`.
+  - The optional `share` enables
+    [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
+    (MQTT 5.0) for load-balancing messages across multiple registrations
+    by specifying a group name. This internally prefixes the event with
+    `$share/<share>/`.
 
-  The optional `auth` enables authentication validation on incoming events.
-  When set to a role name string (e.g., `"admin"`), authentication is required
-  and the token must include that role. When set to an object `{ mode, roles }`,
-  the mode can be `"require"` (reject unauthenticated) or `"optional"` (accept all
-  but reflect validation result in `info.authenticated`), and roles specifies
-  the required role names.
+  - The optional `auth` enables authentication validation on incoming events.
+    When set to a role name string (e.g., `"admin"`), authentication is required
+    and the token must include that role. When set to an object `{ mode, roles }`,
+    the mode can be `"require"` (reject unauthenticated) or `"optional"` (accept all
+    but reflect validation result in `info.authenticated`), and roles specifies
+    the required role names.
 
-  Internally, on the MQTT broker, the topics generated by
-  `topicMake(name, "event-emission")` (default: `${name}/event-emission/any` and
-  `${name}/event-emission/${peerId}`) are subscribed. Returns an
-  `EventRegistration` object with a `destroy()` method.
+  - Internally, on the MQTT broker, the topics generated by
+    `topicMake(name, "event-emission")` (default: `${name}/event-emission/any` and
+    `${name}/event-emission/${peerId}`) are subscribed. Returns an
+    `EventRegistration` object with a `destroy()` method.
 
 - **Service Registration**:<br/>
 
@@ -407,29 +409,30 @@ The **MQTT+** API provides the following functionalities:
 
   Register a service.
 
-  The `name` has to be a valid MQTT topic name.
+  - The `name` has to be a valid MQTT topic name.
 
-  The `callback` is called with the `params` passed to a remote `call()`.
-  The return value of `callback` will resolve the `Promise` returned by the remote `call()`.
+  - The `callback` is called with the `params` passed to a remote `call()`.
+    The return value of `callback` will resolve the `Promise` returned by the remote `call()`.
 
-  The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
+  - The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
 
-  The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
-  (MQTT 5.0) for load-balancing service calls across multiple services by specifying
-  a group name. This internally prefixes the service with `$share/<share>/`.
-  By default a share named `default` is used.
+  - The optional `share` enables
+    [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
+    (MQTT 5.0) for load-balancing service calls across multiple services
+    by specifying a group name. This internally prefixes the service
+    with `$share/<share>/`. By default a share named `default` is used.
 
-  The optional `auth` enables authentication validation on incoming service calls.
-  When set to a role name string (e.g., `"admin"`), authentication is required
-  and the token must include that role. When set to an object `{ mode, roles }`,
-  the mode can be `"require"` (reject unauthenticated with error response) or
-  `"optional"` (accept all but reflect validation result in `info.authenticated`),
-  and roles specifies the required role names.
+  - The optional `auth` enables authentication validation on incoming service calls.
+    When set to a role name string (e.g., `"admin"`), authentication is required
+    and the token must include that role. When set to an object `{ mode, roles }`,
+    the mode can be `"require"` (reject unauthenticated with error response) or
+    `"optional"` (accept all but reflect validation result in `info.authenticated`),
+    and roles specifies the required role names.
 
-  Internally, on the MQTT broker, the topics generated by
-  `topicMake(name, "service-call-request")` (default: `${name}/service-call-request/any` and
-  `${name}/service-call-request/${peerId}`) are subscribed. Returns a
-  `Registration` object with a `destroy()` method.
+  - Internally, on the MQTT broker, the topics generated by
+    `topicMake(name, "service-call-request")` (default: `${name}/service-call-request/any` and
+    `${name}/service-call-request/${peerId}`) are subscribed. Returns a
+    `Registration` object with a `destroy()` method.
 
 - **Source Registration**:<br/>
 
@@ -468,30 +471,36 @@ The **MQTT+** API provides the following functionalities:
 
   Register a source for sending data.
 
-  The `name` has to be a valid MQTT topic name.
+  - The `name` has to be a valid MQTT topic name.
 
-  The `callback` is called with the `params` passed to a remote `fetch()`.
-  The `callback` should set `info.stream` to a `Readable` or `info.buffer` to a `Promise<Uint8Array>` containing the data.
-  Optionally, the `callback` can set `info.meta` to a `Record<string, any>` to send metadata back with the response.
+  - The `callback` is called with the `params` passed to a remote `fetch()`.
+    The `callback` should set `info.stream` to a `Readable` or
+    `info.buffer` to a `Promise<Uint8Array>` containing the data.
+    Optionally, the `callback` can set `info.meta` to a `Record<string,
+    any>` to send metadata back with the response.
 
-  The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
+  - The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
 
-  The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
-  (MQTT 5.0) for load-balancing source requests across multiple sources by specifying
-  a group name. This internally prefixes the source with `$share/<share>/`.
-  By default a share named `default` is used.
+  - The optional `share` enables
+    [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
+    (MQTT 5.0) for load-balancing source requests across multiple
+    sources by specifying a group name. This internally prefixes the
+    source with `$share/<share>/`. By default a share named `default` is
+    used.
 
-  The optional `auth` enables authentication validation on incoming source requests.
-  When set to a role name string (e.g., `"admin"`), authentication is required
-  and the token must include that role. When set to an object `{ mode, roles }`,
-  the mode can be `"require"` (reject unauthenticated) or `"optional"` (accept all
-  but reflect validation result in `info.authenticated`), and roles specifies
-  the required role names.
+  - The optional `auth` enables authentication validation on incoming source requests.
+    When set to a role name string (e.g., `"admin"`), authentication
+    is required and the token must include that role. When set to an
+    object `{ mode, roles }`, the mode can be `"require"` (reject
+    unauthenticated) or `"optional"` (accept all but reflect validation
+    result in `info.authenticated`), and roles specifies the required
+    role names.
 
-  Internally, on the MQTT broker, the topics by
-  `topicMake(name, "source-fetch-request")`
-  (default: `${name}/source-fetch-request/any` and `${name}/source-fetch-request/${peerId}`)
-  are subscribed. Returns a `Sourcing` object with a `destroy()` method.
+  - Internally, on the MQTT broker, the topics by
+    `topicMake(name, "source-fetch-request")`
+    (default: `${name}/source-fetch-request/any` and
+    `${name}/source-fetch-request/${peerId}`) are subscribed. Returns a
+    `Sourcing` object with a `destroy()` method.
 
 - **Sink Registration**:<br/>
 
@@ -530,31 +539,35 @@ The **MQTT+** API provides the following functionalities:
 
   Register a sink for receiving data.
 
-  The `name` has to be a valid MQTT topic name.
+  - The `name` has to be a valid MQTT topic name.
 
-  The `callback` is called with the `params` passed to a remote `push()`.
-  The `info.stream` provides a Node.js `Readable` stream for consuming the pushed data.
-  The `info.buffer` provides a lazy `Promise<Uint8Array>` that resolves to the complete data once the stream ends.
-  The `info.meta` contains optional metadata sent by the pusher via `push()`.
+  - The `callback` is called with the `params` passed to a remote `push()`.
+    The `info.stream` provides a Node.js `Readable` stream for consuming the pushed data.
+    The `info.buffer` provides a lazy `Promise<Uint8Array>` that resolves to the complete data once the stream ends.
+    The `info.meta` contains optional metadata sent by the pusher via `push()`.
 
-  The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
+  - The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
 
-  The optional `share` enables [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
-  (MQTT 5.0) for load-balancing sink pushes across multiple sink handlers by specifying
-  a group name. This internally prefixes the sink with `$share/<share>/`.
-  By default a share named `default` is used.
+  - The optional `share` enables
+    [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
+    (MQTT 5.0) for load-balancing sink pushes across multiple sink
+    handlers by specifying a group name. This internally prefixes the
+    sink with `$share/<share>/`. By default a share named `default` is
+    used.
 
-  The optional `auth` enables authentication validation on incoming sink pushes.
-  When set to a role name string (e.g., `"admin"`), authentication is required
-  and the token must include that role. When set to an object `{ mode, roles }`,
-  the mode can be `"require"` (reject unauthenticated) or `"optional"` (accept all
-  but reflect validation result in `info.authenticated`), and roles specifies
-  the required role names.
+  - The optional `auth` enables authentication validation on incoming sink pushes.
+    When set to a role name string (e.g., `"admin"`), authentication
+    is required and the token must include that role. When set to an
+    object `{ mode, roles }`, the mode can be `"require"` (reject
+    unauthenticated) or `"optional"` (accept all but reflect validation
+    result in `info.authenticated`), and roles specifies the required
+    role names.
 
-  Internally, on the MQTT broker, the topics by
-  `topicMake(name, "sink-push-response")`
-  (default: `${name}/sink-push-response/any` and `${name}/sink-push-response/${peerId}`)
-  are subscribed. Returns a `Sinking` object with a `destroy()` method.
+  - Internally, on the MQTT broker, the topics by
+    `topicMake(name, "sink-push-response")`
+    (default: `${name}/sink-push-response/any` and
+    `${name}/sink-push-response/${peerId}`) are subscribed. Returns a
+    `Sinking` object with a `destroy()` method.
 
 - **Event Emission**:<br/>
 
@@ -581,27 +594,27 @@ The **MQTT+** API provides the following functionalities:
 
   Emit an event to all subscribers or a specific subscriber ("fire and forget").
 
-  The optional `receiver` directs the event to a specific subscriber only.
+  - The optional `receiver` directs the event to a specific subscriber only.
 
-  The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+  - The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
 
-  The optional `meta` sends additional metadata alongside the event,
-  which is merged with instance-level metadata set via `meta()`.
+  - The optional `meta` sends additional metadata alongside the event,
+    which is merged with instance-level metadata set via `meta()`.
 
-  The optional `dry` flag, when set to `true`, returns the publish information
-  (`topic`, `payload`, `options`) instead of actually publishing to the MQTT broker.
-  This is useful for generating MQTT "last will" messages (see example below).
+  - The optional `dry` flag, when set to `true`, returns the publish information
+    (`topic`, `payload`, `options`) instead of actually publishing to the MQTT broker.
+    This is useful for generating MQTT "last will" messages (see example below).
 
-  The remote `subscribe()` `callback` is called with `params` and its
-  return value is silently ignored.
+  - The remote `subscribe()` `callback` is called with `params` and its
+    return value is silently ignored.
 
-  Internally, publishes to the MQTT topic by `topicMake(event, "event-emission", peerId)`
-  (default: `${event}/event-emission/any` or `${event}/event-emission/${peerId}`).
+  - Internally, publishes to the MQTT topic by `topicMake(event, "event-emission", peerId)`
+    (default: `${event}/event-emission/any` or `${event}/event-emission/${peerId}`).
 
-  *Dry-Run Publishing for MQTT Last-Will:*
-  When you need to set up an MQTT "last will" message (automatically published
-  by the broker when a client disconnects *unexpectedly*), you can use `dry: true`
-  together with a `null` MQTT client:
+  - *Dry-Run Publishing for MQTT Last-Will:*
+    When you need to set up an MQTT "last will" message (automatically published
+    by the broker when a client disconnects *unexpectedly*), you can use `dry: true`
+    together with a `null` MQTT client:
 
       type API = {
           "example/connection": Event<(state: "open" | "close") => void>
@@ -641,20 +654,21 @@ The **MQTT+** API provides the following functionalities:
 
   Call a service on all registrants or on a specific registrant ("request and response").
 
-  The optional `receiver` directs the call to a specific registrant only.
+  - The optional `receiver` directs the call to a specific registrant only.
 
-  The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
+  - The optional `options` allows setting MQTT.js `publish()` options like `qos` or `retain`.
 
-  The optional `meta` sends additional metadata alongside the service call,
-  which is merged with instance-level metadata set via `meta()`.
+  - The optional `meta` sends additional metadata alongside the service call,
+    which is merged with instance-level metadata set via `meta()`.
 
-  The remote `service()` `callback` is called with `params` and its
-  return value resolves the returned `Promise`. If the remote `callback`
-  throws an exception, this rejects the returned `Promise`.
+  - The remote `service()` `callback` is called with `params` and its
+    return value resolves the returned `Promise`. If the remote `callback`
+    throws an exception, this rejects the returned `Promise`.
 
-  Internally, on the MQTT broker, the topic by `topicMake(service, "service-call-response", peerId)`
-  (default: `${service}/service-call-response/${peerId}`) is temporarily subscribed
-  for receiving the response.
+  - Internally, on the MQTT broker, the topic by
+    `topicMake(service, "service-call-response", peerId)` (default:
+    `${service}/service-call-response/${peerId}`) is temporarily
+    subscribed for receiving the response.
 
 - **Source Fetch**:<br/>
 
