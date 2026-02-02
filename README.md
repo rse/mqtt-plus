@@ -488,7 +488,7 @@ The **MQTT+** API provides the following functionalities:
     source with `$share/<share>/`. By default a share named `default` is
     used.
 
-  - The optional `auth` enables authentication validation on incoming source requests.
+  - The optional `auth` enables authentication validation on incoming source fetches.
     When set to a role name string (e.g., `"admin"`), authentication
     is required and the token must include that role. When set to an
     object `{ mode, roles }`, the mode can be `"require"` (reject
