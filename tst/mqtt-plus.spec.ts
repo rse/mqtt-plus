@@ -78,8 +78,8 @@ describe("MQTT+ Library", function () {
             { clientId: "client" })
         apiC = new MQTTp<API>(mqttC, { id: "client", timeout: 1000 })
         await new Promise<void>((resolve, reject) => {
-            mqttC.once("connect", ()         => { resolve() })
-            mqttC.once("error",   (err: any) => { reject(err) })
+            mqttC.once("connect", ()           => { resolve() })
+            mqttC.once("error",   (err: Error) => { reject(err) })
         })
         apiC.on("log", async (entry) => {
             await entry.resolve()
@@ -91,8 +91,8 @@ describe("MQTT+ Library", function () {
             { clientId: "server", username: "example", password: "example" })
         apiS = new MQTTp<API>(mqttS, { id: "server", timeout: 1000 })
         await new Promise<void>((resolve, reject) => {
-            mqttS.once("connect", ()         => { resolve() })
-            mqttS.once("error",   (err: any) => { reject(err) })
+            mqttS.once("connect", ()           => { resolve() })
+            mqttS.once("error",   (err: Error) => { reject(err) })
         })
         apiS.on("log", async (entry) => {
             await entry.resolve()
@@ -277,8 +277,8 @@ describe("MQTT+ Library", function () {
             username: "example", password: "example"
         })
         await new Promise<void>((resolve, reject) => {
-            mqttServer.once("connect", ()         => { resolve() })
-            mqttServer.once("error",   (err: any) => { reject(err) })
+            mqttServer.once("connect", ()           => { resolve() })
+            mqttServer.once("error",   (err: Error) => { reject(err) })
         })
         const apiServer = new MQTTp<API>(mqttServer, { timeout: 1000 })
 
@@ -298,8 +298,8 @@ describe("MQTT+ Library", function () {
             }
         })
         await new Promise<void>((resolve, reject) => {
-            mqttClient.once("connect", ()         => { resolve() })
-            mqttClient.once("error",   (err: any) => { reject(err) })
+            mqttClient.once("connect", ()           => { resolve() })
+            mqttClient.once("error",   (err: Error) => { reject(err) })
         })
         const apiClient = new MQTTp<API>(mqttClient, { timeout: 1000 })
 

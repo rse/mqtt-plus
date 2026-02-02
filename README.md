@@ -974,7 +974,7 @@ pattern read      example/client/+/sink-push-request/%c
 pattern write     example/client/+/sink-push-response/%c
 pattern read      example/client/+/sink-push-chunk/%c
 
-#   ==== server/autenticated ACL ====
+#   ==== server/authenticated ACL ====
 
 user    example
 
