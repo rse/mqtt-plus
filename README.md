@@ -889,7 +889,8 @@ protocol             mqtt
 [...]
 ```
 
-...and an access control list in `mosquitto-acl.txt` like a simple and "allow-everything" ACL list...
+...and an access control list in `mosquitto-acl.txt` like a simple and "allow-everything" ACL list
+(assuming you are using `example/` as the prefix for all your endpoints)...
 
 ```
 #   ==== shared/anonymous ACL ====
@@ -908,7 +909,8 @@ topic   read      example/#
 topic   write     example/#
 ```
 
-...or a comprehensive and "allow-minimum" ACL list...
+...or a comprehensive and "allow-minimum" ACL list (assuming you are using
+`example/client/` and `example/server/` as the prefixes for all your endpoints)...
 
 
 ```
