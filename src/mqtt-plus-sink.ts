@@ -44,11 +44,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         callback: WithInfo<APIEndpointSink, InfoSink>,
         auth?:    AuthOption
     }>()
-    private pushStreams = new Map<string, Readable>()
-    private pushTimers  = new Map<string, ReturnType<typeof setTimeout>>()
+    private pushStreams   = new Map<string, Readable>()
+    private pushTimers    = new Map<string, ReturnType<typeof setTimeout>>()
     private pushCallbacks = new Map<string, {
         name:     string,
-        callback: (parsed: SinkPushResponse) => void,
+        callback: (parsed: SinkPushResponse) => void
     }>()
 
     /*  register a sink  */
@@ -312,7 +312,22 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     this._publishToTopic(responseTopic, message, { qos: 2 }).catch(() => {})
                 }
 
+                /*  utility function for cleanup  */
+                const cleanupStream = () => {
+                    const timer = this.pushTimers.get(requestId)
+                    if (timer !== undefined) {
+                        clearTimeout(timer)
+                        this.pushTimers.delete(requestId)
+                    }
+                    const stream = this.pushStreams.get(requestId)
+                    if (stream !== undefined) {
+                        stream.destroy()
+                        this.pushStreams.delete(requestId)
+                    }
+                }
+
                 /*  check authentication and prepare stream  */
+                let responseSent = false
                 Promise.resolve().then(() => {
                     if (info.authenticated !== undefined && !info.authenticated)
                         throw new Error(`sink "${name}" failed authentication`)
@@ -339,13 +354,18 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                     /*  send ack response  */
                     sendResponse()
+                    responseSent = true
 
                     /*  call handler  */
                     return handler.callback(...params, info)
                 }).catch((err: Error) => {
+                    /*  cleanup resources  */
+                    cleanupStream()
+
                     /*  send error (nak response)  */
                     this.error(err)
-                    sendResponse(err.message)
+                    if (!responseSent)
+                        sendResponse(err.message)
                 })
             }
         }
