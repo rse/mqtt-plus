@@ -36,7 +36,6 @@ communication patterns with type safety:
   case of a directed event emission) or *all* receivers are called and
   receive the parameters as extra information.
 
-  > [!Note]
   > In contrast to the regular MQTT message publish/subscribe, this
   > pattern allows to direct the event to particular receivers,
   > provides optional information about the sender and receiver to
@@ -54,7 +53,6 @@ communication patterns with type safety:
   receives the arguments as the request. The receiver then has to
   provide the service response.
 
-  > [!Note]
   > In contrast to the regular uni-directional MQTT message
   > publish/subscribe communication, this allows a bi-directional [Remote
   > Procedure Call](https://en.wikipedia.org/wiki/Remote_procedure_call)
@@ -71,7 +69,6 @@ communication patterns with type safety:
   sink push) or *one* arbitrary sink is called and receives the data
   chunks as a stream with arguments.
 
-  > [!Note]
   > In contrast to the regular MQTT message publish/subscribe, this
   > pattern allows to transfer arbitrary amounts of arbitrary data by
   > chunking the data via a stream. Additionally, it supports authentication
@@ -88,7 +85,6 @@ communication patterns with type safety:
   directed source fetch) or *one* arbitrary source is called and sends the
   data chunks as a stream with arguments.
 
-  > [!Note]
   > In contrast to the regular MQTT message publish/subscribe, this
   > pattern allows to transfer arbitrary amounts of arbitrary data by
   > chunking the data via a stream. Additionally, it supports
