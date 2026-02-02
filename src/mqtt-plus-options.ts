@@ -35,12 +35,12 @@ export type TopicMatch    = (topic: string) => TopicMatching | null
 
 /*  API option type  */
 export interface APIOptions {
-    id:                         string
-    codec:                      "cbor" | "json"
-    timeout:                    number
-    chunkSize:                  number
-    topicMake:                  TopicMake
-    topicMatch:                 TopicMatch
+    id:         string
+    codec:      "cbor" | "json"
+    timeout:    number
+    chunkSize:  number
+    topicMake:  TopicMake
+    topicMatch: TopicMatch
 }
 
 /*  Options trait  */
@@ -57,8 +57,8 @@ export class OptionsTrait<T extends APISchema = APISchema> {
             codec:     "cbor",
             timeout:   10 * 1000,
             chunkSize: 16 * 1024,
-            topicMake: (name, protocol, peerId) => {
-                return `${name}/${protocol}/${peerId ?? "any"}`
+            topicMake: (name, operation, peerId) => {
+                return `${name}/${operation}/${peerId ?? "any"}`
             },
             topicMatch: (topic) => {
                 const m = topic.match(/^(.+)\/([^/]+)\/([^/]+)$/)

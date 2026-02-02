@@ -220,10 +220,10 @@ The **MQTT+** API provides the following functionalities:
     - `chunkSize`: Chunk size in bytes for source/sink transfers (default: `16384`).
     - `topicMake`: Custom topic generation function.
       The `operation` parameter is one of: `event-emission`, `service-call-request`, `service-call-response`, `source-fetch-request`, `source-fetch-response`, `source-fetch-chunk`, `sink-push-response`.
-      (default: `` (name, operation, peerId) => `${name}/${protocol}/${peerId ?? "any"}` ``)
+      (default: `` (name, operation, peerId) => `${name}/${operation}/${peerId ?? "any"}` ``)
     - `topicMatch`: Custom topic matching function.
-      Returns `{ name, operation, peerId? }` or `null` if no match.
-      The `peerId` is `undefined` for broadcast topics (ending with `/any`).
+      Returns `{ name: string, operation: string, peerId?: string }` or `null` if no match.
+      The `peerId` is `undefined` for broadcast topics (those ending with `/any`).
       (default: `` (topic) => { const m = topic.match(/^(.+)\/([^/]+)\/([^/]+)$/); return m ? { name: m[1], operation: m[2], peerId: m[3] === "any" ? undefined : m[3] } : null } ``)
 
 - **Destruction**:<br/>
