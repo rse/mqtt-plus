@@ -132,7 +132,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
         if (typeof message === "string")
             this.log("info", `publishing to MQTT topic "${topic}" (type: string, length: ${message.length} chars)`)
         else
-            this.log("info", `publishing to MQTT topic "${topic}" (type: buffer, length: ${message.byteLength}) bytes`)
+            this.log("info", `publishing to MQTT topic "${topic}" (type: buffer, length: ${message.byteLength} bytes)`)
 
         /*  provide decoded message on demand  */
         const messageOnDemand = new PLazy<any>((resolve, reject) => {
