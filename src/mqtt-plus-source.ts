@@ -77,7 +77,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             share?:    string,
             auth?:     AuthOption
         },
-        ...args:  any[]
+        ...args:       any[]
     ): Promise<Registration> {
         /*  determine actual parameters  */
         let name:     K
@@ -319,13 +319,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const chunkTopic    = this.options.topicMake(source, "source-fetch-chunk", sender)
 
                 /*  callback for sending the ack/nak response  */
-                const sendResponse = (error?: string) => {
+                const sendResponse = async (error?: string) => {
                     const auth = this.authenticate()
                     const metaStore = this.metaStore(info.meta)
                     const response = this.msg.makeSourceFetchResponse(requestId,
                         source, error, this.options.id, sender, auth, metaStore)
                     const message = this.codec.encode(response)
-                    this._publishToTopic(responseTopic, message, { qos: 2 }).catch(() => {})
+                    await this._publishToTopic(responseTopic, message, { qos: 2 }).catch(() => {})
                 }
 
                 /*  callback for creating and sending a chunk message  */
@@ -347,12 +347,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         throw new Error("handler did not provide data via info.stream or info.buffer fields")
 
                     /*  send ack response  */
-                    sendResponse()
+                    await sendResponse()
 
                     /*  handle Readable stream result  */
                     if (info.stream instanceof Readable)
                         sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk,
-                            () => {}, (err) => sendChunk(undefined, err.message, true))
+                            () => {}, () => {})
 
                     /*  handle Buffer result  */
                     else if (info.buffer instanceof Promise)
