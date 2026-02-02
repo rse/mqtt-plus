@@ -867,7 +867,9 @@ used for sending back the response message to the requestor only. The
 Broker Setup
 ------------
 
-For establishing your own permanent MQTT environment, install the
+**MQTT+** can be used with an arbitrary MQTT broker. One popular
+MQTT broker is [Mosquitto](https://mosquitto.org/).
+For establishing your own permanent MQTT environment, you can install the
 [Mosquitto](https://mosquitto.org/) MQTT broker yourself and a setup
 a `mosquitto.conf` file like...
 
