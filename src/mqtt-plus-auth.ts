@@ -32,8 +32,9 @@ import { MetaTrait }  from "./mqtt-plus-meta"
 
 /*  type of the "auth" options  */
 export type AuthMode   = "require" | "optional"
-export type AuthOption = AuthMode | { mode: AuthMode, roles: string[] }
-export type TokenPayload = { roles: string[], id?: string }
+export type AuthRole   = string
+export type AuthOption = AuthRole | { mode: AuthMode, roles: AuthRole[] }
+export type TokenPayload = { roles: AuthRole[], id?: string }
 
 /*  authentication trait  */
 export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
