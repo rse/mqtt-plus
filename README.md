@@ -22,10 +22,12 @@ $ npm install mqtt mqtt-plus
 About
 -----
 
-This is **MQTT+**, a companion addon API for the excellent
-[MQTT](http://mqtt.org/) client TypeScript/JavaScript API
-[MQTT.js](https://www.npmjs.com/package/mqtt), providing additional
-communication patterns with type safety:
+**MQTT+** is a companion add-on API for the TypeScript/JavaScript
+API [MQTT.js](https://www.npmjs.com/package/mqtt), providing
+additional communication patterns with full type safety for
+[MQTT](http://mqtt.org/). Currently the essential communication patterns
+*Event Emission*, *Service Call*, *Sink Push* and *Source Fetch* are
+supported:
 
 - **Event Emission**:
 
