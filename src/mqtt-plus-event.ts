@@ -77,6 +77,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             name     = nameOrConfig.name
             callback = nameOrConfig.callback
             options  = nameOrConfig.options ?? {}
+            share    = nameOrConfig.share
             auth     = nameOrConfig.auth
         }
         else {
