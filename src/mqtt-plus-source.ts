@@ -204,7 +204,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         await Promise.all([
             this._subscribeTopic(responseTopic, { qos: 2 }),
             this._subscribeTopic(chunkTopic,    { qos: 2 })
-        ])
+        ]).catch((err: Error) => {
+            this._unsubscribeTopic(responseTopic).catch(() => {})
+            this._unsubscribeTopic(chunkTopic).catch(() => {})
+            throw err
+        })
 
         /*  establish readable for buffering received chunks  */
         const stream = new Readable({ read (_size) {} })
@@ -281,7 +285,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const topic = this.options.topicMake(name, "source-fetch-request", receiver)
 
         /*  publish message to MQTT topic  */
-        this._publishToTopic(topic, message, { qos: 2, ...options }).catch(() => {})
+        this._publishToTopic(topic, message, { qos: 2, ...options }).catch((err: unknown) => {
+            const error = err instanceof Error ? err : new Error(String(err))
+            cleanup(true)
+            stream.destroy(error)
+        })
 
         /*  produce result  */
         return { stream, buffer, meta: metaP }
