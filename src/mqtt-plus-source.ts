@@ -133,7 +133,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 return Promise.all([
                     this._unsubscribeTopic(topicReqB),
                     this._unsubscribeTopic(topicReqD)
-                ]).then(() => {})
+                ]).catch((err: Error) => {
+                    this.error(err, `destroy: failed to unsubscribe from topics for source "${name}"`)
+                })
             }
         }
         return registration

@@ -120,7 +120,9 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
                 return Promise.all([
                     this._unsubscribeTopic(topicB),
                     this._unsubscribeTopic(topicD)
-                ]).then(() => {})
+                ]).catch((err: Error) => {
+                    this.error(err, `destroy: failed to unsubscribe from topics for event "${name}"`)
+                })
             }
         }
         return registration

@@ -119,12 +119,14 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const registration: Registration = {
             destroy: async (): Promise<void> => {
                 if (!this.services.has(name))
-                    throw new Error(`unregister: service "${name}" not registered`)
+                    throw new Error(`destroy: service "${name}" not registered`)
                 this.services.delete(name)
                 return Promise.all([
                     this._unsubscribeTopic(topicB),
                     this._unsubscribeTopic(topicD)
-                ]).then(() => {})
+                ]).catch((err: Error) => {
+                    this.error(err, `destroy: failed to unsubscribe from topics for service "${name}"`)
+                })
             }
         }
         return registration
