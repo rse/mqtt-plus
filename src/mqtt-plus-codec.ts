@@ -74,11 +74,11 @@ export default class Codec {
         let result: Uint8Array | string
         if (this.type === "cbor") {
             try { result = CBOR.encode(data, { types: this.types }) }
-            catch (ex) { throw new Error("failed to encode CBOR format", { cause: ex }) }
+            catch (ex: unknown) { throw new Error("failed to encode CBOR format", { cause: ex }) }
         }
         else if (this.type === "json") {
             try { result = JSONX.stringify(data) }
-            catch (ex) { throw new Error("failed to encode JSON format", { cause: ex }) }
+            catch (ex: unknown) { throw new Error("failed to encode JSON format", { cause: ex }) }
         }
         else
             throw new Error(`invalid format "${this.type}"`)
@@ -90,13 +90,13 @@ export default class Codec {
             if (!(data instanceof Uint8Array))
                 throw new Error("failed to decode CBOR format (data type is not Uint8Array)")
             try { result = CBOR.decode(data, { tags: this.tags }) }
-            catch (ex) { throw new Error("failed to decode CBOR format", { cause: ex }) }
+            catch (ex: unknown) { throw new Error("failed to decode CBOR format", { cause: ex }) }
         }
         else if (this.type === "json") {
             if (typeof data !== "string")
                 throw new Error("failed to decode JSON format (data type is not string)")
             try { result = JSONX.parse(data) }
-            catch (ex) { throw new Error("failed to decode JSON format", { cause: ex }) }
+            catch (ex: unknown) { throw new Error("failed to decode JSON format", { cause: ex }) }
         }
         else
             throw new Error(`invalid format "${this.type}"`)
