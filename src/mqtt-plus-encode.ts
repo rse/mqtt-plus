@@ -23,8 +23,8 @@
 */
 
 /*  internal requirements  */
-import { APISchema }   from "./mqtt-plus-api"
-import { CodecTrait }  from "./mqtt-plus-codec"
+import { APISchema }  from "./mqtt-plus-api"
+import { CodecTrait } from "./mqtt-plus-codec"
 
 /*  encoding trait  */
 export class EncodeTrait<T extends APISchema = APISchema> extends CodecTrait<T> {

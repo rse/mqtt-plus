@@ -23,8 +23,8 @@
 */
 
 /*  external requirements  */
-import { SignJWT }     from "jose/jwt/sign"
-import { jwtVerify }   from "jose/jwt/verify"
+import { SignJWT }   from "jose/jwt/sign"
+import { jwtVerify } from "jose/jwt/verify"
 
 /*  internal requirements  */
 import { APISchema }  from "./mqtt-plus-api"
