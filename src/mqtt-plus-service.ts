@@ -240,6 +240,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 else
                     this.responseSubscriptions.delete(topic)
                 this.error(err)
+                throw err
             })
         }
     }
