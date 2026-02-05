@@ -22,6 +22,9 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/*  built-in requirements  */
+import { Buffer }     from "node:buffer"
+
 /*  internal requirements  */
 import { APISchema }  from "./mqtt-plus-api"
 import { CodecTrait } from "./mqtt-plus-codec"
@@ -54,7 +57,7 @@ export class EncodeTrait<T extends APISchema = APISchema> extends CodecTrait<T> 
     buf2arr (data: Uint8Array, type: new () => Int8Array): Int8Array
     buf2arr <T extends (Buffer | Uint8Array | Int8Array)>(data: Uint8Array, cons: new (...args: any[]) => T): T {
         let arr: any
-        if (cons === (Buffer as unknown as new (...args: any[]) => T))
+        if (typeof Buffer !== "undefined" && cons === (Buffer as unknown as new (...args: any[]) => T))
             arr = Buffer.from(data.buffer, data.byteOffset, data.byteLength)
         else if (cons === (Uint8Array as unknown as new (...args: any[]) => T))
             arr = data
