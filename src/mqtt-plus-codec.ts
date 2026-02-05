@@ -33,14 +33,10 @@ import { APIOptions, OptionsTrait }  from "./mqtt-plus-options"
 /*  JSON encode/decode with Uint8Array support  */
 export class JSONX {
     private static uint8ArrayToBase64 (arr: Uint8Array): string {
-        return btoa(String.fromCharCode(...arr))
+        return Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength).toString("base64")
     }
     private static base64ToUint8Array (base64: string): Uint8Array {
-        const binary = atob(base64)
-        const arr = new Uint8Array(binary.length)
-        for (let i = 0; i < binary.length; i++)
-            arr[i] = binary.charCodeAt(i)
-        return arr
+        return new Uint8Array(Buffer.from(base64, "base64"))
     }
     static stringify (obj: any): string {
         return JSON.stringify(obj, (_, value) =>
