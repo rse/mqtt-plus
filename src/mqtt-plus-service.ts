@@ -181,7 +181,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         this._responseSubscribe(name, { qos: options.qos ?? 2 })
 
         /*  create promise for MQTT response handling  */
-        const promise: Promise<Awaited<ReturnType<T[K]>>> = new Promise((resolve, reject) => {
+        const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {
             let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
                 this.responseCallback.delete(rid)
                 this._responseUnsubscribe(name)
