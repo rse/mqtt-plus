@@ -112,15 +112,14 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         })
 
         /*  provide a registration for subsequent destruction  */
-        const self = this
         const registration: Registration = {
-            async destroy (): Promise<void> {
-                if (!self.events.has(name))
+            destroy: async (): Promise<void> => {
+                if (!this.events.has(name))
                     throw new Error(`destroy: event "${name}" not registered`)
-                self.events.delete(name)
+                this.events.delete(name)
                 return Promise.all([
-                    self._unsubscribeTopic(topicB),
-                    self._unsubscribeTopic(topicD)
+                    this._unsubscribeTopic(topicB),
+                    this._unsubscribeTopic(topicD)
                 ]).then(() => {})
             }
         }

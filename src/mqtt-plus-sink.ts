@@ -124,16 +124,15 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         })
 
         /*  provide a registration for subsequent destruction  */
-        const self = this
         const registration: Registration = {
-            async destroy (): Promise<void> {
-                if (!self.sinks.has(name))
+            destroy: async (): Promise<void> => {
+                if (!this.sinks.has(name))
                     throw new Error(`destroy: sink "${name}" not established`)
-                self.sinks.delete(name)
+                this.sinks.delete(name)
                 return Promise.all([
-                    self._unsubscribeTopic(topicReqB),
-                    self._unsubscribeTopic(topicReqD),
-                    self._unsubscribeTopic(topicChunkD)
+                    this._unsubscribeTopic(topicReqB),
+                    this._unsubscribeTopic(topicReqD),
+                    this._unsubscribeTopic(topicChunkD)
                 ]).then(() => {})
             }
         }

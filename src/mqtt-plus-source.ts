@@ -125,15 +125,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         })
 
         /*  provide a registration for subsequent destruction  */
-        const self = this
         const registration: Registration = {
-            async destroy (): Promise<void> {
-                if (!self.sources.has(name))
+            destroy: async (): Promise<void> => {
+                if (!this.sources.has(name))
                     throw new Error(`destroy: source "${name}" not established`)
-                self.sources.delete(name)
+                this.sources.delete(name)
                 return Promise.all([
-                    self._unsubscribeTopic(topicReqB),
-                    self._unsubscribeTopic(topicReqD)
+                    this._unsubscribeTopic(topicReqB),
+                    this._unsubscribeTopic(topicReqD)
                 ]).then(() => {})
             }
         }
