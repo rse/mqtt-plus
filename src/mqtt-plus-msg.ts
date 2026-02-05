@@ -191,7 +191,7 @@ class Msg {
         return new ServiceCallRequest(id, name, params, sender, receiver, auth, meta)
     }
 
-    /*  factory for service response success  */
+    /*  factory for service response  */
     makeServiceCallResponse (
         id:             string,
         result?:        any,
