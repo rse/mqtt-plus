@@ -38,7 +38,7 @@ export class JSONX {
     private static base64ToUint8Array (base64: string): Uint8Array {
         return new Uint8Array(Buffer.from(base64, "base64"))
     }
-    static stringify (obj: any): string {
+    static stringify (obj: unknown): string {
         return JSON.stringify(obj, (_, value) =>
             value instanceof Uint8Array
                 ? { __Uint8Array: this.uint8ArrayToBase64(value) }
@@ -86,11 +86,15 @@ export default class Codec {
     }
     decode (data: Uint8Array | string): unknown {
         let result: unknown
-        if (this.type === "cbor" && data instanceof Uint8Array) {
+        if (this.type === "cbor") {
+            if (!(data instanceof Uint8Array))
+                throw new Error("failed to decode CBOR format (data type is not Uint8Array)")
             try { result = CBOR.decode(data, { tags: this.tags }) }
             catch (ex) { throw new Error("failed to decode CBOR format", { cause: ex }) }
         }
-        else if (this.type === "json" && typeof data === "string") {
+        else if (this.type === "json") {
+            if (typeof data !== "string")
+                throw new Error("failed to decode JSON format (data type is not string)")
             try { result = JSONX.parse(data) }
             catch (ex) { throw new Error("failed to decode JSON format", { cause: ex }) }
         }
