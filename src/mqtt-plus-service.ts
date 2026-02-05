@@ -270,7 +270,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
     /*  dispatch message (Service pattern handling)  */
     protected async _dispatchMessage (topic: string, parsed: any) {
-        super._dispatchMessage(topic, parsed)
+        await super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
         if (topicMatch !== null
             && topicMatch.operation === "service-call-request"

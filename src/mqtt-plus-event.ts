@@ -208,7 +208,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
 
     /*  dispatch message (Event pattern handling)  */
     protected async _dispatchMessage (topic: string, parsed: any) {
-        super._dispatchMessage(topic, parsed)
+        await super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
         if (topicMatch !== null
             && topicMatch.operation === "event-emission"

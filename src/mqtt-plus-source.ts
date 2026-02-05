@@ -299,7 +299,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
     /*  dispatch message (Source Fetch pattern handling)  */
     protected async _dispatchMessage (topic: string, parsed: any) {
-        super._dispatchMessage(topic, parsed)
+        await super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
 
         /*  handle source fetch request (on server-side for fetch)  */

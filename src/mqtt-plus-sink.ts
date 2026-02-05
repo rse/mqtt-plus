@@ -277,7 +277,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     /*  dispatch incoming MQTT message  */
     protected async _dispatchMessage (topic: string, parsed: any) {
         /*  forward dispatching to other traits  */
-        super._dispatchMessage(topic, parsed)
+        await super._dispatchMessage(topic, parsed)
 
         /*  match the MQTT topic  */
         const topicMatch = this.options.topicMatch(topic)
