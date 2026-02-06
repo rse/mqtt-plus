@@ -379,12 +379,13 @@ class Msg {
         SourceFetchRequest   |
         SourceFetchResponse  |
         SourceFetchChunk {
+        /*  sanity check input  */
         if (typeof obj !== "object" || obj === null)
             throw new Error("invalid argument: not an object")
         if (typeof obj.type !== "string")
             throw new Error("invalid object: missing or invalid \"type\" field")
 
-        /*  dispatch according to type indication by field  */
+        /*  helper function for Valibot-based validation  */
         const parseObject = <T>(obj: any, name: string, schema: v.BaseSchema<any, any, any>): T => {
             const res = v.safeParse(schema, obj)
             if (!res.success) {
@@ -393,6 +394,8 @@ class Msg {
             }
             return res.output
         }
+
+        /*  dispatch according to type indication by field  */
         if (obj.type === "event-emission") {
             const out = parseObject<EventEmission>(obj, "EventEmission", EventEmissionSchema)
             return this.makeEventEmission(out.id, out.name, out.params, out.sender, out.receiver,
