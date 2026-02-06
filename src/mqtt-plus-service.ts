@@ -43,7 +43,10 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         callback: WithInfo<APIEndpointService, InfoService>
         auth?:    AuthOption
     }>()
-    private callCallback      = new Map<string, { name: string, callback: (err: any, result: any) => void }>()
+    private callCallback = new Map<string, {
+        name:     string,
+        callback: (err: any, result: any) => void
+    }>()
     private callSubscriptions = new Map<string, number>()
 
     /*  register an RPC service  */
