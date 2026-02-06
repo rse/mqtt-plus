@@ -55,7 +55,9 @@ export default Vite.defineConfig(({ command, mode }) => ({
                 "cbor2",
                 "p-lazy",
                 "jose/jwt/sign",
-                "jose/jwt/verify"
+                "jose/jwt/verify",
+                "@stablelib/pbkdf2",
+                "@stablelib/sha256"
             ]
         },
         lib: {

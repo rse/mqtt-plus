@@ -25,6 +25,8 @@
 /*  external requirements  */
 import { SignJWT }   from "jose/jwt/sign"
 import { jwtVerify } from "jose/jwt/verify"
+import * as pbkdf2   from "@stablelib/pbkdf2"
+import * as sha256   from "@stablelib/sha256"
 
 /*  internal requirements  */
 import { APISchema }  from "./mqtt-plus-api"
@@ -44,7 +46,12 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
 
     /*  store server-side secret credential  */
     credential (credential: string) {
-        this._credential = credential
+        /*  use a derived key with minimum length of 32 for JWT HS256  */
+        const pw   = new TextEncoder().encode(credential)
+        const st   = new TextEncoder().encode("mqtt-plus")
+        const key  = pbkdf2.deriveKey(sha256.SHA256, pw, st, 1, 32)
+        const cred = new TextDecoder().decode(key)
+        this._credential = cred
     }
 
     /*  issue client-side token on server-side  */
