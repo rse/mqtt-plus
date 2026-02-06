@@ -340,7 +340,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 }
 
                 /*  utility function for cleanup  */
+                let streamCleanedUp = false
                 const cleanupStream = () => {
+                    if (streamCleanedUp)
+                        return
+                    streamCleanedUp = true
                     const timer = this.pushTimers.get(requestId)
                     if (timer !== undefined) {
                         clearTimeout(timer)
@@ -362,6 +366,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     /*  create readable for buffering received chunks  */
                     const readable = new Readable({ read (_size) {} })
                     this.pushStreams.set(requestId, readable)
+                    readable.once("close", cleanupStream)
+                    readable.once("error", cleanupStream)
 
                     /*  start timeout for push stream cleanup  */
                     const timer = setTimeout(() => {

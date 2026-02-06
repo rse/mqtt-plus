@@ -239,7 +239,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         }
 
         /*  utility function for cleanup  */
+        let cleanedUp = false
         const cleanup = (resolveMeta = false) => {
+            if (cleanedUp)
+                return
+            cleanedUp = true
             if (timer !== null) {
                 clearTimeout(timer)
                 timer = null
@@ -253,6 +257,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  start timeout handler  */
         refreshTimeout()
+
+        /*  ensure resources are released if consumer aborts stream early  */
+        stream.once("close", () => {
+            cleanup(true)
+        })
+        stream.once("error", () => {
+            cleanup(true)
+        })
 
         /*  register stream handler to collect chunks  */
         let firstChunk = true
