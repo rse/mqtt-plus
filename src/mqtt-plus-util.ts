@@ -110,8 +110,8 @@ export async function sendStreamAsChunks (
                 const buffer = chunkToBuffer(chunk)
                 for (let i = 0; i < buffer.byteLength; i += chunkSize) {
                     const size  = Math.min(buffer.byteLength - i, chunkSize)
-                    const chunk = buffer.subarray(i, i + size)
-                    await sendChunk(chunk, undefined, false)
+                    const slice = buffer.subarray(i, i + size)
+                    pushSend(slice, undefined, false)
                 }
             }
         })
