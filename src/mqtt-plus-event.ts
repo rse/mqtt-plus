@@ -203,7 +203,9 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             return { topic, payload: message, options: { qos: 0, ...options } }
         else
             /*  publish message to MQTT topic  */
-            this._publishToTopic(topic, message, { qos: 0, ...options }).catch(() => {})
+            this._publishToTopic(topic, message, { qos: 0, ...options }).catch((err: Error) => {
+                this.error(err, `emitting event "${event}" failed`)
+            })
     }
 
     /*  dispatch message (Event pattern handling)  */
