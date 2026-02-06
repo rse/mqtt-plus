@@ -104,7 +104,13 @@ export async function sendStreamAsChunks (
     sendChunk: SendChunkCallback
 ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-        readable.on("readable", async () => {
+        let chain: Promise<void> = Promise.resolve()
+        const pushSend = (chunk: Uint8Array | undefined, error: string | undefined, final: boolean) => {
+            chain = chain.then(() => sendChunk(chunk, error, final))
+            return chain
+        }
+        const drain = () => chain
+        readable.on("readable", () => {
             let chunk: unknown
             while ((chunk = readable.read(chunkSize)) !== null) {
                 const buffer = chunkToBuffer(chunk)
@@ -116,13 +122,14 @@ export async function sendStreamAsChunks (
             }
         })
         readable.on("end", () => {
-            sendChunk(undefined, undefined, true)
-            resolve()
+            pushSend(undefined, undefined, true)
+                .then(() => drain())
+                .then(() => resolve(), (err) => reject(err))
         })
-        readable.on("error", (err) => {
-            sendChunk(undefined, err.message, true)
-            reject(err)
+        readable.on("error", (err: Error) => {
+            pushSend(undefined, err.message, true)
+                .then(() => drain())
+                .then(() => reject(err), (sendErr) => reject(sendErr))
         })
     })
 }
-
