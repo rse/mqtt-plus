@@ -28,6 +28,7 @@ import { IClientPublishOptions,
 import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
+import { RefCountedSubscription }     from "./mqtt-plus-util"
 import { ServiceCallRequest,
     ServiceCallResponse }             from "./mqtt-plus-msg"
 import { APISchema, APIEndpointService,
@@ -47,7 +48,11 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         name:     string,
         callback: (err: any, result: any) => void
     }>()
-    private callSubscriptions = new Map<string, number>()
+    private callSubscriptions = new RefCountedSubscription(
+        (topic, options) => this._subscribeTopic(topic, options),
+        (topic)          => this._unsubscribeTopic(topic),
+        (err)            => this.error(err)
+    )
 
     /*  register an RPC service  */
     async service<K extends ServiceKeys<T> & string> (
@@ -183,13 +188,14 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const requestId = nanoid()
 
         /*  subscribe to MQTT response topic  */
-        await this.callSubscribe(name, { qos: options.qos ?? 2 })
+        const responseTopic = this.options.topicMake(name, "service-call-response", this.options.id)
+        await this.callSubscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 })
 
         /*  create promise for MQTT response handling  */
         const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {
             let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
                 this.callCallbacks.delete(requestId)
-                this.callUnsubscribe(name)
+                this.callSubscriptions.unsubscribe(responseTopic)
                 timer = null
                 reject(new Error("communication timeout"))
             }, this.options.timeout)
@@ -221,54 +227,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             const pendingRequest = this.callCallbacks.get(requestId)
             if (pendingRequest !== undefined) {
                 this.callCallbacks.delete(requestId)
-                this.callUnsubscribe(name)
+                this.callSubscriptions.unsubscribe(responseTopic)
                 pendingRequest.callback(err, undefined)
             }
         })
 
         return promise
-    }
-
-    /*  subscribe to RPC response  */
-    private async callSubscribe (service: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
-        /*  generate corresponding MQTT topic  */
-        const topic = this.options.topicMake(service, "service-call-response", this.options.id)
-
-        /*  subscribe to MQTT topic and remember subscription  */
-        const count = this.callSubscriptions.get(topic) ?? 0
-        this.callSubscriptions.set(topic, count + 1)
-        if (count === 0) {
-            await this._subscribeTopic(topic, options).catch((err: Error) => {
-                const currentCount = this.callSubscriptions.get(topic) ?? 0
-                if (currentCount > 1)
-                    this.callSubscriptions.set(topic, currentCount - 1)
-                else
-                    this.callSubscriptions.delete(topic)
-                this.error(err)
-                throw err
-            })
-        }
-    }
-
-    /*  unsubscribe from RPC response  */
-    private callUnsubscribe (service: string): void {
-        /*  generate corresponding MQTT topic  */
-        const topic = this.options.topicMake(service, "service-call-response", this.options.id)
-
-        /*  short-circuit processing if (no longer) subscribed  */
-        if (!this.callSubscriptions.has(topic))
-            return
-
-        /*  unsubscribe from MQTT topic and forget subscription  */
-        const count = this.callSubscriptions.get(topic) ?? 0
-        if (count > 1)
-            this.callSubscriptions.set(topic, count - 1)
-        else {
-            this.callSubscriptions.delete(topic)
-            this._unsubscribeTopic(topic).catch((err: Error) => {
-                this.error(err)
-            })
-        }
     }
 
     /*  dispatch message (Service pattern handling)  */
@@ -344,7 +308,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
                 /*  unsubscribe from response  */
                 this.callCallbacks.delete(requestId)
-                this.callUnsubscribe(request.name)
+                const respTopic = this.options.topicMake(request.name, "service-call-response", this.options.id)
+                this.callSubscriptions.unsubscribe(respTopic)
             }
         }
     }

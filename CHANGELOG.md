@@ -2,6 +2,12 @@
 ChangeLog
 =========
 
+1.2.1 (2026-02-06)
+------------------
+
+- REFACTOR: use a reference counting subscription class
+- CLEANUP: various code cleanups
+
 1.2.0 (2026-02-06)
 ------------------
 

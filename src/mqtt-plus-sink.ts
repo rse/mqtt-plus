@@ -30,7 +30,8 @@ import { IClientPublishOptions, IClientSubscribeOptions }         from "mqtt"
 import { nanoid }                                                 from "nanoid"
 
 /*  internal requirements  */
-import { streamToBuffer, sendBufferAsChunks, sendStreamAsChunks } from "./mqtt-plus-util"
+import { RefCountedSubscription,
+    streamToBuffer, sendBufferAsChunks, sendStreamAsChunks }      from "./mqtt-plus-util"
 import { SinkPushRequest, SinkPushResponse, SinkPushChunk }       from "./mqtt-plus-msg"
 import { APISchema, SinkKeys, APIEndpointSink, Registration }     from "./mqtt-plus-api"
 import type { WithInfo, InfoSink }                                from "./mqtt-plus-info"
@@ -50,7 +51,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         name:     string,
         callback: (parsed: SinkPushResponse) => void
     }>()
-    private pushSubscriptions = new Map<string, number>()
+    private pushSubscriptions = new RefCountedSubscription(
+        (topic, options) => this._subscribeTopic(topic, options),
+        (topic)          => this._unsubscribeTopic(topic),
+        (err)            => this.error(err)
+    )
 
     /*  register a sink  */
     async sink<K extends SinkKeys<T> & string> (
@@ -197,7 +202,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         /*  subscribe to response topic (for ack/nak)  */
         const responseTopic = this.options.topicMake(name, "sink-push-response", this.options.id)
-        await this.pushSubscribe(responseTopic, { qos: 2 })
+        await this.pushSubscriptions.subscribe(responseTopic, { qos: 2 })
 
         /*  define timer  */
         let timer: ReturnType<typeof setTimeout> | null = null
@@ -208,7 +213,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 clearTimeout(timer)
                 timer = null
             }
-            this.pushUnsubscribe(responseTopic)
+            this.pushSubscriptions.unsubscribe(responseTopic)
             this.pushCallbacks.delete(requestId)
         }
 
@@ -267,33 +272,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         else if (data instanceof Uint8Array)
             /*  split buffer into chunks and send them  */
             await sendBufferAsChunks(data, this.options.chunkSize, sendChunk)
-    }
-
-    /*  subscribe to sink push response topic with reference counting  */
-    private async pushSubscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
-        const count = this.pushSubscriptions.get(topic) ?? 0
-        this.pushSubscriptions.set(topic, count + 1)
-        if (count === 0) {
-            await this._subscribeTopic(topic, options).catch((err: Error) => {
-                const currentCount = this.pushSubscriptions.get(topic) ?? 0
-                if (currentCount > 1)
-                    this.pushSubscriptions.set(topic, currentCount - 1)
-                else
-                    this.pushSubscriptions.delete(topic)
-                throw err
-            })
-        }
-    }
-
-    /*  unsubscribe from sink push response topic with reference counting  */
-    private pushUnsubscribe (topic: string): void {
-        const count = this.pushSubscriptions.get(topic) ?? 0
-        if (count <= 1) {
-            this.pushSubscriptions.delete(topic)
-            this._unsubscribeTopic(topic).catch(() => {})
-        }
-        else
-            this.pushSubscriptions.set(topic, count - 1)
     }
 
     /*  dispatch incoming MQTT message  */

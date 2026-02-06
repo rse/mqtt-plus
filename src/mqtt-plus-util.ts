@@ -29,6 +29,44 @@ import { Readable } from "node:stream"
 /*  external requirements  */
 import PLazy        from "p-lazy"
 
+/*  internal requirements  */
+import { IClientSubscribeOptions } from "mqtt"
+
+/*  reference-counted subscription helper  */
+export class RefCountedSubscription {
+    private counts = new Map<string, number>()
+    constructor (
+        private subscribeFn:   (topic: string, options: IClientSubscribeOptions) => Promise<void>,
+        private unsubscribeFn: (topic: string) => Promise<void>,
+        private errorFn?:      (err: Error) => void
+    ) {}
+    async subscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
+        const count = this.counts.get(topic) ?? 0
+        this.counts.set(topic, count + 1)
+        if (count === 0) {
+            await this.subscribeFn(topic, options).catch((err: Error) => {
+                const currentCount = this.counts.get(topic) ?? 0
+                if (currentCount > 1)
+                    this.counts.set(topic, currentCount - 1)
+                else
+                    this.counts.delete(topic)
+                if (this.errorFn)
+                    this.errorFn(err)
+                throw err
+            })
+        }
+    }
+    async unsubscribe (topic: string): Promise<void> {
+        const count = this.counts.get(topic) ?? 0
+        if (count <= 1) {
+            this.counts.delete(topic)
+            await this.unsubscribeFn(topic).catch(() => {})
+        }
+        else
+            this.counts.set(topic, count - 1)
+    }
+}
+
 /*  concatenate elements of an Uint8Array array  */
 function uint8ArrayConcat (arrays: Uint8Array[]) {
     const totalLength = arrays.reduce((acc, value) => acc + value.length, 0)

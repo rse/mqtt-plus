@@ -30,7 +30,8 @@ import { IClientPublishOptions, IClientSubscribeOptions }         from "mqtt"
 import { nanoid }                                                 from "nanoid"
 
 /*  internal requirements  */
-import { streamToBuffer, sendBufferAsChunks, sendStreamAsChunks } from "./mqtt-plus-util"
+import { RefCountedSubscription,
+    streamToBuffer, sendBufferAsChunks, sendStreamAsChunks }      from "./mqtt-plus-util"
 import { SourceFetchRequest, SourceFetchResponse,
     SourceFetchChunk }                                            from "./mqtt-plus-msg"
 import { APISchema, SourceKeys, APIEndpointSource, Registration } from "./mqtt-plus-api"
@@ -54,7 +55,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             final: boolean             | undefined
         ) => void
     }>()
-    private fetchSubscriptions = new Map<string, number>()
+    private fetchSubscriptions = new RefCountedSubscription(
+        (topic, options) => this._subscribeTopic(topic, options),
+        (topic)          => this._unsubscribeTopic(topic),
+        (err)            => this.error(err)
+    )
 
     /*  establish a source (for fetch requests)  */
     async source<K extends SourceKeys<T> & string> (
@@ -205,11 +210,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const responseTopic = this.options.topicMake(name, "source-fetch-response", this.options.id)
         const chunkTopic    = this.options.topicMake(name, "source-fetch-chunk",    this.options.id)
         await Promise.all([
-            this.fetchSubscribe(responseTopic, { qos: 2 }),
-            this.fetchSubscribe(chunkTopic,    { qos: 2 })
+            this.fetchSubscriptions.subscribe(responseTopic, { qos: 2 }),
+            this.fetchSubscriptions.subscribe(chunkTopic,    { qos: 2 })
         ]).catch((err: Error) => {
-            this.fetchUnsubscribe(responseTopic)
-            this.fetchUnsubscribe(chunkTopic)
+            this.fetchSubscriptions.unsubscribe(responseTopic)
+            this.fetchSubscriptions.unsubscribe(chunkTopic)
             throw err
         })
 
@@ -248,8 +253,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 clearTimeout(timer)
                 timer = null
             }
-            this.fetchUnsubscribe(responseTopic)
-            this.fetchUnsubscribe(chunkTopic)
+            this.fetchSubscriptions.unsubscribe(responseTopic)
+            this.fetchSubscriptions.unsubscribe(chunkTopic)
             this.fetchCallbacks.delete(requestId)
             if (resolveMeta)
                 metaResolve?.(undefined)
@@ -316,33 +321,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  produce result  */
         return { stream, buffer, meta: metaP }
-    }
-
-    /*  subscribe to fetch topics with reference counting  */
-    private async fetchSubscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
-        const count = this.fetchSubscriptions.get(topic) ?? 0
-        this.fetchSubscriptions.set(topic, count + 1)
-        if (count === 0) {
-            await this._subscribeTopic(topic, options).catch((err: Error) => {
-                const currentCount = this.fetchSubscriptions.get(topic) ?? 0
-                if (currentCount > 1)
-                    this.fetchSubscriptions.set(topic, currentCount - 1)
-                else
-                    this.fetchSubscriptions.delete(topic)
-                throw err
-            })
-        }
-    }
-
-    /*  unsubscribe from fetch topics with reference counting  */
-    private fetchUnsubscribe (topic: string): void {
-        const count = this.fetchSubscriptions.get(topic) ?? 0
-        if (count <= 1) {
-            this.fetchSubscriptions.delete(topic)
-            this._unsubscribeTopic(topic).catch(() => {})
-        }
-        else
-            this.fetchSubscriptions.set(topic, count - 1)
     }
 
     /*  dispatch message (Source Fetch pattern handling)  */
