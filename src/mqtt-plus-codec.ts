@@ -55,7 +55,7 @@ export class JSONX {
 }
 
 /*  the encoder/decoder abstraction  */
-export default class Codec {
+class Codec {
     private types = new CBOR.TypeEncoderMap()
     private tags: CBOR.TagDecoderMap = new Map<CBOR.TagNumber, CBOR.TagDecoder>()
     constructor (

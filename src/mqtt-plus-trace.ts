@@ -31,7 +31,7 @@ import { MsgTrait }      from "./mqtt-plus-msg"
 import { JSONX }         from "./mqtt-plus-codec"
 
 /*  type of log events  */
-export class LogEvent {
+class LogEvent {
     constructor (
         public timestamp: number,
         public level:     string,

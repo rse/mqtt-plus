@@ -73,7 +73,7 @@ function chunkToBuffer (chunk: unknown): Uint8Array {
 }
 
 /*  callback type for sending chunks  */
-export type SendChunkCallback = (
+type SendChunkCallback = (
     chunk: Uint8Array | undefined,
     error: string | undefined,
     final: boolean
