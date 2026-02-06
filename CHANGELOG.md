@@ -2,6 +2,24 @@
 ChangeLog
 =========
 
+1.2.0 (2026-02-06)
+------------------
+
+- IMPROVEMENT: support concurrent operations
+- IMPROVEMENT: improve chunk sending
+- IMPROVEMENT: improve buffer handling and decoding
+- IMPROVEMENT: use derived keys to have enough entropy
+- IMPROVEMENT: report failures and log errors on dispatching messages
+- IMPROVEMENT: await subscribes and super calls in dispatching messages
+- IMPROVEMENT: log failing destroy operations
+- BUGFIX: fix share option handling in event()
+- BUGFIX: fix error handling
+- BUGFIX: fix return values of promises
+- CLEANUP: improve type safety (use unknown type, remove Awaited type)
+- CLEANUP: simplify code by using closures and conversions
+- CLEANUP: various code cleanups (rename variables, reduce whitespaces)
+- UPDATE: upgrade NPM dependencies
+
 1.1.4 (2026-02-02)
 ------------------
 
