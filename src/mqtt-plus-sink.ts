@@ -405,8 +405,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 throw new Error(`sink name mismatch between topic "${topicMatch.name}" and payload "${parsed.name}"`)
             const error = parsed.error
             const final = parsed.final
-            const chunk = (parsed.chunk !== undefined && !(parsed.chunk instanceof Uint8Array))
-                ? Uint8Array.from(parsed.chunk) : parsed.chunk
+            const chunk = parsed.chunk
 
             /*  handle chunk on push  */
             const readable = this.pushStreams.get(requestId)

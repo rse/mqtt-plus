@@ -51,10 +51,6 @@ const AuthSchema = v.pipe(
     v.array(v.pipe(v.string(), v.maxLength(8192))),
     v.maxLength(8))
 
-/*  reusable object schema (non-null object, e.g. deserialized Uint8Array)  */
-const ObjectSchema = v.custom<object>((input) =>
-    typeof input === "object" && input !== null)
-
 /*  base class  */
 class Base {
     constructor (
@@ -188,7 +184,7 @@ const SinkPushChunkSchema = v.strictObject({
     ...BaseSchema,
     type:                v.literal("sink-push-chunk"),
     name:                v.string(),
-    chunk:               v.optional(ObjectSchema),
+    chunk:               v.optional(v.instance(Uint8Array)),
     error:               v.optional(v.string()),
     final:               v.optional(v.boolean())
 })
@@ -251,7 +247,7 @@ const SourceFetchChunkSchema = v.strictObject({
     ...BaseSchema,
     type:                v.literal("source-fetch-chunk"),
     name:                v.string(),
-    chunk:               v.optional(ObjectSchema),
+    chunk:               v.optional(v.instance(Uint8Array)),
     error:               v.optional(v.string()),
     final:               v.optional(v.boolean())
 })
