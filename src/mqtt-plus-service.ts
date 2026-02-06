@@ -43,7 +43,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         callback: WithInfo<APIEndpointService, InfoService>
         auth?:    AuthOption
     }>()
-    private callCallback = new Map<string, {
+    private callCallbacks = new Map<string, {
         name:     string,
         callback: (err: any, result: any) => void
     }>()
@@ -188,12 +188,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         /*  create promise for MQTT response handling  */
         const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {
             let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-                this.callCallback.delete(rid)
+                this.callCallbacks.delete(rid)
                 this.callUnsubscribe(name)
                 timer = null
                 reject(new Error("communication timeout"))
             }, this.options.timeout)
-            this.callCallback.set(rid, {
+            this.callCallbacks.set(rid, {
                 name,
                 callback: (err: any, result: Awaited<ReturnType<T[K]>>) => {
                     if (timer !== null) {
@@ -218,9 +218,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         /*  publish message to MQTT topic  */
         this._publishToTopic(topic, message, { qos: 2, ...options }).catch((err: Error) => {
             /*  handle request failure (only if not already handled)  */
-            const pendingRequest = this.callCallback.get(rid)
+            const pendingRequest = this.callCallbacks.get(rid)
             if (pendingRequest !== undefined) {
-                this.callCallback.delete(rid)
+                this.callCallbacks.delete(rid)
                 this.callUnsubscribe(name)
                 pendingRequest.callback(err, undefined)
             }
@@ -332,7 +332,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             && parsed instanceof ServiceCallResponse) {
             /*  handle service response  */
             const rid = parsed.id
-            const request = this.callCallback.get(rid)
+            const request = this.callCallbacks.get(rid)
             if (request !== undefined) {
                 /*  call callback function  */
                 if (parsed.error !== undefined)
@@ -341,7 +341,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     request.callback(undefined, parsed.result)
 
                 /*  unsubscribe from response  */
-                this.callCallback.delete(rid)
+                this.callCallbacks.delete(rid)
                 this.callUnsubscribe(request.name)
             }
         }
