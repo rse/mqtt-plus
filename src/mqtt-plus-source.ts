@@ -228,6 +228,16 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         /*  define timer  */
         let timer: ReturnType<typeof setTimeout> | null = null
 
+        /*  utility function for timeout refresh  */
+        const refreshTimeout = () => {
+            if (timer !== null)
+                clearTimeout(timer)
+            timer = setTimeout(() => {
+                cleanup(true)
+                stream.destroy(new Error("communication timeout"))
+            }, this.options.timeout)
+        }
+
         /*  utility function for cleanup  */
         const cleanup = (resolveMeta = false) => {
             if (timer !== null) {
@@ -242,10 +252,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         }
 
         /*  start timeout handler  */
-        timer = setTimeout(() => {
-            cleanup(true)
-            stream.destroy(new Error("communication timeout"))
-        }, this.options.timeout)
+        refreshTimeout()
 
         /*  register stream handler to collect chunks  */
         let firstChunk = true
@@ -267,6 +274,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     stream.destroy(error)
                 }
                 else {
+                    refreshTimeout()
                     if (chunk !== undefined)
                         stream.push(chunk)
                     if (final) {
