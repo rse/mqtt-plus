@@ -45,7 +45,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         callback: WithInfo<APIEndpointSource, InfoSource>,
         auth?:    AuthOption
     }>()
-    private callbacks = new Map<string, {
+    private fetchCallbacks = new Map<string, {
         name: string,
         callback: (
             error: Error               | undefined,
@@ -236,7 +236,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             }
             this._fetchUnsubscribe(responseTopic)
             this._fetchUnsubscribe(chunkTopic)
-            this.callbacks.delete(requestId)
+            this.fetchCallbacks.delete(requestId)
             if (resolveMeta)
                 metaResolve?.(undefined)
         }
@@ -249,7 +249,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  register stream handler to collect chunks  */
         let firstChunk = true
-        this.callbacks.set(requestId, {
+        this.fetchCallbacks.set(requestId, {
             name,
             callback: (
                 error: Error               | undefined,
@@ -412,7 +412,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             const meta  = parsed.meta
 
             /*  handle response on fetch (ack/nak)  */
-            const handler = this.callbacks.get(requestId)
+            const handler = this.fetchCallbacks.get(requestId)
             if (handler !== undefined) {
                 if (error)
                     handler.callback(new Error(error), undefined, meta, true)
@@ -433,7 +433,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 ? Uint8Array.from(parsed.chunk) : parsed.chunk
 
             /*  handle chunk on fetch  */
-            const handler = this.callbacks.get(requestId)
+            const handler = this.fetchCallbacks.get(requestId)
             if (handler !== undefined)
                 handler.callback(error ? new Error(error) : undefined, chunk, undefined, final)
         }
