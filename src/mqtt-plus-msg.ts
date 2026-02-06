@@ -22,6 +22,9 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/*  external requirements  */
+import * as v           from "valibot"
+
 /*  internal requirements  */
 import { APISchema }    from "./mqtt-plus-api"
 import { EncodeTrait }  from "./mqtt-plus-encode"
@@ -38,6 +41,15 @@ type MessageType =
     | "source-fetch-response"
     | "source-fetch-chunk"
 
+/*  meta validation schema (non-array plain object)  */
+const MetaSchema = v.pipe(
+    v.record(v.string(), v.unknown()),
+    v.check((data) => !Array.isArray(data)))
+
+/*  reusable object schema (any non-null object)  */
+const ObjectSchema = v.custom<object>((input) =>
+    typeof input === "object" && input !== null)
+
 /*  base class  */
 class Base {
     constructor (
@@ -46,6 +58,12 @@ class Base {
         public sender?:   string,
         public receiver?: string
     ) {}
+}
+const BaseSchema = {
+    type:                 v.string(),
+    id:                   v.string(),
+    sender:               v.optional(v.string()),
+    receiver:             v.optional(v.string())
 }
 
 /*  event emission  */
@@ -60,6 +78,14 @@ export class EventEmission extends Base {
         public meta?:   Record<string, any>
     ) { super("event-emission", id, sender, receiver) }
 }
+const EventEmissionSchema = v.strictObject({
+    ...BaseSchema,
+    type:               v.literal("event-emission"),
+    name:               v.string(),
+    params:             v.optional(v.array(v.unknown())),
+    auth:               v.optional(v.array(v.string())),
+    meta:               v.optional(MetaSchema)
+})
 
 /*  service request  */
 export class ServiceCallRequest extends Base {
@@ -73,6 +99,14 @@ export class ServiceCallRequest extends Base {
         public meta?:   Record<string, any>
     ) { super("service-call-request", id, sender, receiver) }
 }
+const ServiceCallRequestSchema = v.strictObject({
+    ...BaseSchema,
+    type:               v.literal("service-call-request"),
+    name:               v.string(),
+    params:             v.optional(v.array(v.unknown())),
+    auth:               v.optional(v.array(v.string())),
+    meta:               v.optional(MetaSchema)
+})
 
 /*  service response  */
 export class ServiceCallResponse extends Base {
@@ -84,6 +118,12 @@ export class ServiceCallResponse extends Base {
         receiver?:      string
     ) { super("service-call-response", id, sender, receiver) }
 }
+const ServiceCallResponseSchema = v.strictObject({
+    ...BaseSchema,
+    type:               v.literal("service-call-response"),
+    result:             v.optional(v.unknown()),
+    error:              v.optional(v.string())
+})
 
 /*  sink push request  */
 export class SinkPushRequest extends Base {
@@ -97,6 +137,14 @@ export class SinkPushRequest extends Base {
         public meta?:    Record<string, any>
     ) { super("sink-push-request", id, sender, receiver) }
 }
+const SinkPushRequestSchema = v.strictObject({
+    ...BaseSchema,
+    type:                v.literal("sink-push-request"),
+    name:                v.string(),
+    params:              v.optional(v.array(v.unknown())),
+    auth:                v.optional(v.array(v.string())),
+    meta:                v.optional(MetaSchema)
+})
 
 /*  sink push response (ack/nak)  */
 export class SinkPushResponse extends Base {
@@ -110,6 +158,14 @@ export class SinkPushResponse extends Base {
         public meta?:    Record<string, any>
     ) { super("sink-push-response", id, sender, receiver) }
 }
+const SinkPushResponseSchema = v.strictObject({
+    ...BaseSchema,
+    type:                v.literal("sink-push-response"),
+    name:                v.string(),
+    error:               v.optional(v.string()),
+    auth:                v.optional(v.array(v.string())),
+    meta:                v.optional(MetaSchema)
+})
 
 /*  sink push chunk (actual data transfer)  */
 export class SinkPushChunk extends Base {
@@ -123,6 +179,14 @@ export class SinkPushChunk extends Base {
         receiver?:       string
     ) { super("sink-push-chunk", id, sender, receiver) }
 }
+const SinkPushChunkSchema = v.strictObject({
+    ...BaseSchema,
+    type:                v.literal("sink-push-chunk"),
+    name:                v.string(),
+    chunk:               v.optional(ObjectSchema),
+    error:               v.optional(v.string()),
+    final:               v.optional(v.boolean())
+})
 
 /*  source fetch request  */
 export class SourceFetchRequest extends Base {
@@ -136,6 +200,14 @@ export class SourceFetchRequest extends Base {
         public meta?:    Record<string, any>
     ) { super("source-fetch-request", id, sender, receiver) }
 }
+const SourceFetchRequestSchema = v.strictObject({
+    ...BaseSchema,
+    type:                v.literal("source-fetch-request"),
+    name:                v.string(),
+    params:              v.optional(v.array(v.unknown())),
+    auth:                v.optional(v.array(v.string())),
+    meta:                v.optional(MetaSchema)
+})
 
 /*  source fetch response (ack/nak)  */
 export class SourceFetchResponse extends Base {
@@ -149,6 +221,14 @@ export class SourceFetchResponse extends Base {
         public meta?:    Record<string, any>
     ) { super("source-fetch-response", id, sender, receiver) }
 }
+const SourceFetchResponseSchema = v.strictObject({
+    ...BaseSchema,
+    type:                v.literal("source-fetch-response"),
+    name:                v.string(),
+    error:               v.optional(v.string()),
+    auth:                v.optional(v.array(v.string())),
+    meta:                v.optional(MetaSchema)
+})
 
 /*  source fetch chunk (actual data transfer)  */
 export class SourceFetchChunk extends Base {
@@ -162,6 +242,14 @@ export class SourceFetchChunk extends Base {
         receiver?:       string
     ) { super("source-fetch-chunk", id, sender, receiver) }
 }
+const SourceFetchChunkSchema = v.strictObject({
+    ...BaseSchema,
+    type:                v.literal("source-fetch-chunk"),
+    name:                v.string(),
+    chunk:               v.optional(ObjectSchema),
+    error:               v.optional(v.string()),
+    final:               v.optional(v.boolean())
+})
 
 /*  utility class  */
 class Msg {
@@ -293,145 +381,61 @@ class Msg {
         SourceFetchChunk {
         if (typeof obj !== "object" || obj === null)
             throw new Error("invalid argument: not an object")
-
-        /*  validate common fields  */
-        if (!("type" in obj) || typeof obj.type !== "string")
+        if (typeof obj.type !== "string")
             throw new Error("invalid object: missing or invalid \"type\" field")
-        if (!("id" in obj) || typeof obj.id !== "string")
-            throw new Error("invalid object: missing or invalid \"id\" field")
-        if ("sender" in obj && obj.sender !== undefined && typeof obj.sender !== "string")
-            throw new Error("invalid object: invalid \"sender\" field")
-        if ("receiver" in obj && obj.receiver !== undefined && typeof obj.receiver !== "string")
-            throw new Error("invalid object: invalid \"receiver\" field")
-
-        /*  utility predicates for validation  */
-        const anyFieldsExcept = (o: object, allowed: string[]) =>
-            Object.keys(o).some((key) => !allowed.includes(key))
-        const validParams = (o: any) =>
-            o.params === undefined || (typeof o.params === "object" && Array.isArray(o.params))
-        const validAuth = (o: any) =>
-            o.auth === undefined || (Array.isArray(o.auth) && o.auth.every((v: unknown) => typeof v === "string"))
-        const validMeta = (o: any) =>
-            o.meta === undefined || (typeof o.meta === "object" && o.meta !== null && !Array.isArray(o.meta))
 
         /*  dispatch according to type indication by field  */
+        const parseObject = <T>(obj: any, name: string, schema: v.BaseSchema<any, any, any>): T => {
+            const res = v.safeParse(schema, obj)
+            if (!res.success) {
+                const issues = res.issues.map((issue) => issue.message).join("; ")
+                throw new Error(`invalid ${name} object: ${issues}`)
+            }
+            return res.output
+        }
         if (obj.type === "event-emission") {
-            /*  detect and parse event emission  */
-            if (typeof obj.name !== "string")
-                throw new Error("invalid EventEmission object: \"name\" field must be a string")
-            if (anyFieldsExcept(obj, [ "type", "id", "name", "params", "sender", "receiver", "auth", "meta" ]))
-                throw new Error("invalid EventEmission object: contains unknown fields")
-            if (!validParams(obj))
-                throw new Error("invalid EventEmission object: \"params\" field must be an array")
-            if (!validAuth(obj))
-                throw new Error("invalid EventEmission object: \"auth\" field must be a string array")
-            if (!validMeta(obj))
-                throw new Error("invalid EventEmission object: \"meta\" field must be an object")
-            return this.makeEventEmission(obj.id, obj.name, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
+            const out = parseObject<EventEmission>(obj, "EventEmission", EventEmissionSchema)
+            return this.makeEventEmission(out.id, out.name, out.params, out.sender, out.receiver,
+                out.auth, out.meta as Record<string, any>)
         }
         else if (obj.type === "service-call-request") {
-            /*  detect and parse service request  */
-            if (typeof obj.name !== "string")
-                throw new Error("invalid ServiceCallRequest object: \"name\" field must be a string")
-            if (anyFieldsExcept(obj, [ "type", "id", "name", "params", "sender", "receiver", "auth", "meta" ]))
-                throw new Error("invalid ServiceCallRequest object: contains unknown fields")
-            if (!validParams(obj))
-                throw new Error("invalid ServiceCallRequest object: \"params\" field must be an array")
-            if (!validAuth(obj))
-                throw new Error("invalid ServiceCallRequest object: \"auth\" field must be a string array")
-            if (!validMeta(obj))
-                throw new Error("invalid ServiceCallRequest object: \"meta\" field must be an object")
-            return this.makeServiceCallRequest(obj.id, obj.name, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
+            const out = parseObject<ServiceCallRequest>(obj, "ServiceCallRequest", ServiceCallRequestSchema)
+            return this.makeServiceCallRequest(out.id, out.name, out.params, out.sender, out.receiver,
+                out.auth, out.meta as Record<string, any>)
         }
         else if (obj.type === "service-call-response") {
-            /*  detect and parse service response  */
-            if (anyFieldsExcept(obj, [ "type", "id", "result", "error", "sender", "receiver" ]))
-                throw new Error("invalid ServiceCallResponse object: contains unknown fields")
-            return this.makeServiceCallResponse(obj.id, obj.result, obj.error, obj.sender, obj.receiver)
+            const out = parseObject<ServiceCallResponse>(obj, "ServiceCallResponse", ServiceCallResponseSchema)
+            return this.makeServiceCallResponse(out.id, out.result, out.error, out.sender, out.receiver)
         }
         else if (obj.type === "sink-push-request") {
-            /*  detect and parse sink push request  */
-            if (typeof obj.name !== "string")
-                throw new Error("invalid SinkPushRequest object: \"name\" field must be a string")
-            if (anyFieldsExcept(obj, [ "type", "id", "name", "params", "sender", "receiver", "auth", "meta" ]))
-                throw new Error("invalid SinkPushRequest object: contains unknown fields")
-            if (!validParams(obj))
-                throw new Error("invalid SinkPushRequest object: \"params\" field must be an array")
-            if (!validAuth(obj))
-                throw new Error("invalid SinkPushRequest object: \"auth\" field must be a string array")
-            if (!validMeta(obj))
-                throw new Error("invalid SinkPushRequest object: \"meta\" field must be an object")
-            return this.makeSinkPushRequest(obj.id, obj.name, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
+            const out = parseObject<SinkPushRequest>(obj, "SinkPushRequest", SinkPushRequestSchema)
+            return this.makeSinkPushRequest(out.id, out.name, out.params, out.sender, out.receiver,
+                out.auth, out.meta as Record<string, any>)
         }
         else if (obj.type === "sink-push-response") {
-            /*  detect and parse sink push response (ack/nak)  */
-            if (typeof obj.name !== "string")
-                throw new Error("invalid SinkPushResponse object: \"name\" field must be a string")
-            if (obj.error !== undefined && typeof obj.error !== "string")
-                throw new Error("invalid SinkPushResponse object: \"error\" field must be a string")
-            if (!validAuth(obj))
-                throw new Error("invalid SinkPushResponse object: \"auth\" field must be a string array")
-            if (!validMeta(obj))
-                throw new Error("invalid SinkPushResponse object: \"meta\" field must be an object")
-            if (anyFieldsExcept(obj, [ "type", "id", "name", "error", "sender", "receiver", "auth", "meta" ]))
-                throw new Error("invalid SinkPushResponse object: contains unknown fields")
-            return this.makeSinkPushResponse(obj.id, obj.name, obj.error, obj.sender, obj.receiver, obj.auth, obj.meta)
+            const out = parseObject<SinkPushResponse>(obj, "SinkPushResponse", SinkPushResponseSchema)
+            return this.makeSinkPushResponse(out.id, out.name, out.error, out.sender, out.receiver,
+                out.auth, out.meta as Record<string, any>)
         }
         else if (obj.type === "sink-push-chunk") {
-            /*  detect and parse sink push chunk (actual data transfer)  */
-            if (typeof obj.name !== "string")
-                throw new Error("invalid SinkPushChunk object: \"name\" field must be a string")
-            if (obj.chunk !== undefined && (obj.chunk === null || typeof obj.chunk !== "object"))
-                throw new Error("invalid SinkPushChunk object: \"chunk\" field must be an object")
-            if (obj.error !== undefined && typeof obj.error !== "string")
-                throw new Error("invalid SinkPushChunk object: \"error\" field must be a string")
-            if (obj.final !== undefined && typeof obj.final !== "boolean")
-                throw new Error("invalid SinkPushChunk object: \"final\" field must be a boolean")
-            if (anyFieldsExcept(obj, [ "type", "id", "name", "chunk", "error", "final", "sender", "receiver" ]))
-                throw new Error("invalid SinkPushChunk object: contains unknown fields")
-            return this.makeSinkPushChunk(obj.id, obj.name, obj.chunk, obj.error, obj.final, obj.sender, obj.receiver)
+            const out = parseObject<SinkPushChunk>(obj, "SinkPushChunk", SinkPushChunkSchema)
+            return this.makeSinkPushChunk(out.id, out.name, out.chunk as Uint8Array, out.error,
+                out.final, out.sender, out.receiver)
         }
         else if (obj.type === "source-fetch-request") {
-            /*  detect and parse source fetch request  */
-            if (typeof obj.name !== "string")
-                throw new Error("invalid SourceFetchRequest object: \"name\" field must be a string")
-            if (anyFieldsExcept(obj, [ "type", "id", "name", "params", "sender", "receiver", "auth", "meta" ]))
-                throw new Error("invalid SourceFetchRequest object: contains unknown fields")
-            if (!validParams(obj))
-                throw new Error("invalid SourceFetchRequest object: \"params\" field must be an array")
-            if (!validAuth(obj))
-                throw new Error("invalid SourceFetchRequest object: \"auth\" field must be a string array")
-            if (!validMeta(obj))
-                throw new Error("invalid SourceFetchRequest object: \"meta\" field must be an object")
-            return this.makeSourceFetchRequest(obj.id, obj.name, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
+            const out = parseObject<SourceFetchRequest>(obj, "SourceFetchRequest", SourceFetchRequestSchema)
+            return this.makeSourceFetchRequest(out.id, out.name, out.params, out.sender, out.receiver,
+                out.auth, out.meta as Record<string, any>)
         }
         else if (obj.type === "source-fetch-response") {
-            /*  detect and parse source fetch response (ack/nak)  */
-            if (typeof obj.name !== "string")
-                throw new Error("invalid SourceFetchResponse object: \"name\" field must be a string")
-            if (obj.error !== undefined && typeof obj.error !== "string")
-                throw new Error("invalid SourceFetchResponse object: \"error\" field must be a string")
-            if (!validAuth(obj))
-                throw new Error("invalid SourceFetchResponse object: \"auth\" field must be a string array")
-            if (!validMeta(obj))
-                throw new Error("invalid SourceFetchResponse object: \"meta\" field must be an object")
-            if (anyFieldsExcept(obj, [ "type", "id", "name", "error", "sender", "receiver", "auth", "meta" ]))
-                throw new Error("invalid SourceFetchResponse object: contains unknown fields")
-            return this.makeSourceFetchResponse(obj.id, obj.name, obj.error, obj.sender, obj.receiver, obj.auth, obj.meta)
+            const out = parseObject<SourceFetchResponse>(obj, "SourceFetchResponse", SourceFetchResponseSchema)
+            return this.makeSourceFetchResponse(out.id, out.name, out.error, out.sender, out.receiver,
+                out.auth, out.meta as Record<string, any>)
         }
         else if (obj.type === "source-fetch-chunk") {
-            /*  detect and parse source fetch chunk (actual data transfer)  */
-            if (typeof obj.name !== "string")
-                throw new Error("invalid SourceFetchChunk object: \"name\" field must be a string")
-            if (obj.chunk !== undefined && (obj.chunk === null || typeof obj.chunk !== "object"))
-                throw new Error("invalid SourceFetchChunk object: \"chunk\" field must be an object")
-            if (obj.error !== undefined && typeof obj.error !== "string")
-                throw new Error("invalid SourceFetchChunk object: \"error\" field must be a string")
-            if (obj.final !== undefined && typeof obj.final !== "boolean")
-                throw new Error("invalid SourceFetchChunk object: \"final\" field must be a boolean")
-            if (anyFieldsExcept(obj, [ "type", "id", "name", "chunk", "error", "final", "sender", "receiver" ]))
-                throw new Error("invalid SourceFetchChunk object: contains unknown fields")
-            return this.makeSourceFetchChunk(obj.id, obj.name, obj.chunk, obj.error, obj.final, obj.sender, obj.receiver)
+            const out = parseObject<SourceFetchChunk>(obj, "SourceFetchChunk", SourceFetchChunkSchema)
+            return this.makeSourceFetchChunk(out.id, out.name, out.chunk as Uint8Array, out.error,
+                out.final, out.sender, out.receiver)
         }
         else
             throw new Error("invalid object: not of any known type")

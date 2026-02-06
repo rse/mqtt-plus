@@ -57,7 +57,8 @@ export default Vite.defineConfig(({ command, mode }) => ({
                 "jose/jwt/sign",
                 "jose/jwt/verify",
                 "@stablelib/pbkdf2",
-                "@stablelib/sha256"
+                "@stablelib/sha256",
+                "valibot"
             ]
         },
         lib: {

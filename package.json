@@ -68,6 +68,7 @@
         "nanoid":                     "5.1.6",
         "cbor2":                      "2.2.1",
         "p-lazy":                     "5.0.0",
+        "valibot":                    "1.2.0",
         "jose":                       "6.1.3",
         "@stablelib/pbkdf2":          "2.0.1",
         "@stablelib/sha256":          "2.0.1"
