@@ -194,8 +194,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         }
         else {
             /*  positional API  */
-            name   = nameOrConfig as K
-            params = args as Parameters<T[K]>
+            name     = nameOrConfig as K
+            params   = args as Parameters<T[K]>
         }
 
         /*  generate unique request id for the request  */
