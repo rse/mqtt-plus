@@ -309,6 +309,10 @@ class Msg {
             Object.keys(o).some((key) => !allowed.includes(key))
         const validParams = (o: any) =>
             o.params === undefined || (typeof o.params === "object" && Array.isArray(o.params))
+        const validAuth = (o: any) =>
+            o.auth === undefined || (Array.isArray(o.auth) && o.auth.every((v: unknown) => typeof v === "string"))
+        const validMeta = (o: any) =>
+            o.meta === undefined || (typeof o.meta === "object" && o.meta !== null && !Array.isArray(o.meta))
 
         /*  dispatch according to type indication by field  */
         if (obj.type === "event-emission") {
@@ -319,6 +323,10 @@ class Msg {
                 throw new Error("invalid EventEmission object: contains unknown fields")
             if (!validParams(obj))
                 throw new Error("invalid EventEmission object: \"params\" field must be an array")
+            if (!validAuth(obj))
+                throw new Error("invalid EventEmission object: \"auth\" field must be a string array")
+            if (!validMeta(obj))
+                throw new Error("invalid EventEmission object: \"meta\" field must be an object")
             return this.makeEventEmission(obj.id, obj.name, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
         }
         else if (obj.type === "service-call-request") {
@@ -329,6 +337,10 @@ class Msg {
                 throw new Error("invalid ServiceCallRequest object: contains unknown fields")
             if (!validParams(obj))
                 throw new Error("invalid ServiceCallRequest object: \"params\" field must be an array")
+            if (!validAuth(obj))
+                throw new Error("invalid ServiceCallRequest object: \"auth\" field must be a string array")
+            if (!validMeta(obj))
+                throw new Error("invalid ServiceCallRequest object: \"meta\" field must be an object")
             return this.makeServiceCallRequest(obj.id, obj.name, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
         }
         else if (obj.type === "service-call-response") {
@@ -345,6 +357,10 @@ class Msg {
                 throw new Error("invalid SinkPushRequest object: contains unknown fields")
             if (!validParams(obj))
                 throw new Error("invalid SinkPushRequest object: \"params\" field must be an array")
+            if (!validAuth(obj))
+                throw new Error("invalid SinkPushRequest object: \"auth\" field must be a string array")
+            if (!validMeta(obj))
+                throw new Error("invalid SinkPushRequest object: \"meta\" field must be an object")
             return this.makeSinkPushRequest(obj.id, obj.name, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
         }
         else if (obj.type === "sink-push-response") {
@@ -353,6 +369,10 @@ class Msg {
                 throw new Error("invalid SinkPushResponse object: \"name\" field must be a string")
             if (obj.error !== undefined && typeof obj.error !== "string")
                 throw new Error("invalid SinkPushResponse object: \"error\" field must be a string")
+            if (!validAuth(obj))
+                throw new Error("invalid SinkPushResponse object: \"auth\" field must be a string array")
+            if (!validMeta(obj))
+                throw new Error("invalid SinkPushResponse object: \"meta\" field must be an object")
             if (anyFieldsExcept(obj, [ "type", "id", "name", "error", "sender", "receiver", "auth", "meta" ]))
                 throw new Error("invalid SinkPushResponse object: contains unknown fields")
             return this.makeSinkPushResponse(obj.id, obj.name, obj.error, obj.sender, obj.receiver, obj.auth, obj.meta)
@@ -379,6 +399,10 @@ class Msg {
                 throw new Error("invalid SourceFetchRequest object: contains unknown fields")
             if (!validParams(obj))
                 throw new Error("invalid SourceFetchRequest object: \"params\" field must be an array")
+            if (!validAuth(obj))
+                throw new Error("invalid SourceFetchRequest object: \"auth\" field must be a string array")
+            if (!validMeta(obj))
+                throw new Error("invalid SourceFetchRequest object: \"meta\" field must be an object")
             return this.makeSourceFetchRequest(obj.id, obj.name, obj.params, obj.sender, obj.receiver, obj.auth, obj.meta)
         }
         else if (obj.type === "source-fetch-response") {
@@ -387,6 +411,10 @@ class Msg {
                 throw new Error("invalid SourceFetchResponse object: \"name\" field must be a string")
             if (obj.error !== undefined && typeof obj.error !== "string")
                 throw new Error("invalid SourceFetchResponse object: \"error\" field must be a string")
+            if (!validAuth(obj))
+                throw new Error("invalid SourceFetchResponse object: \"auth\" field must be a string array")
+            if (!validMeta(obj))
+                throw new Error("invalid SourceFetchResponse object: \"meta\" field must be an object")
             if (anyFieldsExcept(obj, [ "type", "id", "name", "error", "sender", "receiver", "auth", "meta" ]))
                 throw new Error("invalid SourceFetchResponse object: contains unknown fields")
             return this.makeSourceFetchResponse(obj.id, obj.name, obj.error, obj.sender, obj.receiver, obj.auth, obj.meta)
