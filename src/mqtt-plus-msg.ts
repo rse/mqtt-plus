@@ -83,7 +83,7 @@ const EventEmissionSchema = v.strictObject({
     ...BaseSchema,
     type:               v.literal("event-emission"),
     name:               v.string(),
-    params:             v.optional(v.array(v.unknown())),
+    params:             v.optional(v.pipe(v.array(v.unknown()), v.maxLength(64))),
     auth:               v.optional(AuthSchema),
     meta:               v.optional(MetaSchema)
 })
@@ -104,7 +104,7 @@ const ServiceCallRequestSchema = v.strictObject({
     ...BaseSchema,
     type:               v.literal("service-call-request"),
     name:               v.string(),
-    params:             v.optional(v.array(v.unknown())),
+    params:             v.optional(v.pipe(v.array(v.unknown()), v.maxLength(64))),
     auth:               v.optional(AuthSchema),
     meta:               v.optional(MetaSchema)
 })
@@ -142,7 +142,7 @@ const SinkPushRequestSchema = v.strictObject({
     ...BaseSchema,
     type:                v.literal("sink-push-request"),
     name:                v.string(),
-    params:              v.optional(v.array(v.unknown())),
+    params:              v.optional(v.pipe(v.array(v.unknown()), v.maxLength(64))),
     auth:                v.optional(AuthSchema),
     meta:                v.optional(MetaSchema)
 })
@@ -205,7 +205,7 @@ const SourceFetchRequestSchema = v.strictObject({
     ...BaseSchema,
     type:                v.literal("source-fetch-request"),
     name:                v.string(),
-    params:              v.optional(v.array(v.unknown())),
+    params:              v.optional(v.pipe(v.array(v.unknown()), v.maxLength(64))),
     auth:                v.optional(AuthSchema),
     meta:                v.optional(MetaSchema)
 })
@@ -371,7 +371,7 @@ class Msg {
             throw new Error("invalid object: missing or invalid \"type\" field")
 
         /*  helper function for Valibot-based validation  */
-        const parseObject = <T>(obj: any, name: string, schema: v.BaseSchema<any, any, any>): T => {
+        const parseObject = <T>(obj: unknown, name: string, schema: v.BaseSchema<any, any, any>): T => {
             const res = v.safeParse(schema, obj)
             if (!res.success) {
                 const issues = res.issues.map((issue) => issue.message).join("; ")
