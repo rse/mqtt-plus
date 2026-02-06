@@ -101,7 +101,7 @@ export class TraceTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
             return this._events.emit(...args)
         }
         catch (_err) {
-            /*  ignore error (usually caused by no existing listeners)  */
+            /*  ignore error (caused by emitting "error" without listeners)  */
             return false
         }
     }
