@@ -421,7 +421,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  handle chunk on push  */
             const readable = this.pushStreams.get(requestId)
             if (readable !== undefined) {
-                /*  utility to cleanup timer  */
                 const clearPushTimer = () => {
                     const timer = this.pushTimers.get(requestId)
                     if (timer !== undefined) {
@@ -429,13 +428,24 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         this.pushTimers.delete(requestId)
                     }
                 }
-
                 if (error !== undefined) {
                     clearPushTimer()
                     readable.destroy(new Error(error))
                     this.pushStreams.delete(requestId)
                 }
                 else {
+                    const timer = this.pushTimers.get(requestId)
+                    if (timer !== undefined) {
+                        clearTimeout(timer)
+                        this.pushTimers.set(requestId, setTimeout(() => {
+                            const stream = this.pushStreams.get(requestId)
+                            if (stream !== undefined) {
+                                stream.destroy(new Error("push stream timeout"))
+                                this.pushStreams.delete(requestId)
+                                this.pushTimers.delete(requestId)
+                            }
+                        }, this.options.timeout))
+                    }
                     if (chunk !== undefined)
                         readable.push(chunk)
                     if (final) {
