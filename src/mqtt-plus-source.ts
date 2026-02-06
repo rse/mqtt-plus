@@ -371,7 +371,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     info.receiver = receiver
                 if (parsed.meta)
                     info.meta = parsed.meta
-                if (handler?.auth)
+                if (handler.auth)
                     info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
 
                 /*  generate corresponding MQTT topics  */

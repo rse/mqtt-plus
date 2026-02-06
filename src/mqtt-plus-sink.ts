@@ -325,7 +325,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     info.receiver = receiver
                 if (parsed.meta)
                     info.meta = parsed.meta
-                if (handler?.auth)
+                if (handler.auth)
                     info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
 
                 /*  generate corresponding MQTT topic for response  */
@@ -361,7 +361,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  check authentication and prepare stream  */
                 let responseSent = false
-                Promise.resolve().then(() => {
+                Promise.resolve().then(async () => {
                     if (info.authenticated !== undefined && !info.authenticated)
                         throw new Error(`sink "${name}" failed authentication`)
 
