@@ -133,7 +133,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     this._unsubscribeTopic(topicReqB),
                     this._unsubscribeTopic(topicReqD),
                     this._unsubscribeTopic(topicChunkD)
-                ]).catch((err: Error) => {
+                ]).then(() => {}).catch((err: Error) => {
                     this.error(err, `destroy: failed to unsubscribe from topics for sink "${name}"`)
                 })
             }
