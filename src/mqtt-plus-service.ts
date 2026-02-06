@@ -281,6 +281,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             /*  deliver service request and send response  */
             const rid     = parsed.id
             const name    = parsed.name
+            if (topicMatch.name !== name)
+                throw new Error(`service name mismatch between topic "${topicMatch.name}" and payload "${name}"`)
             const handler = this.services.get(name)
             const params  = parsed.params ?? []
             const info: InfoService = { sender: parsed.sender ?? "" }

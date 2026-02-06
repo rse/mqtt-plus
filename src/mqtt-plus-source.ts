@@ -355,6 +355,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             && topicMatch.operation === "source-fetch-request"
             && parsed instanceof SourceFetchRequest) {
             const name = parsed.name
+            if (topicMatch.name !== name)
+                throw new Error(`source name mismatch between topic "${topicMatch.name}" and payload "${name}"`)
             const handler = this.sources.get(name)
             if (handler === undefined)
                 throw new Error(`handler for source "${name}" not found`)
@@ -434,6 +436,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             && parsed instanceof SourceFetchResponse) {
             /*  determine information  */
             const requestId = parsed.id
+            if (topicMatch.name !== parsed.name)
+                throw new Error(`source name mismatch between topic "${topicMatch.name}" and payload "${parsed.name}"`)
             const error = parsed.error
             const meta  = parsed.meta
 
@@ -453,6 +457,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             && parsed instanceof SourceFetchChunk) {
             /*  determine information  */
             const requestId = parsed.id
+            if (topicMatch.name !== parsed.name)
+                throw new Error(`source name mismatch between topic "${topicMatch.name}" and payload "${parsed.name}"`)
             const error = parsed.error
             const final = parsed.final
             const chunk = (parsed.chunk !== undefined && !(parsed.chunk instanceof Uint8Array))

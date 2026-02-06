@@ -217,6 +217,8 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             && parsed instanceof EventEmission) {
             /*  just deliver event  */
             const name = parsed.name
+            if (topicMatch.name !== name)
+                throw new Error(`event name mismatch between topic "${topicMatch.name}" and payload "${name}"`)
             const handler = this.events.get(name)
             const params = parsed.params ?? []
             const info: InfoEvent = { sender: parsed.sender ?? "" }

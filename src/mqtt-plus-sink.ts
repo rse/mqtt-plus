@@ -309,6 +309,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             && topicMatch.operation === "sink-push-request"
             && parsed instanceof SinkPushRequest) {
             const name = parsed.name
+            if (topicMatch.name !== name)
+                throw new Error(`sink name mismatch between topic "${topicMatch.name}" and payload "${name}"`)
             const handler = this.sinks.get(name)
             if (handler === undefined)
                 throw new Error(`handler for sink "${name}" not found`)
@@ -408,6 +410,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             && topicMatch.operation === "sink-push-response"
             && parsed instanceof SinkPushResponse) {
             const requestId = parsed.id
+            if (topicMatch.name !== parsed.name)
+                throw new Error(`sink name mismatch between topic "${topicMatch.name}" and payload "${parsed.name}"`)
             const handler   = this.pushCallbacks.get(requestId)
             if (handler !== undefined)
                 handler.callback(parsed)
@@ -419,6 +423,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             && parsed instanceof SinkPushChunk) {
             /*  determine information  */
             const requestId = parsed.id
+            if (topicMatch.name !== parsed.name)
+                throw new Error(`sink name mismatch between topic "${topicMatch.name}" and payload "${parsed.name}"`)
             const error = parsed.error
             const final = parsed.final
             const chunk = (parsed.chunk !== undefined && !(parsed.chunk instanceof Uint8Array))
