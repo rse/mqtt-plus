@@ -395,6 +395,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 }
 
                 /*  call the handler callback  */
+                let ackSent = false
                 await Promise.resolve().then(() => {
                     if (info.authenticated !== undefined && !info.authenticated)
                         throw new Error(`source "${name}" failed authentication`)
@@ -406,6 +407,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
                     /*  send ack response  */
                     await sendResponse()
+                    ackSent = true
 
                     /*  dispatch according to data type  */
                     if (info.stream instanceof Readable)
@@ -415,10 +417,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         /*  handle Buffer result  */
                         await sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk)
                 }).catch((err: unknown) => {
-                    /*  send error (nak response)  */
+                    /*  send error as nak response or as error chunk  */
                     const error = err instanceof Error ? err : new Error(String(err))
                     this.error(error)
-                    return sendResponse(error.message)
+                    if (ackSent)
+                        return sendChunk(undefined, error.message, true)
+                    else
+                        return sendResponse(error.message)
                 })
             }
         }
