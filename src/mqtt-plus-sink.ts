@@ -74,7 +74,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             share?:    string,
             auth?:     AuthOption
         },
-        ...args:  any[]
+        ...args:       any[]
     ): Promise<Registration> {
         /*  determine actual parameters  */
         let name:     K
