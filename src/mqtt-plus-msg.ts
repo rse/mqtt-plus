@@ -305,10 +305,10 @@ class Msg {
             throw new Error("invalid object: invalid \"receiver\" field")
 
         /*  utility predicates for validation  */
-        const anyFieldsExcept = (obj: object, allowed: string[]) =>
-            Object.keys(obj).some((key) => !allowed.includes(key))
-        const validParams = (obj: any) =>
-            obj.params === undefined || (typeof obj.params === "object" && Array.isArray(obj.params))
+        const anyFieldsExcept = (o: object, allowed: string[]) =>
+            Object.keys(o).some((key) => !allowed.includes(key))
+        const validParams = (o: any) =>
+            o.params === undefined || (typeof o.params === "object" && Array.isArray(o.params))
 
         /*  dispatch according to type indication by field  */
         if (obj.type === "event-emission") {
