@@ -36,7 +36,7 @@ class LogEvent {
         public timestamp: number,
         public level:     string,
         public msg:       string | Promise<string>,
-        public data?:     Record<string, any> | Record<string, Promise<any>>
+        public data?:     Record<string, Promise<any> | any>
     ) {}
     async resolve () {
         if (this.msg instanceof Promise)
