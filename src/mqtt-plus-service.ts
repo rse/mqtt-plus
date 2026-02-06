@@ -308,7 +308,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     errorMessage = result.message
                 else
                     errorMessage = String(result)
-                this.error(new Error(errorMessage), `handler for service "${name} failed`)
+                this.error(new Error(errorMessage), `handler for service "${name}" failed`)
                 return this.msg.makeServiceCallResponse(rid, undefined,
                     errorMessage, this.options.id, parsed.sender)
             }).then((rpcResponse) => {
