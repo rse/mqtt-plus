@@ -238,6 +238,40 @@ The **MQTT+** API provides the following functionalities:
   Call this method when the instance is no longer needed.
   The companion MQTT.js instance has to be destroyed separately.
 
+- **Event Handling**:<br/>
+
+      /*  listen for error or log events  */
+      on(event: "error", callback: (error: Error) => void): void
+      on(event: "log",   callback: (log: LogEvent) => void): void
+
+      /*  remove error or log event listener  */
+      off(event: "error", callback: (error: Error) => void): void
+      off(event: "log",   callback: (log: LogEvent) => void): void
+
+  MQTT+ emits `error` and `log` events for monitoring and debugging.
+
+  - The `on()` method registers an event listener.
+    The `"error"` event is emitted when an error occurs during
+    message processing, subscription, or publishing.
+    The `"log"` event is emitted for informational and debug-level
+    messages with a `LogEvent` object containing `timestamp`, `level`,
+    `msg`, and optional `data` fields.
+
+  - The `off()` method removes a previously registered event listener.
+
+  - The `LogEvent` object provides `resolve()` for resolving lazy
+    promise-based fields and `toString()` for rendering log entries
+    as formatted strings.
+
+  Example:
+
+      mqttp.on("error", (err) => {
+          console.error("MQTT+ error:", err.message)
+      })
+      mqttp.on("log", (log) => {
+          console.log(log.toString())
+      })
+
 - **Authentication**:<br/>
 
       /*  store server-side secret credential  */
@@ -597,14 +631,14 @@ The **MQTT+** API provides the following functionalities:
           event:     string,
           params:    any[],
           receiver?: string,
-          options?:  MQTT::IClientSubscribeOptions,
+          options?:  MQTT::IClientPublishOptions,
           meta?:     Record<string, any>
       }): void
       emit({
           event:     string,
           params:    any[],
           receiver?: string,
-          options?:  MQTT::IClientSubscribeOptions,
+          options?:  MQTT::IClientPublishOptions,
           meta?:     Record<string, any>,
           dry:       true
       }): { topic: string, payload: string | Uint8Array, options: IClientPublishOptions }
@@ -702,7 +736,7 @@ The **MQTT+** API provides the following functionalities:
           name:      string,
           params:    any[],
           receiver?: string,
-          options?:  MQTT::IClientSubscribeOptions,
+          options?:  MQTT::IClientPublishOptions,
           meta?:     Record<string, any>
       }): Promise<{
           stream:    Readable,
