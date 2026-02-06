@@ -42,7 +42,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         auth?:    AuthOption
     }>()
 
-    /*  register to an RPC event  */
+    /*  register an event handler  */
     async event<K extends EventKeys<T> & string> (
         name:     K,
         callback: WithInfo<T[K], InfoEvent>
