@@ -5,6 +5,7 @@ ChangeLog
 1.2.0 (2026-02-06)
 ------------------
 
+- IMPROVEMENT: use Valibot for more robust object validation
 - IMPROVEMENT: support concurrent operations
 - IMPROVEMENT: improve chunk sending
 - IMPROVEMENT: improve buffer handling and decoding
