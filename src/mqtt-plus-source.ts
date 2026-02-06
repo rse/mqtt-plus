@@ -390,7 +390,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     ackSent = true
 
                     /*  dispatch according to data type  */
-                    if (info.stream instanceof Readable)
+                    if (info.stream instanceof Readable && info.buffer instanceof Promise)
+                        throw new Error("handler has set both info.stream and info.buffer")
+                    else if (info.stream instanceof Readable)
                         /*  handle Readable stream result  */
                         await sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk)
                     else if (info.buffer instanceof Promise)
