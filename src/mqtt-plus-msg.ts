@@ -421,7 +421,7 @@ class Msg {
         }
         else if (obj.type === "source-fetch-chunk") {
             const out = parseObject<SourceFetchChunk>(obj, "SourceFetchChunk", SourceFetchChunkSchema)
-            return this.makeSourceFetchChunk(out.id, out.name, out.chunk as Uint8Array, out.error,
+            return this.makeSourceFetchChunk(out.id, out.name, out.chunk, out.error,
                 out.final, out.sender, out.receiver)
         }
         else
