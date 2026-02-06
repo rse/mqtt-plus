@@ -186,12 +186,12 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         }
 
         /*  generate unique request id  */
-        const rid = nanoid()
+        const requestId = nanoid()
 
         /*  generate encoded message  */
         const auth      = this.authenticate()
         const metaStore = this.metaStore(meta)
-        const request   = this.msg.makeEventEmission(rid, event, params, this.options.id, receiver, auth, metaStore)
+        const request   = this.msg.makeEventEmission(requestId, event, params, this.options.id, receiver, auth, metaStore)
         const message   = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
@@ -230,14 +230,13 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
                 throw new Error(`handler for event "${name}" not found`)
             if (handler.auth)
                 info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
-            if (info.authenticated !== undefined && !info.authenticated)
-                throw new Error(`authentication on event "${name}" failed`)
-            else
-                Promise.resolve()
-                    .then(() => handler.callback(...params, info))
-                    .catch((err: Error) => {
-                        this.error(err, `handler for event "${name}" failed`)
-                    })
+            Promise.resolve().then(() => {
+                if (info.authenticated !== undefined && !info.authenticated)
+                    throw new Error(`authentication on event "${name}" failed`)
+                return handler.callback(...params, info)
+            }).catch((err: Error) => {
+                this.error(err, `handler for event "${name}" failed`)
+            })
         }
     }
 }

@@ -180,7 +180,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         }
 
         /*  generate unique request id  */
-        const rid = nanoid()
+        const requestId = nanoid()
 
         /*  subscribe to MQTT response topic  */
         await this.callSubscribe(name, { qos: options.qos ?? 2 })
@@ -188,12 +188,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         /*  create promise for MQTT response handling  */
         const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {
             let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-                this.callCallbacks.delete(rid)
+                this.callCallbacks.delete(requestId)
                 this.callUnsubscribe(name)
                 timer = null
                 reject(new Error("communication timeout"))
             }, this.options.timeout)
-            this.callCallbacks.set(rid, {
+            this.callCallbacks.set(requestId, {
                 name,
                 callback: (err: any, result: Awaited<ReturnType<T[K]>>) => {
                     if (timer !== null) {
@@ -209,7 +209,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         /*  generate encoded message  */
         const auth      = this.authenticate()
         const metaStore = this.metaStore(meta)
-        const request   = this.msg.makeServiceCallRequest(rid, name, params, this.options.id, receiver, auth, metaStore)
+        const request   = this.msg.makeServiceCallRequest(requestId, name, params, this.options.id, receiver, auth, metaStore)
         const message   = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
@@ -218,9 +218,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         /*  publish message to MQTT topic  */
         this._publishToTopic(topic, message, { qos: 2, ...options }).catch((err: Error) => {
             /*  handle request failure (only if not already handled)  */
-            const pendingRequest = this.callCallbacks.get(rid)
+            const pendingRequest = this.callCallbacks.get(requestId)
             if (pendingRequest !== undefined) {
-                this.callCallbacks.delete(rid)
+                this.callCallbacks.delete(requestId)
                 this.callUnsubscribe(name)
                 pendingRequest.callback(err, undefined)
             }
@@ -279,12 +279,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             && topicMatch.operation === "service-call-request"
             && parsed instanceof ServiceCallRequest) {
             /*  deliver service request and send response  */
-            const rid     = parsed.id
-            const name    = parsed.name
+            const requestId = parsed.id
+            const name      = parsed.name
             if (topicMatch.name !== name)
                 throw new Error(`service name mismatch between topic "${topicMatch.name}" and payload "${name}"`)
-            const handler = this.services.get(name)
-            const params  = parsed.params ?? []
+            const handler   = this.services.get(name)
+            const params    = parsed.params ?? []
             const info: InfoService = { sender: parsed.sender ?? "" }
             if (parsed.receiver)
                 info.receiver = parsed.receiver
@@ -300,7 +300,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 return handler.callback(...params, info)
             }).then((result: any) => {
                 /*  create success response  */
-                return this.msg.makeServiceCallResponse(rid, result,
+                return this.msg.makeServiceCallResponse(requestId, result,
                     undefined, this.options.id, parsed.sender)
             }, (result: any) => {
                 /*  create error response  */
@@ -314,7 +314,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 else
                     errorMessage = String(result)
                 this.error(new Error(errorMessage), `handler for service "${name}" failed`)
-                return this.msg.makeServiceCallResponse(rid, undefined,
+                return this.msg.makeServiceCallResponse(requestId, undefined,
                     errorMessage, this.options.id, parsed.sender)
             }).then((rpcResponse) => {
                 /*  send response message  */
@@ -333,8 +333,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             && topicMatch.peerId === this.options.id
             && parsed instanceof ServiceCallResponse) {
             /*  handle service response  */
-            const rid = parsed.id
-            const request = this.callCallbacks.get(rid)
+            const requestId = parsed.id
+            const request = this.callCallbacks.get(requestId)
             if (request !== undefined) {
                 /*  call callback function  */
                 if (parsed.error !== undefined)
@@ -343,7 +343,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     request.callback(undefined, parsed.result)
 
                 /*  unsubscribe from response  */
-                this.callCallbacks.delete(rid)
+                this.callCallbacks.delete(requestId)
                 this.callUnsubscribe(request.name)
             }
         }
