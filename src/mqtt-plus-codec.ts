@@ -59,7 +59,7 @@ class Codec {
     private types = new CBOR.TypeEncoderMap()
     private tags: CBOR.TagDecoderMap = new Map<CBOR.TagNumber, CBOR.TagDecoder>()
     constructor (
-        private type: "cbor" | "json"
+        private format: "cbor" | "json"
     ) {
         /*  support direct encoding/decoding of Buffer  */
         const TAG_BUFFER = 64000
@@ -72,34 +72,34 @@ class Codec {
     }
     encode (data: unknown): Uint8Array | string {
         let result: Uint8Array | string
-        if (this.type === "cbor") {
+        if (this.format === "cbor") {
             try { result = CBOR.encode(data, { types: this.types }) }
             catch (ex: unknown) { throw new Error("failed to encode CBOR format", { cause: ex }) }
         }
-        else if (this.type === "json") {
+        else if (this.format === "json") {
             try { result = JSONX.stringify(data) }
             catch (ex: unknown) { throw new Error("failed to encode JSON format", { cause: ex }) }
         }
         else
-            throw new Error(`invalid format "${this.type}"`)
+            throw new Error(`invalid format "${this.format}"`)
         return result
     }
     decode (data: Uint8Array | string): unknown {
         let result: unknown
-        if (this.type === "cbor") {
+        if (this.format === "cbor") {
             if (!(data instanceof Uint8Array))
                 throw new Error("failed to decode CBOR format (data type is not Uint8Array)")
             try { result = CBOR.decode(data, { tags: this.tags }) }
             catch (ex: unknown) { throw new Error("failed to decode CBOR format", { cause: ex }) }
         }
-        else if (this.type === "json") {
+        else if (this.format === "json") {
             if (typeof data !== "string")
                 throw new Error("failed to decode JSON format (data type is not string)")
             try { result = JSONX.parse(data) }
             catch (ex: unknown) { throw new Error("failed to decode JSON format", { cause: ex }) }
         }
         else
-            throw new Error(`invalid format "${this.type}"`)
+            throw new Error(`invalid format "${this.format}"`)
         return result
     }
 }
