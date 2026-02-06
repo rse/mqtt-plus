@@ -115,6 +115,8 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
                     continue
                 if (!Array.isArray(payload.roles))
                     continue
+                if (payload.roles.length > 64)
+                    continue
                 for (const role of roles) {
                     if (payload.roles.includes(role)) {
                         authenticated = true
