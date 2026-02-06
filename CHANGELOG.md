@@ -2,10 +2,11 @@
 ChangeLog
 =========
 
-1.2.1 (2026-02-06)
+1.2.1 (2026-02-07)
 ------------------
 
 - REFACTOR: use a reference counting subscription class
+- CLEANUP: improve internal validation logic
 - CLEANUP: various code cleanups
 
 1.2.0 (2026-02-06)
