@@ -224,11 +224,11 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
                 info.receiver = parsed.receiver
             if (parsed.meta)
                 info.meta = parsed.meta
-            if (handler?.auth)
-                info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
             if (handler === undefined)
                 throw new Error(`handler for event "${name}" not found`)
-            else if (info.authenticated !== undefined && !info.authenticated)
+            if (handler.auth)
+                info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
+            if (info.authenticated !== undefined && !info.authenticated)
                 throw new Error(`authentication on event "${name}" failed`)
             else
                 Promise.resolve()
