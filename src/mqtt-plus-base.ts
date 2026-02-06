@@ -187,7 +187,9 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
         this.log("debug", `received from MQTT topic "${topic}"`, { message: parsed })
 
         /*  dispatch to trait handlers  */
-        this._dispatchMessage(topic, parsed).catch(() => {})
+        this._dispatchMessage(topic, parsed).catch((err: Error) => {
+            this.error(err, `dispatching message from MQTT topic "${topic}" failed`)
+        })
     }
 
     /*  dispatch parsed message to appropriate handler
