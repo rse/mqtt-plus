@@ -262,7 +262,7 @@ class Msg {
         receiver?:      string,
         auth?:          string[],
         meta?:          Record<string, any>
-    ): EventEmission {
+    ) {
         return new EventEmission(id, name, params, sender, receiver, auth, meta)
     }
     makeServiceCallRequest (
@@ -273,7 +273,7 @@ class Msg {
         receiver?:      string,
         auth?:          string[],
         meta?:          Record<string, any>
-    ): ServiceCallRequest {
+    ) {
         return new ServiceCallRequest(id, name, params, sender, receiver, auth, meta)
     }
     makeServiceCallResponse (
@@ -282,7 +282,7 @@ class Msg {
         error?:         string,
         sender?:        string,
         receiver?:      string
-    ): ServiceCallResponse {
+    ) {
         return new ServiceCallResponse(id, result, error, sender, receiver)
     }
     makeSinkPushRequest (
@@ -293,7 +293,7 @@ class Msg {
         receiver?:      string,
         auth?:          string[],
         meta?:          Record<string, any>
-    ): SinkPushRequest {
+    ) {
         return new SinkPushRequest(id, name, params, sender, receiver, auth, meta)
     }
     makeSinkPushResponse (
@@ -304,7 +304,7 @@ class Msg {
         receiver?:      string,
         auth?:          string[],
         meta?:          Record<string, any>
-    ): SinkPushResponse {
+    ) {
         return new SinkPushResponse(id, name, error, sender, receiver, auth, meta)
     }
     makeSinkPushChunk (
@@ -315,7 +315,7 @@ class Msg {
         final?:         boolean,
         sender?:        string,
         receiver?:      string
-    ): SinkPushChunk {
+    ) {
         return new SinkPushChunk(id, name, chunk, error, final, sender, receiver)
     }
     makeSourceFetchRequest (
@@ -326,7 +326,7 @@ class Msg {
         receiver?:      string,
         auth?:          string[],
         meta?:          Record<string, any>
-    ): SourceFetchRequest {
+    ) {
         return new SourceFetchRequest(id, name, params, sender, receiver, auth, meta)
     }
     makeSourceFetchResponse (
@@ -337,7 +337,7 @@ class Msg {
         receiver?:      string,
         auth?:          string[],
         meta?:          Record<string, any>
-    ): SourceFetchResponse {
+    ) {
         return new SourceFetchResponse(id, name, error, sender, receiver, auth, meta)
     }
     makeSourceFetchChunk (
@@ -348,7 +348,7 @@ class Msg {
         final?:         boolean,
         sender?:        string,
         receiver?:      string
-    ): SourceFetchChunk {
+    ) {
         return new SourceFetchChunk(id, name, chunk, error, final, sender, receiver)
     }
 
