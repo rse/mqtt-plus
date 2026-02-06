@@ -205,11 +205,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const responseTopic = this.options.topicMake(name, "source-fetch-response", this.options.id)
         const chunkTopic    = this.options.topicMake(name, "source-fetch-chunk",    this.options.id)
         await Promise.all([
-            this._fetchSubscribe(responseTopic, { qos: 2 }),
-            this._fetchSubscribe(chunkTopic,    { qos: 2 })
+            this.fetchSubscribe(responseTopic, { qos: 2 }),
+            this.fetchSubscribe(chunkTopic,    { qos: 2 })
         ]).catch((err: Error) => {
-            this._fetchUnsubscribe(responseTopic)
-            this._fetchUnsubscribe(chunkTopic)
+            this.fetchUnsubscribe(responseTopic)
+            this.fetchUnsubscribe(chunkTopic)
             throw err
         })
 
@@ -234,8 +234,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 clearTimeout(timer)
                 timer = null
             }
-            this._fetchUnsubscribe(responseTopic)
-            this._fetchUnsubscribe(chunkTopic)
+            this.fetchUnsubscribe(responseTopic)
+            this.fetchUnsubscribe(chunkTopic)
             this.fetchCallbacks.delete(requestId)
             if (resolveMeta)
                 metaResolve?.(undefined)
@@ -299,7 +299,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
     }
 
     /*  subscribe to fetch topics with reference counting  */
-    private async _fetchSubscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
+    private async fetchSubscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
         const count = this.fetchSubscriptions.get(topic) ?? 0
         this.fetchSubscriptions.set(topic, count + 1)
         if (count === 0) {
@@ -315,7 +315,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
     }
 
     /*  unsubscribe from fetch topics with reference counting  */
-    private _fetchUnsubscribe (topic: string): void {
+    private fetchUnsubscribe (topic: string): void {
         const count = this.fetchSubscriptions.get(topic) ?? 0
         if (count <= 1) {
             this.fetchSubscriptions.delete(topic)

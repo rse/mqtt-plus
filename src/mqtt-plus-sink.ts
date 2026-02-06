@@ -197,7 +197,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         /*  subscribe to response topic (for ack/nak)  */
         const responseTopic = this.options.topicMake(name, "sink-push-response", this.options.id)
-        await this._pushSubscribe(responseTopic, { qos: 2 })
+        await this.pushSubscribe(responseTopic, { qos: 2 })
 
         /*  define timer  */
         let timer: ReturnType<typeof setTimeout> | null = null
@@ -208,7 +208,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 clearTimeout(timer)
                 timer = null
             }
-            this._pushUnsubscribe(responseTopic)
+            this.pushUnsubscribe(responseTopic)
             this.pushCallbacks.delete(requestId)
         }
 
@@ -270,7 +270,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     }
 
     /*  subscribe to sink push response topic with reference counting  */
-    private async _pushSubscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
+    private async pushSubscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
         const count = this.pushSubscriptions.get(topic) ?? 0
         this.pushSubscriptions.set(topic, count + 1)
         if (count === 0) {
@@ -286,7 +286,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     }
 
     /*  unsubscribe from sink push response topic with reference counting  */
-    private _pushUnsubscribe (topic: string): void {
+    private pushUnsubscribe (topic: string): void {
         const count = this.pushSubscriptions.get(topic) ?? 0
         if (count <= 1) {
             this.pushSubscriptions.delete(topic)
