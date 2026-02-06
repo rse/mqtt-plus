@@ -46,6 +46,10 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
 
     /*  store server-side secret credential  */
     credential (credential: string) {
+        /*  sanity check argument  */
+        if (credential.length === 0)
+            throw new Error("credential must not be empty")
+
         /*  use a derived key with minimum length of 32 for JWT HS256  */
         const pw  = new TextEncoder().encode(credential)
         const st  = new TextEncoder().encode("mqtt-plus")
