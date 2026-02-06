@@ -220,14 +220,14 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             if (topicMatch.name !== name)
                 throw new Error(`event name mismatch between topic "${topicMatch.name}" and payload "${name}"`)
             const handler = this.events.get(name)
+            if (handler === undefined)
+                throw new Error(`handler for event "${name}" not found`)
             const params = parsed.params ?? []
             const info: InfoEvent = { sender: parsed.sender ?? "" }
             if (parsed.receiver)
                 info.receiver = parsed.receiver
             if (parsed.meta)
                 info.meta = parsed.meta
-            if (handler === undefined)
-                throw new Error(`handler for event "${name}" not found`)
             if (handler.auth)
                 info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
             Promise.resolve().then(() => {
