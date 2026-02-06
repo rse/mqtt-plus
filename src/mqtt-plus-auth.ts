@@ -106,6 +106,8 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
         /*  iterate over all roles and try to authenticate token (first-match, max 8)  */
         if (tokens !== undefined) {
             for (const token of tokens.slice(0, 8)) {
+                if (token.length > 8192)
+                    continue
                 const payload = await this.validateToken(token)
                 if (payload === null)
                     continue
