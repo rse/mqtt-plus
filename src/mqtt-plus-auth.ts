@@ -41,17 +41,15 @@ export type TokenPayload = { roles: AuthRole[], id?: string }
 /*  authentication trait  */
 export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
     /*  internal state  */
-    private _credential: string | null = null
+    private _credential: Uint8Array | null = null
     private _tokens = new Set<string>()
 
     /*  store server-side secret credential  */
     credential (credential: string) {
         /*  use a derived key with minimum length of 32 for JWT HS256  */
-        const pw   = new TextEncoder().encode(credential)
-        const st   = new TextEncoder().encode("mqtt-plus")
-        const key  = pbkdf2.deriveKey(sha256.SHA256, pw, st, 100000, 32)
-        const cred = new TextDecoder().decode(key)
-        this._credential = cred
+        const pw  = new TextEncoder().encode(credential)
+        const st  = new TextEncoder().encode("mqtt-plus")
+        this._credential = pbkdf2.deriveKey(sha256.SHA256, pw, st, 100000, 32)
     }
 
     /*  issue client-side token on server-side  */
@@ -60,8 +58,7 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
             throw new Error("credential has to be provided before issuing tokens")
         const jwt = new SignJWT(payload)
         jwt.setProtectedHeader({ alg: "HS256", typ: "JWT" })
-        const key = new TextEncoder().encode(this._credential)
-        const token = await jwt.sign(key)
+        const token = await jwt.sign(this._credential)
         return token
     }
 
@@ -82,8 +79,7 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
     private async validateToken (token: string) {
         if (this._credential === null)
             throw new Error("credential has to be provided before validating tokens")
-        const key = new TextEncoder().encode(this._credential)
-        const result = await jwtVerify(token, key).catch(() => null)
+        const result = await jwtVerify(token, this._credential).catch(() => null)
         return (result?.payload as TokenPayload) ?? null
     }
 
