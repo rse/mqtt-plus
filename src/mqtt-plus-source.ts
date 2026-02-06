@@ -383,7 +383,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     const response = this.msg.makeSourceFetchResponse(requestId,
                         name, error, this.options.id, sender, auth, metaStore)
                     const message = this.codec.encode(response)
-                    await this._publishToTopic(responseTopic, message, { qos: 2 }).catch(() => {})
+                    await this._publishToTopic(responseTopic, message, { qos: 2 })
                 }
 
                 /*  callback for creating and sending a chunk message  */
