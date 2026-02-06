@@ -336,7 +336,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             && parsed instanceof SourceFetchRequest) {
             const name = parsed.name
             const handler = this.sources.get(name)
-            if (handler !== undefined) {
+            if (handler === undefined)
+                throw new Error(`handler for source "${name}" not found`)
+            else {
                 /*  determine information  */
                 const requestId = parsed.id
                 const source    = parsed.name

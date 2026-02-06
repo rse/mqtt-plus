@@ -310,7 +310,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             && parsed instanceof SinkPushRequest) {
             const name = parsed.name
             const handler = this.sinks.get(name)
-            if (handler !== undefined) {
+            if (handler === undefined)
+                throw new Error(`handler for sink "${name}" not found`)
+            else {
                 /*  determine information  */
                 const requestId = parsed.id
                 const params    = parsed.params ?? []
