@@ -289,7 +289,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
             Promise.resolve().then(() => {
                 if (handler === undefined)
-                    throw new Error(`service "${name}" not found`)
+                    throw new Error(`handler for service "${name}" not found`)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`service "${name}" failed authentication`)
                 return handler.callback(...params, info)
@@ -308,7 +308,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     errorMessage = result.message
                 else
                     errorMessage = String(result)
-                this.error(new Error(errorMessage))
+                this.error(new Error(errorMessage), `handler for service "${name} failed`)
                 return this.msg.makeServiceCallResponse(rid, undefined,
                     errorMessage, this.options.id, parsed.sender)
             }).then((rpcResponse) => {
