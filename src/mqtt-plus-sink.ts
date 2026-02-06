@@ -332,13 +332,13 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const responseTopic = this.options.topicMake(name, "sink-push-response", sender)
 
                 /*  callback for sending the ack/nak response  */
-                const sendResponse = (error?: string) => {
+                const sendResponse = async (error?: string) => {
                     const auth = this.authenticate()
                     const metaStore = this.metaStore(info.meta)
                     const response = this.msg.makeSinkPushResponse(requestId,
                         name, error, this.options.id, sender, auth, metaStore)
                     const message = this.codec.encode(response)
-                    this._publishToTopic(responseTopic, message, { qos: 2 }).catch(() => {})
+                    await this._publishToTopic(responseTopic, message, { qos: 2 })
                 }
 
                 /*  utility function for cleanup  */
@@ -388,19 +388,19 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     info.buffer = promise
 
                     /*  send ack response  */
-                    sendResponse()
+                    await sendResponse()
                     responseSent = true
 
                     /*  call handler  */
                     return handler.callback(...params, info)
-                }).catch((err: Error) => {
+                }).catch(async (err: Error) => {
                     /*  cleanup resources  */
                     cleanupStream()
 
                     /*  send error (nak response)  */
                     this.error(err)
                     if (!responseSent)
-                        sendResponse(err.message)
+                        await sendResponse(err.message)
                 })
             }
         }
