@@ -54,6 +54,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             final: boolean             | undefined
         ) => void
     }>()
+    private fetchSubscriptions = new Map<string, number>()
 
     /*  establish a source (for fetch requests)  */
     async source<K extends SourceKeys<T> & string> (
@@ -204,11 +205,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const responseTopic = this.options.topicMake(name, "source-fetch-response", this.options.id)
         const chunkTopic    = this.options.topicMake(name, "source-fetch-chunk",    this.options.id)
         await Promise.all([
-            this._subscribeTopic(responseTopic, { qos: 2 }),
-            this._subscribeTopic(chunkTopic,    { qos: 2 })
+            this._fetchSubscribe(responseTopic, { qos: 2 }),
+            this._fetchSubscribe(chunkTopic,    { qos: 2 })
         ]).catch((err: Error) => {
-            this._unsubscribeTopic(responseTopic).catch(() => {})
-            this._unsubscribeTopic(chunkTopic).catch(() => {})
+            this._fetchUnsubscribe(responseTopic)
+            this._fetchUnsubscribe(chunkTopic)
             throw err
         })
 
@@ -233,8 +234,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 clearTimeout(timer)
                 timer = null
             }
-            this._unsubscribeTopic(responseTopic).catch(() => {})
-            this._unsubscribeTopic(chunkTopic).catch(() => {})
+            this._fetchUnsubscribe(responseTopic)
+            this._fetchUnsubscribe(chunkTopic)
             this.callbacks.delete(requestId)
             if (resolveMeta)
                 metaResolve?.(undefined)
@@ -295,6 +296,33 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  produce result  */
         return { stream, buffer, meta: metaP }
+    }
+
+    /*  subscribe to fetch topics with reference counting  */
+    private async _fetchSubscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
+        const count = this.fetchSubscriptions.get(topic) ?? 0
+        this.fetchSubscriptions.set(topic, count + 1)
+        if (count === 0) {
+            await this._subscribeTopic(topic, options).catch((err: Error) => {
+                const currentCount = this.fetchSubscriptions.get(topic) ?? 0
+                if (currentCount > 1)
+                    this.fetchSubscriptions.set(topic, currentCount - 1)
+                else
+                    this.fetchSubscriptions.delete(topic)
+                throw err
+            })
+        }
+    }
+
+    /*  unsubscribe from fetch topics with reference counting  */
+    private _fetchUnsubscribe (topic: string): void {
+        const count = this.fetchSubscriptions.get(topic) ?? 0
+        if (count <= 1) {
+            this.fetchSubscriptions.delete(topic)
+            this._unsubscribeTopic(topic).catch(() => {})
+        }
+        else
+            this.fetchSubscriptions.set(topic, count - 1)
     }
 
     /*  dispatch message (Source Fetch pattern handling)  */
