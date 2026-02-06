@@ -46,7 +46,12 @@ const MetaSchema = v.pipe(
     v.record(v.string(), v.unknown()),
     v.check((data) => !Array.isArray(data)))
 
-/*  reusable object schema (any non-null object)  */
+/*  reusable auth validation schema (max 8 tokens, max 8192 chars each)  */
+const AuthSchema = v.pipe(
+    v.array(v.pipe(v.string(), v.maxLength(8192))),
+    v.maxLength(8))
+
+/*  reusable object schema (non-null object, e.g. deserialized Uint8Array)  */
 const ObjectSchema = v.custom<object>((input) =>
     typeof input === "object" && input !== null)
 
@@ -83,7 +88,7 @@ const EventEmissionSchema = v.strictObject({
     type:               v.literal("event-emission"),
     name:               v.string(),
     params:             v.optional(v.array(v.unknown())),
-    auth:               v.optional(v.array(v.string())),
+    auth:               v.optional(AuthSchema),
     meta:               v.optional(MetaSchema)
 })
 
@@ -104,7 +109,7 @@ const ServiceCallRequestSchema = v.strictObject({
     type:               v.literal("service-call-request"),
     name:               v.string(),
     params:             v.optional(v.array(v.unknown())),
-    auth:               v.optional(v.array(v.string())),
+    auth:               v.optional(AuthSchema),
     meta:               v.optional(MetaSchema)
 })
 
@@ -142,7 +147,7 @@ const SinkPushRequestSchema = v.strictObject({
     type:                v.literal("sink-push-request"),
     name:                v.string(),
     params:              v.optional(v.array(v.unknown())),
-    auth:                v.optional(v.array(v.string())),
+    auth:                v.optional(AuthSchema),
     meta:                v.optional(MetaSchema)
 })
 
@@ -163,7 +168,7 @@ const SinkPushResponseSchema = v.strictObject({
     type:                v.literal("sink-push-response"),
     name:                v.string(),
     error:               v.optional(v.string()),
-    auth:                v.optional(v.array(v.string())),
+    auth:                v.optional(AuthSchema),
     meta:                v.optional(MetaSchema)
 })
 
@@ -205,7 +210,7 @@ const SourceFetchRequestSchema = v.strictObject({
     type:                v.literal("source-fetch-request"),
     name:                v.string(),
     params:              v.optional(v.array(v.unknown())),
-    auth:                v.optional(v.array(v.string())),
+    auth:                v.optional(AuthSchema),
     meta:                v.optional(MetaSchema)
 })
 
@@ -226,7 +231,7 @@ const SourceFetchResponseSchema = v.strictObject({
     type:                v.literal("source-fetch-response"),
     name:                v.string(),
     error:               v.optional(v.string()),
-    auth:                v.optional(v.array(v.string())),
+    auth:                v.optional(AuthSchema),
     meta:                v.optional(MetaSchema)
 })
 
