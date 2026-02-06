@@ -253,7 +253,7 @@ const SourceFetchChunkSchema = v.strictObject({
 
 /*  utility class  */
 class Msg {
-    /*  factory for event emission  */
+    /*  factories for creating objects  */
     makeEventEmission (
         id:             string,
         name:           string,
@@ -265,8 +265,6 @@ class Msg {
     ): EventEmission {
         return new EventEmission(id, name, params, sender, receiver, auth, meta)
     }
-
-    /*  factory for service request  */
     makeServiceCallRequest (
         id:             string,
         name:           string,
@@ -278,8 +276,6 @@ class Msg {
     ): ServiceCallRequest {
         return new ServiceCallRequest(id, name, params, sender, receiver, auth, meta)
     }
-
-    /*  factory for service response  */
     makeServiceCallResponse (
         id:             string,
         result?:        any,
@@ -289,8 +285,6 @@ class Msg {
     ): ServiceCallResponse {
         return new ServiceCallResponse(id, result, error, sender, receiver)
     }
-
-    /*  factory for sink push request  */
     makeSinkPushRequest (
         id:             string,
         name:           string,
@@ -302,8 +296,6 @@ class Msg {
     ): SinkPushRequest {
         return new SinkPushRequest(id, name, params, sender, receiver, auth, meta)
     }
-
-    /*  factory for sink push response  */
     makeSinkPushResponse (
         id:             string,
         name:           string,
@@ -315,8 +307,6 @@ class Msg {
     ): SinkPushResponse {
         return new SinkPushResponse(id, name, error, sender, receiver, auth, meta)
     }
-
-    /*  factory for sink push chunk  */
     makeSinkPushChunk (
         id:             string,
         name:           string,
@@ -328,8 +318,6 @@ class Msg {
     ): SinkPushChunk {
         return new SinkPushChunk(id, name, chunk, error, final, sender, receiver)
     }
-
-    /*  factory for source fetch request  */
     makeSourceFetchRequest (
         id:             string,
         name:           string,
@@ -341,8 +329,6 @@ class Msg {
     ): SourceFetchRequest {
         return new SourceFetchRequest(id, name, params, sender, receiver, auth, meta)
     }
-
-    /*  factory for source fetch response  */
     makeSourceFetchResponse (
         id:             string,
         name:           string,
@@ -354,8 +340,6 @@ class Msg {
     ): SourceFetchResponse {
         return new SourceFetchResponse(id, name, error, sender, receiver, auth, meta)
     }
-
-    /*  factory for source fetch chunk  */
     makeSourceFetchChunk (
         id:             string,
         name:           string,
