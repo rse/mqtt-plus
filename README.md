@@ -282,8 +282,11 @@ The **MQTT+** API provides the following functionalities:
       /*  set meta information by key  */
       meta(key: string, value: any): void
 
+      /*  retrieve meta information by key  */
+      meta(key: string): any
+
       /*  delete meta information by key  */
-      meta(key: string): void
+      meta(key: string, value: null): void
 
   MQTT+ allows attaching persistent meta-data to an instance that is
   automatically included in all outgoing messages. This is useful for
@@ -291,8 +294,9 @@ The **MQTT+** API provides the following functionalities:
   identity to every request.
 
   - The `meta()` method manages instance-level meta-data:
-    called with a key only, deletes the meta-data entry for that key;
-    called with a key and value, sets the meta-data entry.
+    called with a key only, retrieves the meta-data entry for that key;
+    called with a key and non-null value, sets the meta-data entry;
+    called with a key and `null`, deletes the meta-data entry.
 
   - Instance-level meta-data set via `meta()` is merged with any per-request
     `meta` option passed to `emit()`, `call()`, `push()`, or `fetch()`.
@@ -309,8 +313,11 @@ The **MQTT+** API provides the following functionalities:
       mqttp.meta("clientVersion", "1.0.0")
       mqttp.meta("environment", "production")
 
+      /*  client: retrieve a metadata entry  */
+      const environment = mqttp.meta("environment")
+
       /*  client: delete a metadata entry  */
-      mqttp.meta("environment")
+      mqttp.meta("environment", null)
 
       /*  client: per-request metadata (merged with instance-level)  */
       mqttp.call({ name: "example/hello", params: [ "world" ], meta: { requestId: "123" } })

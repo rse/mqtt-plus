@@ -33,11 +33,13 @@ export class MetaTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
 
     /*  set/delete/retrieve meta information  */
     meta (): Record<string, any>
-    meta (key: string): void
+    meta (key: string): any
     meta (key: string, value: any): void
-    meta (key?: string, value?: any): Record<string, any> | void {
+    meta (key?: string, value?: any): Record<string, any> | any | void {
         if (key === undefined)
             return Object.fromEntries(this._meta)
+        else if (arguments.length === 1)
+            return this._meta.get(key)
         else if (value === undefined || value === null)
             this._meta.delete(key)
         else
