@@ -383,12 +383,12 @@ class Msg {
         if (obj.type === "event-emission") {
             const out = parseObject<EventEmission>(obj, "EventEmission", EventEmissionSchema)
             return this.makeEventEmission(out.id, out.name, out.params, out.sender, out.receiver,
-                out.auth, out.meta as Record<string, any>)
+                out.auth, out.meta)
         }
         else if (obj.type === "service-call-request") {
             const out = parseObject<ServiceCallRequest>(obj, "ServiceCallRequest", ServiceCallRequestSchema)
             return this.makeServiceCallRequest(out.id, out.name, out.params, out.sender, out.receiver,
-                out.auth, out.meta as Record<string, any>)
+                out.auth, out.meta)
         }
         else if (obj.type === "service-call-response") {
             const out = parseObject<ServiceCallResponse>(obj, "ServiceCallResponse", ServiceCallResponseSchema)
@@ -397,27 +397,27 @@ class Msg {
         else if (obj.type === "sink-push-request") {
             const out = parseObject<SinkPushRequest>(obj, "SinkPushRequest", SinkPushRequestSchema)
             return this.makeSinkPushRequest(out.id, out.name, out.params, out.sender, out.receiver,
-                out.auth, out.meta as Record<string, any>)
+                out.auth, out.meta)
         }
         else if (obj.type === "sink-push-response") {
             const out = parseObject<SinkPushResponse>(obj, "SinkPushResponse", SinkPushResponseSchema)
             return this.makeSinkPushResponse(out.id, out.name, out.error, out.sender, out.receiver,
-                out.auth, out.meta as Record<string, any>)
+                out.auth, out.meta)
         }
         else if (obj.type === "sink-push-chunk") {
             const out = parseObject<SinkPushChunk>(obj, "SinkPushChunk", SinkPushChunkSchema)
-            return this.makeSinkPushChunk(out.id, out.name, out.chunk as Uint8Array, out.error,
+            return this.makeSinkPushChunk(out.id, out.name, out.chunk, out.error,
                 out.final, out.sender, out.receiver)
         }
         else if (obj.type === "source-fetch-request") {
             const out = parseObject<SourceFetchRequest>(obj, "SourceFetchRequest", SourceFetchRequestSchema)
             return this.makeSourceFetchRequest(out.id, out.name, out.params, out.sender, out.receiver,
-                out.auth, out.meta as Record<string, any>)
+                out.auth, out.meta)
         }
         else if (obj.type === "source-fetch-response") {
             const out = parseObject<SourceFetchResponse>(obj, "SourceFetchResponse", SourceFetchResponseSchema)
             return this.makeSourceFetchResponse(out.id, out.name, out.error, out.sender, out.receiver,
-                out.auth, out.meta as Record<string, any>)
+                out.auth, out.meta)
         }
         else if (obj.type === "source-fetch-chunk") {
             const out = parseObject<SourceFetchChunk>(obj, "SourceFetchChunk", SourceFetchChunkSchema)
