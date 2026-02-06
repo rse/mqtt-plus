@@ -41,7 +41,7 @@ import type { AuthOption }                                        from "./mqtt-p
 /*  Source Fetch Communication Trait  */
 export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
     /*  source state  */
-    protected sources = new Map<string, {
+    private sources = new Map<string, {
         callback: WithInfo<APIEndpointSource, InfoSource>,
         auth?:    AuthOption
     }>()
@@ -361,7 +361,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             else {
                 /*  determine information  */
                 const requestId = parsed.id
-                const source    = parsed.name
                 const params    = parsed.params ?? []
                 const sender    = parsed.sender ?? ""
                 const receiver  = parsed.receiver
@@ -374,15 +373,15 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
 
                 /*  generate corresponding MQTT topics  */
-                const responseTopic = this.options.topicMake(source, "source-fetch-response", sender)
-                const chunkTopic    = this.options.topicMake(source, "source-fetch-chunk", sender)
+                const responseTopic = this.options.topicMake(name, "source-fetch-response", sender)
+                const chunkTopic    = this.options.topicMake(name, "source-fetch-chunk", sender)
 
                 /*  callback for sending the ack/nak response  */
                 const sendResponse = async (error?: string) => {
                     const auth = this.authenticate()
                     const metaStore = this.metaStore(info.meta)
                     const response = this.msg.makeSourceFetchResponse(requestId,
-                        source, error, this.options.id, sender, auth, metaStore)
+                        name, error, this.options.id, sender, auth, metaStore)
                     const message = this.codec.encode(response)
                     await this._publishToTopic(responseTopic, message, { qos: 2 }).catch(() => {})
                 }
@@ -390,7 +389,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 /*  callback for creating and sending a chunk message  */
                 const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
                     const chunkMsg = this.msg.makeSourceFetchChunk(requestId,
-                        source, chunk, error, final, this.options.id, sender)
+                        name, chunk, error, final, this.options.id, sender)
                     const message = this.codec.encode(chunkMsg)
                     await this._publishToTopic(chunkTopic, message, { qos: 2 })
                 }
