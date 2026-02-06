@@ -133,11 +133,11 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
     }
 
     /*  call service ("request and response")  */
-    call<K extends ServiceKeys<T> & string> (
+    async call<K extends ServiceKeys<T> & string> (
         name:          K,
         ...params:     Parameters<T[K]>
     ): Promise<ReturnType<T[K]>>
-    call<K extends ServiceKeys<T> & string> (
+    async call<K extends ServiceKeys<T> & string> (
         config: {
             name:      K,
             params:    Parameters<T[K]>,
@@ -146,7 +146,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             meta?:     Record<string, any>
         }
     ): Promise<ReturnType<T[K]>>
-    call<K extends ServiceKeys<T> & string> (
+    async call<K extends ServiceKeys<T> & string> (
         nameOrConfig: K | {
             name:      K,
             params:    Parameters<T[K]>,
@@ -180,7 +180,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const rid = nanoid()
 
         /*  subscribe to MQTT response topic  */
-        this._responseSubscribe(name, { qos: options.qos ?? 2 })
+        await this._responseSubscribe(name, { qos: options.qos ?? 2 })
 
         /*  create promise for MQTT response handling  */
         const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {
@@ -227,7 +227,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
     }
 
     /*  subscribe to RPC response  */
-    private _responseSubscribe (service: string, options: IClientSubscribeOptions = { qos: 2 }): void {
+    private async _responseSubscribe (service: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
         /*  generate corresponding MQTT topic  */
         const topic = this.options.topicMake(service, "service-call-response", this.options.id)
 
@@ -235,7 +235,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const count = this.responseSubscriptions.get(topic) ?? 0
         this.responseSubscriptions.set(topic, count + 1)
         if (count === 0) {
-            this._subscribeTopic(topic, options).catch((err: Error) => {
+            await this._subscribeTopic(topic, options).catch((err: Error) => {
                 const currentCount = this.responseSubscriptions.get(topic) ?? 0
                 if (currentCount > 1)
                     this.responseSubscriptions.set(topic, currentCount - 1)
