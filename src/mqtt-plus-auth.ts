@@ -113,6 +113,8 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
                     continue
                 if (payload.id && payload.id !== clientId)
                     continue
+                if (!Array.isArray(payload.roles))
+                    continue
                 for (const role of roles) {
                     if (payload.roles.includes(role)) {
                         authenticated = true
