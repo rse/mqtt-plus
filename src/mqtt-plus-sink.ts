@@ -101,10 +101,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             throw new Error(`sink: sink "${name}" already established`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topic       = `$share/${share}/${name}`
-        const topicReqB   = this.options.topicMake(topic, "sink-push-request")
-        const topicReqD   = this.options.topicMake(topic, "sink-push-request", this.options.id)
-        const topicChunkD = this.options.topicMake(topic, "sink-push-chunk",   this.options.id)
+        const topicS      = `$share/${share}/${name}`
+        const topicReqB   = this.options.topicMake(topicS, "sink-push-request")
+        const topicReqD   = this.options.topicMake(name, "sink-push-request", this.options.id)
+        const topicChunkD = this.options.topicMake(name, "sink-push-chunk",   this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([

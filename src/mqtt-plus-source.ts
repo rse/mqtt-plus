@@ -105,9 +105,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             throw new Error(`source: source "${name}" already established`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topic     = `$share/${share}/${name}`
-        const topicReqB = this.options.topicMake(topic, "source-fetch-request")
-        const topicReqD = this.options.topicMake(topic, "source-fetch-request", this.options.id)
+        const topicS    = `$share/${share}/${name}`
+        const topicReqB = this.options.topicMake(topicS, "source-fetch-request")
+        const topicReqD = this.options.topicMake(name, "source-fetch-request", this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([

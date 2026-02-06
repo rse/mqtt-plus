@@ -98,9 +98,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             throw new Error(`register: service "${name}" already registered`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topic  = `$share/${share}/${name}`
-        const topicB = this.options.topicMake(topic, "service-call-request")
-        const topicD = this.options.topicMake(topic, "service-call-request", this.options.id)
+        const topicS = `$share/${share}/${name}`
+        const topicB = this.options.topicMake(topicS, "service-call-request")
+        const topicD = this.options.topicMake(name, "service-call-request", this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([

@@ -91,9 +91,9 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             throw new Error(`event: event "${name}" already registered`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topic = share ? `$share/${share}/${name}` : name
-        const topicB = this.options.topicMake(topic, "event-emission")
-        const topicD = this.options.topicMake(topic, "event-emission", this.options.id)
+        const topicS = share ? `$share/${share}/${name}` : name
+        const topicB = this.options.topicMake(topicS, "event-emission")
+        const topicD = this.options.topicMake(name, "event-emission", this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([
