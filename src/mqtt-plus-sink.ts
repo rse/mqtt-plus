@@ -252,26 +252,20 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
 
         /*  callback for creating and sending a chunk message  */
-        const sendChunk = (chunk: Uint8Array | undefined, error: string | undefined, final: boolean) => {
+        const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
             const chunkMsg = this.msg.makeSinkPushChunk(requestId,
                 name, chunk, error, final, this.options.id, receiver)
             const message = this.codec.encode(chunkMsg)
-            this._publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
+            await this._publishToTopic(chunkTopic, message, { qos: 2, ...options })
         }
 
         /*  iterate over all chunks of the buffer  */
-        return new Promise((resolve, reject) => {
-            if (data instanceof Readable) {
-                /*  attach to the readable  */
-                sendStreamAsChunks(data, this.options.chunkSize, sendChunk,
-                    () => resolve(), (err) => reject(err))
-            }
-            else if (data instanceof Uint8Array) {
-                /*  split buffer into chunks and send them  */
-                sendBufferAsChunks(data, this.options.chunkSize, sendChunk)
-                resolve()
-            }
-        })
+        if (data instanceof Readable)
+            /*  attach to the readable  */
+            await sendStreamAsChunks(data, this.options.chunkSize, sendChunk)
+        else if (data instanceof Uint8Array)
+            /*  split buffer into chunks and send them  */
+            await sendBufferAsChunks(data, this.options.chunkSize, sendChunk)
     }
 
     /*  dispatch incoming MQTT message  */

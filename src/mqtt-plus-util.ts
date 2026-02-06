@@ -77,50 +77,52 @@ export type SendChunkCallback = (
     chunk: Uint8Array | undefined,
     error: string | undefined,
     final: boolean
-) => void
+) => Promise<void>
 
 /*  utility function for sending a buffer as chunks  */
-export function sendBufferAsChunks (
+export async function sendBufferAsChunks (
     buffer:    Uint8Array,
     chunkSize: number,
     sendChunk: SendChunkCallback
-): void {
-    if (buffer.byteLength === 0) {
-        /*  handle empty buffer by sending final chunk  */
-        sendChunk(undefined, undefined, true)
-    }
+): Promise<void> {
+    if (buffer.byteLength === 0)
+        await sendChunk(undefined, undefined, true)
     else {
         for (let i = 0; i < buffer.byteLength; i += chunkSize) {
             const size  = Math.min(buffer.byteLength - i, chunkSize)
             const chunk = buffer.subarray(i, i + size)
             const final = (i + size >= buffer.byteLength)
-            sendChunk(chunk, undefined, final)
+            await sendChunk(chunk, undefined, final)
         }
     }
 }
 
 /*  utility function for sending a Readable stream as chunks  */
-export function sendStreamAsChunks (
+export async function sendStreamAsChunks (
     readable:  Readable,
     chunkSize: number,
-    sendChunk: SendChunkCallback,
-    onEnd:     () => void,
-    onError:   (err: Error) => void
-): void {
-    readable.on("readable", () => {
-        let chunk: unknown
-        while ((chunk = readable.read(chunkSize)) !== null) {
-            const buffer = chunkToBuffer(chunk)
-            sendChunk(buffer, undefined, false)
-        }
-    })
-    readable.on("end", () => {
-        sendChunk(undefined, undefined, true)
-        onEnd()
-    })
-    readable.on("error", (err: Error) => {
-        sendChunk(undefined, err.message, true)
-        onError(err)
+    sendChunk: SendChunkCallback
+): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+        readable.on("readable", async () => {
+            let chunk: unknown
+            while ((chunk = readable.read(chunkSize)) !== null) {
+                const buffer = chunkToBuffer(chunk)
+                for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+                    const size  = Math.min(buffer.byteLength - i, chunkSize)
+                    const chunk = buffer.subarray(i, i + size)
+                    await sendChunk(chunk, undefined, false)
+                }
+            }
+        })
+        readable.on("end", () => {
+            sendChunk(undefined, undefined, true)
+            resolve()
+        })
+        readable.on("error", (err) => {
+            sendChunk(undefined, err.message, true)
+            reject(err)
+        })
     })
 }
 

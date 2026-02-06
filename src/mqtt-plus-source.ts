@@ -338,15 +338,15 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 }
 
                 /*  callback for creating and sending a chunk message  */
-                const sendChunk = (chunk: Uint8Array | undefined, error: string | undefined, final: boolean) => {
+                const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
                     const chunkMsg = this.msg.makeSourceFetchChunk(requestId,
                         source, chunk, error, final, this.options.id, sender)
                     const message = this.codec.encode(chunkMsg)
-                    this._publishToTopic(chunkTopic, message, { qos: 2 }).catch(() => {})
+                    await this._publishToTopic(chunkTopic, message, { qos: 2 })
                 }
 
                 /*  call the handler callback  */
-                Promise.resolve().then(() => {
+                await Promise.resolve().then(() => {
                     if (info.authenticated !== undefined && !info.authenticated)
                         throw new Error(`source "${name}" failed authentication`)
                     return handler.callback(...params, info)
@@ -358,18 +358,18 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     /*  send ack response  */
                     await sendResponse()
 
-                    /*  handle Readable stream result  */
+                    /*  dispatch according to data type  */
                     if (info.stream instanceof Readable)
-                        sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk,
-                            () => {}, () => {})
-
-                    /*  handle Buffer result  */
+                        /*  handle Readable stream result  */
+                        await sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk)
                     else if (info.buffer instanceof Promise)
-                        sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk)
-                }).catch((err: Error) => {
+                        /*  handle Buffer result  */
+                        await sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk)
+                }).catch((err: unknown) => {
                     /*  send error (nak response)  */
-                    this.error(err)
-                    sendResponse(err.message)
+                    const error = err instanceof Error ? err : new Error(String(err))
+                    this.error(error)
+                    return sendResponse(error.message)
                 })
             }
         }
