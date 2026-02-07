@@ -172,7 +172,7 @@ const SinkPushResponseSchema = v.strictObject({
     error:               v.optional(v.string()),
     auth:                v.optional(AuthSchema),
     meta:                v.optional(MetaSchema),
-    credit:              v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)))
+    credit:              v.optional(v.pipe(v.number(), v.integer(), v.minValue(1)))
 })
 
 /*  sink push chunk (actual data transfer)  */
@@ -233,7 +233,7 @@ const SourceFetchRequestSchema = v.strictObject({
     params:              v.optional(v.pipe(v.array(v.unknown()), v.maxLength(64))),
     auth:                v.optional(AuthSchema),
     meta:                v.optional(MetaSchema),
-    credit:              v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)))
+    credit:              v.optional(v.pipe(v.number(), v.integer(), v.minValue(1)))
 })
 
 /*  source fetch response (ack/nak)  */
