@@ -31,7 +31,8 @@ import { nanoid }                                                 from "nanoid"
 
 /*  internal requirements  */
 import { CreditGate, RefCountedSubscription,
-    streamToBuffer, sendBufferAsChunks, sendStreamAsChunks }      from "./mqtt-plus-util"
+    streamToBuffer, sendBufferAsChunks,
+    sendStreamAsChunks, makeMutualExclusiveFields }               from "./mqtt-plus-util"
 import { SinkPushRequest, SinkPushResponse,
     SinkPushChunk, SinkPushCredit }                               from "./mqtt-plus-msg"
 import { APISchema, SinkKeys, APIEndpointSink, Registration }     from "./mqtt-plus-api"
@@ -429,6 +430,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     const promise = streamToBuffer(readable)
                     info.stream = readable
                     info.buffer = promise
+                    makeMutualExclusiveFields(info, "stream", "buffer")
 
                     /*  send ack response  */
                     await sendResponse()

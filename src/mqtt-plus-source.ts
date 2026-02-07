@@ -31,7 +31,8 @@ import { nanoid }                                                 from "nanoid"
 
 /*  internal requirements  */
 import { CreditGate, RefCountedSubscription,
-    streamToBuffer, sendBufferAsChunks, sendStreamAsChunks }      from "./mqtt-plus-util"
+    streamToBuffer, sendBufferAsChunks,
+    sendStreamAsChunks, makeMutualExclusiveFields }               from "./mqtt-plus-util"
 import { SourceFetchRequest, SourceFetchResponse,
     SourceFetchChunk, SourceFetchCredit }                         from "./mqtt-plus-msg"
 import { APISchema, SourceKeys, APIEndpointSource, Registration } from "./mqtt-plus-api"
@@ -356,7 +357,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         })
 
         /*  produce result  */
-        return { stream, buffer, meta: metaP }
+        const result = { stream, buffer, meta: metaP }
+        makeMutualExclusiveFields(result, "stream", "buffer")
+        return result
     }
 
     /*  dispatch message (Source Fetch pattern handling)  */
