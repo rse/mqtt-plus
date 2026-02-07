@@ -53,7 +53,7 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
         /*  use a derived key with minimum length of 32 for JWT HS256  */
         const pass = new TextEncoder().encode(credential)
         const salt = new TextEncoder().encode("mqtt-plus")
-        this._credential = pbkdf2.deriveKey(sha256.SHA256, pass, salt, 100000, 32)
+        this._credential = pbkdf2.deriveKey(sha256.SHA256, pass, salt, 600000, 32)
     }
 
     /*  issue client-side token on server-side  */
