@@ -68,7 +68,9 @@ export class RefCountedSubscription {
         }
     }
     async unsubscribe (topic: string): Promise<void> {
-        const count = this.counts.get(topic) ?? 0
+        const count = this.counts.get(topic)
+        if (count === undefined)
+            return
         if (count <= 1) {
             this.counts.delete(topic)
             await this.unsubscribeFn(topic).catch(() => {})
