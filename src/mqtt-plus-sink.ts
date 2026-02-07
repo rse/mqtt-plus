@@ -500,6 +500,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                                 stream.destroy(new Error("push stream timeout"))
                                 this.pushStreams.delete(requestId)
                                 this.pushTimers.delete(requestId)
+                                this.pushCreditState.delete(requestId)
                             }
                         }, this.options.timeout))
                     }
