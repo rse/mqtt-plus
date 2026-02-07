@@ -210,26 +210,19 @@ export async function sendStreamAsChunks (
     sendChunk:   SendChunkCallback,
     creditGate?: CreditGate
 ): Promise<void> {
-    try {
-        for await (const chunkData of readable) {
-            const buffer = chunkToBuffer(chunkData)
-            if (buffer.byteLength === 0)
-                continue
-            for (let i = 0; i < buffer.byteLength; i += chunkSize) {
-                const size  = Math.min(buffer.byteLength - i, chunkSize)
-                const chunk = buffer.subarray(i, i + size)
-                if (creditGate)
-                    await creditGate.acquire()
-                await sendChunk(chunk, undefined, false)
-            }
+    for await (const chunkData of readable) {
+        const buffer = chunkToBuffer(chunkData)
+        if (buffer.byteLength === 0)
+            continue
+        for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+            const size  = Math.min(buffer.byteLength - i, chunkSize)
+            const chunk = buffer.subarray(i, i + size)
+            if (creditGate)
+                await creditGate.acquire()
+            await sendChunk(chunk, undefined, false)
         }
-        await sendChunk(undefined, undefined, true)
     }
-    catch (err: unknown) {
-        const error = err instanceof Error ? err.message : String(err)
-        await sendChunk(undefined, error, true).catch(() => {})
-        throw err
-    }
+    await sendChunk(undefined, undefined, true)
 }
 
 /*  utility function for making two object fields mutually exclusive  */
