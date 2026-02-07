@@ -50,8 +50,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     private pushStreams   = new Map<string, Readable>()
     private pushTimers    = new Map<string, ReturnType<typeof setTimeout>>()
     private pushCallbacks = new Map<string, {
-        name:     string,
-        callback: (parsed: SinkPushResponse) => void
+        name:       string,
+        onResponse: (parsed: SinkPushResponse) => void,
+        onCredit?:  (credit: number) => void
     }>()
     private pushCreditGates = new Map<string, CreditGate>()
     private pushCreditState = new Map<string, {
@@ -218,8 +219,23 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  define timer  */
         let timer: ReturnType<typeof setTimeout> | null = null
 
+        /*  utility function for timeout refresh  */
+        const refreshTimeout = () => {
+            if (timer !== null)
+                clearTimeout(timer)
+            timer = setTimeout(() => {
+                cleanup()
+                if (creditGate)
+                    creditGate.abort()
+            }, this.options.timeout)
+        }
+
         /*  utility function for cleanup  */
+        let cleanedUp = false
         const cleanup = () => {
+            if (cleanedUp)
+                return
+            cleanedUp = true
             if (timer !== null) {
                 clearTimeout(timer)
                 timer = null
@@ -228,80 +244,90 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             this.pushCallbacks.delete(requestId)
         }
 
+        /*  start timeout handler  */
+        refreshTimeout()
+
         /*  send request and wait for response before sending chunks  */
         let initialCredit: number | undefined
-        await new Promise<void>((resolve, reject) => {
-            /*  start timeout handler  */
-            timer = setTimeout(() => {
-                cleanup()
-                reject(new Error("communication timeout"))
-            }, this.options.timeout)
-
-            /*  register callback for response  */
-            this.pushCallbacks.set(requestId, {
-                name,
-                callback: (response: SinkPushResponse) => {
-                    const error = response.error
-                    if (error)
-                        reject(new Error(error))
-                    else {
-                        if (response.sender)
-                            receiver = response.sender
-                        initialCredit = response.credit
-                        resolve()
-                    }
-                }
-            })
-
-            /*  generate and send request message  */
-            const auth      = this.authenticate()
-            const metaStore = this.metaStore(meta)
-            const request   = this.msg.makeSinkPushRequest(requestId,
-                name, params, this.options.id, receiver, auth, metaStore)
-            const message   = this.codec.encode(request)
-            const requestTopic = this.options.topicMake(name, "sink-push-request", receiver)
-            this._publishToTopic(requestTopic, message, { qos: 2, ...options }).catch((err: Error) => {
-                reject(err)
-            })
-        }).finally(() => {
-            cleanup()
-        })
-
-        /*  create credit gate for flow control (if server granted credit)  */
-        const creditGate = (initialCredit !== undefined && initialCredit > 0)
-            ? new CreditGate(initialCredit) : undefined
-
-        /*  subscribe to credit topic if flow control is active  */
-        let creditTopic: string | undefined
-        if (creditGate) {
-            creditTopic = this.options.topicMake(name, "sink-push-credit", this.options.id)
-            await this.pushSubscriptions.subscribe(creditTopic, { qos: 2 })
-            this.pushCreditGates.set(requestId, creditGate)
-        }
-
-        /*  generate corresponding MQTT topic for chunks  */
-        const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
-
-        /*  callback for creating and sending a chunk message  */
-        const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
-            const chunkMsg = this.msg.makeSinkPushChunk(requestId,
-                name, chunk, error, final, this.options.id, receiver)
-            const message = this.codec.encode(chunkMsg)
-            await this._publishToTopic(chunkTopic, message, { qos: 2, ...options })
-        }
-
-        /*  iterate over all chunks of the buffer  */
+        let creditGate: CreditGate | undefined
         try {
-            if (data instanceof Readable)
-                /*  attach to the readable  */
-                await sendStreamAsChunks(data, this.options.chunkSize, sendChunk, creditGate)
-            else if (data instanceof Uint8Array)
-                /*  split buffer into chunks and send them  */
-                await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate)
+            await new Promise<void>((resolve, reject) => {
+                /*  register callback for response  */
+                this.pushCallbacks.set(requestId, {
+                    name,
+                    onResponse: (response: SinkPushResponse) => {
+                        const error = response.error
+                        if (error)
+                            reject(new Error(error))
+                        else {
+                            if (response.sender)
+                                receiver = response.sender
+                            initialCredit = response.credit
+                            resolve()
+                        }
+                    },
+                    onCredit: (_credit: number) => {
+                        refreshTimeout()
+                    }
+                })
+
+                /*  generate and send request message  */
+                const auth      = this.authenticate()
+                const metaStore = this.metaStore(meta)
+                const request   = this.msg.makeSinkPushRequest(requestId,
+                    name, params, this.options.id, receiver, auth, metaStore)
+                const message   = this.codec.encode(request)
+                const requestTopic = this.options.topicMake(name, "sink-push-request", receiver)
+                this._publishToTopic(requestTopic, message, { qos: 2, ...options }).catch((err: Error) => {
+                    reject(err)
+                })
+            })
+
+            /*  create credit gate for flow control (if server granted credit)  */
+            if (initialCredit !== undefined && initialCredit > 0)
+                creditGate = new CreditGate(initialCredit)
+
+            /*  subscribe to credit topic if flow control is active  */
+            let creditTopic: string | undefined
+            if (creditGate) {
+                creditTopic = this.options.topicMake(name, "sink-push-credit", this.options.id)
+                await this.pushSubscriptions.subscribe(creditTopic, { qos: 2 })
+                this.pushCreditGates.set(requestId, creditGate)
+            }
+
+            try {
+                /*  generate corresponding MQTT topic for chunks  */
+                const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
+
+                /*  callback for creating and sending a chunk message  */
+                const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
+                    refreshTimeout()
+                    const chunkMsg = this.msg.makeSinkPushChunk(requestId,
+                        name, chunk, error, final, this.options.id, receiver)
+                    const message = this.codec.encode(chunkMsg)
+                    await this._publishToTopic(chunkTopic, message, { qos: 2, ...options })
+                }
+
+                /*  iterate over all chunks of the buffer  */
+                if (data instanceof Readable)
+                    /*  attach to the readable  */
+                    await sendStreamAsChunks(data, this.options.chunkSize, sendChunk, creditGate)
+                else if (data instanceof Uint8Array)
+                    /*  split buffer into chunks and send them  */
+                    await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate)
+            }
+            finally {
+                if (creditTopic)
+                    this.pushSubscriptions.unsubscribe(creditTopic)
+            }
         }
         catch (err: unknown) {
             const error = err instanceof Error ? err.message : String(err)
-            await sendChunk(undefined, error, true).catch(() => {})
+            const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
+            const chunkMsg = this.msg.makeSinkPushChunk(requestId,
+                name, undefined, error, true, this.options.id, receiver)
+            const message = this.codec.encode(chunkMsg)
+            await this._publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
             throw err
         }
         finally {
@@ -309,8 +335,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 creditGate.abort()
                 this.pushCreditGates.delete(requestId)
             }
-            if (creditTopic)
-                this.pushSubscriptions.unsubscribe(creditTopic)
+            cleanup()
         }
     }
 
@@ -463,9 +488,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             const requestId = parsed.id
             if (topicMatch.name !== parsed.name)
                 throw new Error(`sink name mismatch between topic "${topicMatch.name}" and payload "${parsed.name}"`)
-            const handler   = this.pushCallbacks.get(requestId)
+            const handler = this.pushCallbacks.get(requestId)
             if (handler !== undefined)
-                handler.callback(parsed)
+                handler.onResponse(parsed)
         }
 
         /*  handle sink push chunk (on server-side)  */
@@ -533,6 +558,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             const gate = this.pushCreditGates.get(requestId)
             if (gate !== undefined)
                 gate.replenish(parsed.credit)
+
+            /*  inform about received credit  */
+            const handler = this.pushCallbacks.get(requestId)
+            if (handler?.onCredit)
+                handler.onCredit(parsed.credit)
         }
     }
 }

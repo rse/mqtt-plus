@@ -57,7 +57,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             final: boolean             | undefined
         ) => void
     }>()
-    private fetchCreditGates = new Map<string, CreditGate>()
+    private sourceCreditGates = new Map<string, CreditGate>()
+    private sourceTimers      = new Map<string, ReturnType<typeof setTimeout>>()
     private fetchSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
         (topic)          => this._unsubscribeTopic(topic),
@@ -410,18 +411,40 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
                 /*  callback for creating and sending a chunk message  */
                 const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
+                    refreshSourceTimeout()
                     const chunkMsg = this.msg.makeSourceFetchChunk(requestId,
                         name, chunk, error, final, this.options.id, sender)
                     const message = this.codec.encode(chunkMsg)
                     await this._publishToTopic(chunkTopic, message, { qos: 2 })
                 }
 
+                /*  utility function for timeout management  */
+                const refreshSourceTimeout = () => {
+                    const timer = this.sourceTimers.get(requestId)
+                    if (timer !== undefined)
+                        clearTimeout(timer)
+                    this.sourceTimers.set(requestId, setTimeout(() => {
+                        this.sourceTimers.delete(requestId)
+                        const gate = this.sourceCreditGates.get(requestId)
+                        if (gate !== undefined)
+                            gate.abort()
+                    }, this.options.timeout))
+                }
+                const clearSourceTimeout = () => {
+                    const timer = this.sourceTimers.get(requestId)
+                    if (timer !== undefined) {
+                        clearTimeout(timer)
+                        this.sourceTimers.delete(requestId)
+                    }
+                }
+                refreshSourceTimeout()
+
                 /*  handle credit-based flow control (if credit provided in request)  */
                 const initialCredit = parsed.credit
                 const creditGate = (initialCredit !== undefined && initialCredit > 0)
                     ? new CreditGate(initialCredit) : undefined
                 if (creditGate)
-                    this.fetchCreditGates.set(requestId, creditGate)
+                    this.sourceCreditGates.set(requestId, creditGate)
 
                 /*  call the handler callback  */
                 let ackSent = false
@@ -456,10 +479,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     else
                         return sendResponse(error.message)
                 }).finally(() => {
-                    /*  cleanup credit gate  */
+                    /*  cleanup resources  */
+                    clearSourceTimeout()
                     if (creditGate) {
                         creditGate.abort()
-                        this.fetchCreditGates.delete(requestId)
+                        this.sourceCreditGates.delete(requestId)
                     }
                 })
             }
@@ -514,9 +538,20 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             && topicMatch.operation === "source-fetch-credit"
             && parsed instanceof SourceFetchCredit) {
             const requestId = parsed.id
-            const gate = this.fetchCreditGates.get(requestId)
-            if (gate !== undefined)
+            const gate = this.sourceCreditGates.get(requestId)
+            if (gate !== undefined) {
                 gate.replenish(parsed.credit)
+
+                /*  refresh timeout  */
+                const timer = this.sourceTimers.get(requestId)
+                if (timer !== undefined) {
+                    clearTimeout(timer)
+                    this.sourceTimers.set(requestId, setTimeout(() => {
+                        this.sourceTimers.delete(requestId)
+                        gate.abort()
+                    }, this.options.timeout))
+                }
+            }
         }
     }
 }
