@@ -442,7 +442,7 @@ class Msg {
             throw new Error(`protocol version mismatch (expected version ${VERSION}, got version ${obj.version})`)
 
         /*  helper function for Valibot-based validation  */
-        const parseObject = <T>(obj: unknown, name: string, schema: v.BaseSchema<any, any, any>): T => {
+        const parseObject = <R>(obj: unknown, name: string, schema: v.BaseSchema<any, any, any>): R => {
             const res = v.safeParse(schema, obj)
             if (!res.success) {
                 const issues = res.issues.map((issue) => issue.message).join("; ")
