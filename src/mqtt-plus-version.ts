@@ -27,7 +27,10 @@ export const versionToNum = (str: string) => {
     const m = str.match(/^(\d+)\.(\d+)$/)
     if (m === null)
         throw new Error("invalid version string")
-    return parseInt(m[1], 10) + parseInt(m[2], 10) / 100
+    const minor = parseInt(m[2], 10)
+    if (minor > 99)
+        throw new Error("invalid version string: minor version exceeds 99")
+    return parseInt(m[1], 10) + minor / 100
 }
 
 /*  convert version number to string  */
