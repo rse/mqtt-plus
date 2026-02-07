@@ -230,8 +230,8 @@ export async function sendStreamAsChunks (
     }
 }
 
-/*  utility function for making two object fields mutual-exclusive  */
-export function makeMutualExclusiveFields(
+/*  utility function for making two object fields mutually exclusive  */
+export function makeMutuallyExclusiveFields(
     obj:     any,
     f1Name:  string,
     f2Name:  string
@@ -244,7 +244,7 @@ export function makeMutualExclusiveFields(
     Object.defineProperty(obj, f1Name, {
         get: () => {
             if (consumed === "f2")
-                throw new Error(`field "${f1Name}" is mutual-exclusive with ` +
+                throw new Error(`field "${f1Name}" is mutually exclusive with ` +
                     `field "${f2Name}" and "${f2Name}" was already consumed`)
             consumed = "f1"
             return f1Value
@@ -255,7 +255,7 @@ export function makeMutualExclusiveFields(
     Object.defineProperty(obj, f2Name, {
         get: () => {
             if (consumed === "f1")
-                throw new Error(`field "${f2Name}" is mutual-exclusive with ` +
+                throw new Error(`field "${f2Name}" is mutually exclusive with ` +
                     `field "${f1Name}" and "${f1Name}" was already consumed`)
             consumed = "f2"
             return f2Value
