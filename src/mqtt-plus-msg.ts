@@ -28,6 +28,7 @@ import * as v           from "valibot"
 /*  internal requirements  */
 import { APISchema }    from "./mqtt-plus-api"
 import { EncodeTrait }  from "./mqtt-plus-encode"
+import { version }      from "./mqtt-plus-version"
 
 /*  message types  */
 type MessageType =
@@ -55,6 +56,7 @@ const AuthSchema = v.pipe(
 
 /*  base class  */
 class Base {
+    public version = `MQTT+/${version}`
     constructor (
         public type:      MessageType,
         public id:        string,
@@ -63,6 +65,7 @@ class Base {
     ) {}
 }
 const BaseSchema = {
+    version:              v.pipe(v.string(), v.regex(/^MQTT\+\/\d+\.\d+$/)),
     type:                 v.string(),
     id:                   v.string(),
     sender:               v.optional(v.string()),
@@ -429,8 +432,16 @@ class Msg {
         /*  sanity check input  */
         if (typeof obj !== "object" || obj === null)
             throw new Error("invalid argument: not an object")
-        if (typeof obj.type !== "string")
-            throw new Error("invalid object: missing or invalid \"type\" field")
+
+        /*  sanity check version  */
+        if (typeof obj.version !== "string")
+            throw new Error("invalid object: missing or invalid \"version\" field")
+        const m = obj.version.match(/^MQTT\+\/(\d+\.\d+)$/)
+        const V = (m !== null ? parseFloat(m[1]) : 0)
+        if (V !== version) {
+            console.log(`protocol version mismatch (expected version ${version}, got version ${V})`)
+            throw new Error(`protocol version mismatch (expected version ${version}, got version ${V})`)
+        }
 
         /*  helper function for Valibot-based validation  */
         const parseObject = <T>(obj: unknown, name: string, schema: v.BaseSchema<any, any, any>): T => {
@@ -443,6 +454,8 @@ class Msg {
         }
 
         /*  dispatch according to type indication by field  */
+        if (typeof obj.type !== "string")
+            throw new Error("invalid object: missing or invalid \"type\" field")
         if (obj.type === "event-emission") {
             const out = parseObject<EventEmission>(obj, "EventEmission", EventEmissionSchema)
             return this.makeEventEmission(out.id, out.name, out.params, out.sender, out.receiver,

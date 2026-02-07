@@ -25,6 +25,7 @@
 import * as Vite             from "vite"
 import { tscPlugin }         from "@wroud/vite-plugin-tsc"
 import { nodePolyfills }     from "vite-plugin-node-polyfills"
+import pkg                   from "../package.json"
 
 const formats = process.env.VITE_BUILD_FORMATS ?? "es"
 
@@ -33,6 +34,9 @@ export default Vite.defineConfig(({ command, mode }) => ({
     appType:  "custom",
     base:     "",
     root:     "",
+    define: {
+        "__VERSION__": `"${pkg.version.replace(/\.\d+$/, "")}"`
+    },
     plugins: [
         tscPlugin({
             tscArgs:        [ "--project", "etc/tsc.json" ],
@@ -65,7 +69,7 @@ export default Vite.defineConfig(({ command, mode }) => ({
             entry:    "dst-stage1/mqtt-plus.js",
             formats:  formats.split(","),
             name:     "MQTTp",
-            fileName: (format) => `mqtt-plus.${format === "es" ? "esm" : format}.js`
+            fileName: (format, entryName) => `mqtt-plus.${format === "es" ? "esm" : format}.js`
         },
         target:                 formats === "umd" ? "es2022" : "node20",
         outDir:                 "dst-stage2",

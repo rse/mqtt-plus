@@ -22,15 +22,9 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/*  import necessary types  */
-import type { APISchema } from "./mqtt-plus-api"
-import { SinkTrait }      from "./mqtt-plus-sink"
+/*  package version (string format, injected)  */
+declare const __VERSION__: string
+export const VERSION = __VERSION__
 
-/*  re-export most important types  */
-export type *             from "./mqtt-plus-api"
-export type *             from "./mqtt-plus-info"
-export type *             from "./mqtt-plus-version"
-
-/*  export the default API class  */
-export default class MQTTp<T extends APISchema = APISchema>
-    extends SinkTrait<T> {}
+/*  package version (numeric format)  */
+export const version = parseFloat(VERSION)

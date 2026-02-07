@@ -7,6 +7,7 @@ ChangeLog
 
 - IMPROVEMENT: add credit-based flow control to sink/source facility
 - IMPROVEMENT: make "buffer" and "stream" fields always mutual-exlusive
+- IMPROVEMENT: provide version field in protocol messages
 
 1.2.1 (2026-02-07)
 ------------------
