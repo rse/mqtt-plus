@@ -37,9 +37,11 @@ type MessageType =
     | "sink-push-request"
     | "sink-push-response"
     | "sink-push-chunk"
+    | "sink-push-credit"
     | "source-fetch-request"
     | "source-fetch-response"
     | "source-fetch-chunk"
+    | "source-fetch-credit"
 
 /*  meta validation schema (non-array plain object)  */
 const MetaSchema = v.pipe(
@@ -156,7 +158,8 @@ export class SinkPushResponse extends Base {
         sender?:         string,
         receiver?:       string,
         public auth?:    string[],
-        public meta?:    Record<string, any>
+        public meta?:    Record<string, any>,
+        public credit?:  number
     ) { super("sink-push-response", id, sender, receiver) }
 }
 const SinkPushResponseSchema = v.strictObject({
@@ -165,7 +168,8 @@ const SinkPushResponseSchema = v.strictObject({
     name:                v.string(),
     error:               v.optional(v.string()),
     auth:                v.optional(AuthSchema),
-    meta:                v.optional(MetaSchema)
+    meta:                v.optional(MetaSchema),
+    credit:              v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)))
 })
 
 /*  sink push chunk (actual data transfer)  */
@@ -189,6 +193,23 @@ const SinkPushChunkSchema = v.strictObject({
     final:               v.optional(v.boolean())
 })
 
+/*  sink push credit (credit replenishment for push flow control)  */
+export class SinkPushCredit extends Base {
+    constructor (
+        id:              string,
+        public name:     string,
+        public credit:   number,
+        sender?:         string,
+        receiver?:       string
+    ) { super("sink-push-credit", id, sender, receiver) }
+}
+const SinkPushCreditSchema = v.strictObject({
+    ...BaseSchema,
+    type:                v.literal("sink-push-credit"),
+    name:                v.string(),
+    credit:              v.pipe(v.number(), v.integer(), v.minValue(1))
+})
+
 /*  source fetch request  */
 export class SourceFetchRequest extends Base {
     constructor (
@@ -198,7 +219,8 @@ export class SourceFetchRequest extends Base {
         sender?:         string,
         receiver?:       string,
         public auth?:    string[],
-        public meta?:    Record<string, any>
+        public meta?:    Record<string, any>,
+        public credit?:  number
     ) { super("source-fetch-request", id, sender, receiver) }
 }
 const SourceFetchRequestSchema = v.strictObject({
@@ -207,7 +229,8 @@ const SourceFetchRequestSchema = v.strictObject({
     name:                v.string(),
     params:              v.optional(v.pipe(v.array(v.unknown()), v.maxLength(64))),
     auth:                v.optional(AuthSchema),
-    meta:                v.optional(MetaSchema)
+    meta:                v.optional(MetaSchema),
+    credit:              v.optional(v.pipe(v.number(), v.integer(), v.minValue(0)))
 })
 
 /*  source fetch response (ack/nak)  */
@@ -250,6 +273,23 @@ const SourceFetchChunkSchema = v.strictObject({
     chunk:               v.optional(v.instance(Uint8Array)),
     error:               v.optional(v.string()),
     final:               v.optional(v.boolean())
+})
+
+/*  source fetch credit (credit replenishment for fetch flow control)  */
+export class SourceFetchCredit extends Base {
+    constructor (
+        id:              string,
+        public name:     string,
+        public credit:   number,
+        sender?:         string,
+        receiver?:       string
+    ) { super("source-fetch-credit", id, sender, receiver) }
+}
+const SourceFetchCreditSchema = v.strictObject({
+    ...BaseSchema,
+    type:                v.literal("source-fetch-credit"),
+    name:                v.string(),
+    credit:              v.pipe(v.number(), v.integer(), v.minValue(1))
 })
 
 /*  utility class  */
@@ -304,9 +344,10 @@ class Msg {
         sender?:        string,
         receiver?:      string,
         auth?:          string[],
-        meta?:          Record<string, any>
+        meta?:          Record<string, any>,
+        credit?:        number
     ) {
-        return new SinkPushResponse(id, name, error, sender, receiver, auth, meta)
+        return new SinkPushResponse(id, name, error, sender, receiver, auth, meta, credit)
     }
     makeSinkPushChunk (
         id:             string,
@@ -319,6 +360,15 @@ class Msg {
     ) {
         return new SinkPushChunk(id, name, chunk, error, final, sender, receiver)
     }
+    makeSinkPushCredit (
+        id:             string,
+        name:           string,
+        credit:         number,
+        sender?:        string,
+        receiver?:      string
+    ) {
+        return new SinkPushCredit(id, name, credit, sender, receiver)
+    }
     makeSourceFetchRequest (
         id:             string,
         name:           string,
@@ -326,9 +376,10 @@ class Msg {
         sender?:        string,
         receiver?:      string,
         auth?:          string[],
-        meta?:          Record<string, any>
+        meta?:          Record<string, any>,
+        credit?:        number
     ) {
-        return new SourceFetchRequest(id, name, params, sender, receiver, auth, meta)
+        return new SourceFetchRequest(id, name, params, sender, receiver, auth, meta, credit)
     }
     makeSourceFetchResponse (
         id:             string,
@@ -352,6 +403,15 @@ class Msg {
     ) {
         return new SourceFetchChunk(id, name, chunk, error, final, sender, receiver)
     }
+    makeSourceFetchCredit (
+        id:             string,
+        name:           string,
+        credit:         number,
+        sender?:        string,
+        receiver?:      string
+    ) {
+        return new SourceFetchCredit(id, name, credit, sender, receiver)
+    }
 
     /*  parse any object into typed object  */
     parse (obj: any):
@@ -361,9 +421,11 @@ class Msg {
         SinkPushRequest      |
         SinkPushResponse     |
         SinkPushChunk        |
+        SinkPushCredit       |
         SourceFetchRequest   |
         SourceFetchResponse  |
-        SourceFetchChunk {
+        SourceFetchChunk     |
+        SourceFetchCredit {
         /*  sanity check input  */
         if (typeof obj !== "object" || obj === null)
             throw new Error("invalid argument: not an object")
@@ -403,17 +465,21 @@ class Msg {
         else if (obj.type === "sink-push-response") {
             const out = parseObject<SinkPushResponse>(obj, "SinkPushResponse", SinkPushResponseSchema)
             return this.makeSinkPushResponse(out.id, out.name, out.error, out.sender, out.receiver,
-                out.auth, out.meta)
+                out.auth, out.meta, out.credit)
         }
         else if (obj.type === "sink-push-chunk") {
             const out = parseObject<SinkPushChunk>(obj, "SinkPushChunk", SinkPushChunkSchema)
             return this.makeSinkPushChunk(out.id, out.name, out.chunk, out.error,
                 out.final, out.sender, out.receiver)
         }
+        else if (obj.type === "sink-push-credit") {
+            const out = parseObject<SinkPushCredit>(obj, "SinkPushCredit", SinkPushCreditSchema)
+            return this.makeSinkPushCredit(out.id, out.name, out.credit, out.sender, out.receiver)
+        }
         else if (obj.type === "source-fetch-request") {
             const out = parseObject<SourceFetchRequest>(obj, "SourceFetchRequest", SourceFetchRequestSchema)
             return this.makeSourceFetchRequest(out.id, out.name, out.params, out.sender, out.receiver,
-                out.auth, out.meta)
+                out.auth, out.meta, out.credit)
         }
         else if (obj.type === "source-fetch-response") {
             const out = parseObject<SourceFetchResponse>(obj, "SourceFetchResponse", SourceFetchResponseSchema)
@@ -424,6 +490,10 @@ class Msg {
             const out = parseObject<SourceFetchChunk>(obj, "SourceFetchChunk", SourceFetchChunkSchema)
             return this.makeSourceFetchChunk(out.id, out.name, out.chunk, out.error,
                 out.final, out.sender, out.receiver)
+        }
+        else if (obj.type === "source-fetch-credit") {
+            const out = parseObject<SourceFetchCredit>(obj, "SourceFetchCredit", SourceFetchCreditSchema)
+            return this.makeSourceFetchCredit(out.id, out.name, out.credit, out.sender, out.receiver)
         }
         else
             throw new Error("invalid object: not of any known type")

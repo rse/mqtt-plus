@@ -30,10 +30,10 @@ import { IClientPublishOptions, IClientSubscribeOptions }         from "mqtt"
 import { nanoid }                                                 from "nanoid"
 
 /*  internal requirements  */
-import { RefCountedSubscription,
+import { CreditGate, RefCountedSubscription,
     streamToBuffer, sendBufferAsChunks, sendStreamAsChunks }      from "./mqtt-plus-util"
 import { SourceFetchRequest, SourceFetchResponse,
-    SourceFetchChunk }                                            from "./mqtt-plus-msg"
+    SourceFetchChunk, SourceFetchCredit }                         from "./mqtt-plus-msg"
 import { APISchema, SourceKeys, APIEndpointSource, Registration } from "./mqtt-plus-api"
 import type { WithInfo, InfoSource }                              from "./mqtt-plus-info"
 import { ServiceTrait }                                           from "./mqtt-plus-service"
@@ -47,14 +47,16 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         auth?:    AuthOption
     }>()
     private fetchCallbacks = new Map<string, {
-        name: string,
-        callback: (
+        name:      string,
+        serverId?: string,
+        callback:  (
             error: Error               | undefined,
             chunk: Uint8Array          | undefined,
             meta:  Record<string, any> | undefined,
             final: boolean             | undefined
         ) => void
     }>()
+    private fetchCreditGates = new Map<string, CreditGate>()
     private fetchSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
         (topic)          => this._unsubscribeTopic(topic),
@@ -110,17 +112,20 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             throw new Error(`source: source "${name}" already established`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topicS    = `$share/${share}/${name}`
-        const topicReqB = this.options.topicMake(topicS, "source-fetch-request")
-        const topicReqD = this.options.topicMake(name, "source-fetch-request", this.options.id)
+        const topicS       = `$share/${share}/${name}`
+        const topicReqB    = this.options.topicMake(topicS, "source-fetch-request")
+        const topicReqD    = this.options.topicMake(name, "source-fetch-request", this.options.id)
+        const topicCreditD = this.options.topicMake(name, "source-fetch-credit",  this.options.id)
 
         /*  subscribe to MQTT topics  */
         await Promise.all([
-            this._subscribeTopic(topicReqB, { qos: 2, ...options }),
-            this._subscribeTopic(topicReqD, { qos: 2, ...options })
+            this._subscribeTopic(topicReqB,    { qos: 2, ...options }),
+            this._subscribeTopic(topicReqD,    { qos: 2, ...options }),
+            this._subscribeTopic(topicCreditD, { qos: 2, ...options })
         ]).catch((err: Error) => {
             this._unsubscribeTopic(topicReqB).catch(() => {})
             this._unsubscribeTopic(topicReqD).catch(() => {})
+            this._unsubscribeTopic(topicCreditD).catch(() => {})
             throw err
         })
 
@@ -138,7 +143,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 this.sources.delete(name)
                 return Promise.all([
                     this._unsubscribeTopic(topicReqB),
-                    this._unsubscribeTopic(topicReqD)
+                    this._unsubscribeTopic(topicReqD),
+                    this._unsubscribeTopic(topicCreditD)
                 ]).then(() => {}).catch((err: Error) => {
                     this.error(err, `destroy: failed to unsubscribe from topics for source "${name}"`)
                 })
@@ -218,8 +224,35 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             throw err
         })
 
+        /*  credit-based flow control state  */
+        const chunkCredit  = this.options.chunkCredit
+        let chunksReceived = 0
+        let creditGranted  = chunkCredit
+        const serverPeerId = receiver
+
         /*  establish readable for buffering received chunks  */
-        const stream = new Readable({ read (_size) {} })
+        const stream = new Readable({
+            highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
+            read: (_size) => {
+                if (chunkCredit <= 0 || cleanedUp)
+                    return
+                const handler  = this.fetchCallbacks.get(requestId)
+                const targetId = handler?.serverId ?? serverPeerId
+                if (!targetId)
+                    return
+                const creditToGrant = Math.max(0, chunksReceived + chunkCredit - creditGranted)
+                if (creditToGrant > 0) {
+                    creditGranted += creditToGrant
+                    const creditMsg = this.msg.makeSourceFetchCredit(requestId,
+                        name, creditToGrant, this.options.id, targetId)
+                    const encoded = this.codec.encode(creditMsg)
+                    const creditTopic = this.options.topicMake(name, "source-fetch-credit", targetId)
+                    this._publishToTopic(creditTopic, encoded, { qos: 2 }).catch((err: Error) => {
+                        this.error(err, `sending credit for fetch "${name}" failed`)
+                    })
+                }
+            }
+        })
 
         /*  create promise for collecting stream chunks  */
         const buffer = streamToBuffer(stream)
@@ -292,8 +325,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 }
                 else {
                     refreshTimeout()
-                    if (chunk !== undefined)
+                    if (chunk !== undefined) {
+                        chunksReceived++
                         stream.push(chunk)
+                    }
                     if (final) {
                         cleanup()
                         stream.push(null)
@@ -305,8 +340,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         /*  generate encoded message  */
         const auth = this.authenticate()
         const metaStore = this.metaStore(meta)
+        const credit = chunkCredit > 0 ? chunkCredit : undefined
         const request = this.msg.makeSourceFetchRequest(requestId,
-            name, params, this.options.id, receiver, auth, metaStore)
+            name, params, this.options.id, receiver, auth, metaStore, credit)
         const message = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
@@ -374,6 +410,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     await this._publishToTopic(chunkTopic, message, { qos: 2 })
                 }
 
+                /*  handle credit-based flow control (if credit provided in request)  */
+                const initialCredit = parsed.credit
+                const creditGate = (initialCredit !== undefined && initialCredit > 0)
+                    ? new CreditGate(initialCredit) : undefined
+                if (creditGate)
+                    this.fetchCreditGates.set(requestId, creditGate)
+
                 /*  call the handler callback  */
                 let ackSent = false
                 await Promise.resolve().then(() => {
@@ -394,10 +437,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         throw new Error("handler has set both info.stream and info.buffer")
                     else if (info.stream instanceof Readable)
                         /*  handle Readable stream result  */
-                        await sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk)
+                        await sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk, creditGate)
                     else if (info.buffer instanceof Promise)
                         /*  handle Buffer result  */
-                        await sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk)
+                        await sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk, creditGate)
                 }).catch((err: unknown) => {
                     /*  send error as nak response or as error chunk  */
                     const error = err instanceof Error ? err : new Error(String(err))
@@ -406,6 +449,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         return sendChunk(undefined, error.message, true)
                     else
                         return sendResponse(error.message)
+                }).finally(() => {
+                    /*  cleanup credit gate  */
+                    if (creditGate) {
+                        creditGate.abort()
+                        this.fetchCreditGates.delete(requestId)
+                    }
                 })
             }
         }
@@ -424,6 +473,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             /*  handle response on fetch (ack/nak)  */
             const handler = this.fetchCallbacks.get(requestId)
             if (handler !== undefined) {
+                if (parsed.sender)
+                    handler.serverId = parsed.sender
                 if (error)
                     handler.callback(new Error(error), undefined, meta, true)
                 else
@@ -447,6 +498,16 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             const handler = this.fetchCallbacks.get(requestId)
             if (handler !== undefined)
                 handler.callback(error ? new Error(error) : undefined, chunk, undefined, final)
+        }
+
+        /*  handle source fetch credit (on server-side for fetch, replenish producer credit)  */
+        else if (topicMatch !== null
+            && topicMatch.operation === "source-fetch-credit"
+            && parsed instanceof SourceFetchCredit) {
+            const requestId = parsed.id
+            const gate = this.fetchCreditGates.get(requestId)
+            if (gate !== undefined)
+                gate.replenish(parsed.credit)
         }
     }
 }

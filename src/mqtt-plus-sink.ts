@@ -30,9 +30,10 @@ import { IClientPublishOptions, IClientSubscribeOptions }         from "mqtt"
 import { nanoid }                                                 from "nanoid"
 
 /*  internal requirements  */
-import { RefCountedSubscription,
+import { CreditGate, RefCountedSubscription,
     streamToBuffer, sendBufferAsChunks, sendStreamAsChunks }      from "./mqtt-plus-util"
-import { SinkPushRequest, SinkPushResponse, SinkPushChunk }       from "./mqtt-plus-msg"
+import { SinkPushRequest, SinkPushResponse,
+    SinkPushChunk, SinkPushCredit }                               from "./mqtt-plus-msg"
 import { APISchema, SinkKeys, APIEndpointSink, Registration }     from "./mqtt-plus-api"
 import type { WithInfo, InfoSink }                                from "./mqtt-plus-info"
 import { SourceTrait }                                            from "./mqtt-plus-source"
@@ -50,6 +51,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     private pushCallbacks = new Map<string, {
         name:     string,
         callback: (parsed: SinkPushResponse) => void
+    }>()
+    private pushCreditGates = new Map<string, CreditGate>()
+    private pushCreditState = new Map<string, {
+        chunkCredit:    number,
+        chunksReceived: number,
+        creditGranted:  number,
+        sender:         string,
+        name:           string
     }>()
     private pushSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
@@ -218,6 +227,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         }
 
         /*  send request and wait for response before sending chunks  */
+        let initialCredit: number | undefined
         await new Promise<void>((resolve, reject) => {
             /*  start timeout handler  */
             timer = setTimeout(() => {
@@ -235,6 +245,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     else {
                         if (response.sender)
                             receiver = response.sender
+                        initialCredit = response.credit
                         resolve()
                     }
                 }
@@ -254,6 +265,18 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             cleanup()
         })
 
+        /*  create credit gate for flow control (if server granted credit)  */
+        const creditGate = (initialCredit !== undefined && initialCredit > 0)
+            ? new CreditGate(initialCredit) : undefined
+
+        /*  subscribe to credit topic if flow control is active  */
+        let creditTopic: string | undefined
+        if (creditGate) {
+            creditTopic = this.options.topicMake(name, "sink-push-credit", this.options.id)
+            await this.pushSubscriptions.subscribe(creditTopic, { qos: 2 })
+            this.pushCreditGates.set(requestId, creditGate)
+        }
+
         /*  generate corresponding MQTT topic for chunks  */
         const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
 
@@ -266,12 +289,22 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         }
 
         /*  iterate over all chunks of the buffer  */
-        if (data instanceof Readable)
-            /*  attach to the readable  */
-            await sendStreamAsChunks(data, this.options.chunkSize, sendChunk)
-        else if (data instanceof Uint8Array)
-            /*  split buffer into chunks and send them  */
-            await sendBufferAsChunks(data, this.options.chunkSize, sendChunk)
+        try {
+            if (data instanceof Readable)
+                /*  attach to the readable  */
+                await sendStreamAsChunks(data, this.options.chunkSize, sendChunk, creditGate)
+            else if (data instanceof Uint8Array)
+                /*  split buffer into chunks and send them  */
+                await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate)
+        }
+        finally {
+            if (creditGate) {
+                creditGate.abort()
+                this.pushCreditGates.delete(requestId)
+            }
+            if (creditTopic)
+                this.pushSubscriptions.unsubscribe(creditTopic)
+        }
     }
 
     /*  dispatch incoming MQTT message  */
@@ -310,11 +343,13 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const responseTopic = this.options.topicMake(name, "sink-push-response", sender)
 
                 /*  callback for sending the ack/nak response  */
+                const chunkCredit = this.options.chunkCredit
                 const sendResponse = async (error?: string) => {
                     const auth = this.authenticate()
                     const metaStore = this.metaStore(info.meta)
+                    const credit = chunkCredit > 0 ? chunkCredit : undefined
                     const response = this.msg.makeSinkPushResponse(requestId,
-                        name, error, this.options.id, sender, auth, metaStore)
+                        name, error, this.options.id, sender, auth, metaStore, credit)
                     const message = this.codec.encode(response)
                     await this._publishToTopic(responseTopic, message, { qos: 2 })
                 }
@@ -335,6 +370,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         stream.destroy()
                         this.pushStreams.delete(requestId)
                     }
+                    this.pushCreditState.delete(requestId)
                 }
 
                 /*  check authentication and prepare stream  */
@@ -343,8 +379,39 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     if (info.authenticated !== undefined && !info.authenticated)
                         throw new Error(`sink "${name}" failed authentication`)
 
+                    /*  initialize credit-based flow control state  */
+                    if (chunkCredit > 0) {
+                        this.pushCreditState.set(requestId, {
+                            chunkCredit,
+                            chunksReceived: 0,
+                            creditGranted:  chunkCredit,
+                            sender,
+                            name
+                        })
+                    }
+
                     /*  create readable for buffering received chunks  */
-                    const readable = new Readable({ read (_size) {} })
+                    const readable = new Readable({
+                        highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
+                        read: (_size) => {
+                            const state = this.pushCreditState.get(requestId)
+                            if (!state || streamCleanedUp)
+                                return
+                            const creditToGrant = Math.max(0,
+                                state.chunksReceived + state.chunkCredit - state.creditGranted)
+                            if (creditToGrant > 0) {
+                                state.creditGranted += creditToGrant
+                                const creditMsg = this.msg.makeSinkPushCredit(requestId,
+                                    state.name, creditToGrant, this.options.id, state.sender)
+                                const encoded = this.codec.encode(creditMsg)
+                                const creditTopic = this.options.topicMake(
+                                    state.name, "sink-push-credit", state.sender)
+                                this._publishToTopic(creditTopic, encoded, { qos: 2 }).catch((err: Error) => {
+                                    this.error(err, `sending credit for push "${state.name}" failed`)
+                                })
+                            }
+                        }
+                    })
                     this.pushStreams.set(requestId, readable)
                     readable.once("close", cleanupStream)
                     readable.once("error", cleanupStream)
@@ -352,11 +419,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     /*  start timeout for push stream cleanup  */
                     const timer = setTimeout(() => {
                         const stream = this.pushStreams.get(requestId)
-                        if (stream !== undefined) {
+                        if (stream !== undefined)
                             stream.destroy(new Error("push stream timeout"))
-                            this.pushStreams.delete(requestId)
-                            this.pushTimers.delete(requestId)
-                        }
+                        cleanupStream()
                     }, this.options.timeout)
                     this.pushTimers.set(requestId, timer)
 
@@ -435,15 +500,30 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                             }
                         }, this.options.timeout))
                     }
-                    if (chunk !== undefined)
+                    if (chunk !== undefined) {
+                        const creditState = this.pushCreditState.get(requestId)
+                        if (creditState)
+                            creditState.chunksReceived++
                         readable.push(chunk)
+                    }
                     if (final) {
                         clearPushTimer()
                         readable.push(null)
                         this.pushStreams.delete(requestId)
+                        this.pushCreditState.delete(requestId)
                     }
                 }
             }
+        }
+
+        /*  handle sink push credit (on client-side for push, replenish producer credit)  */
+        else if (topicMatch !== null
+            && topicMatch.operation === "sink-push-credit"
+            && parsed instanceof SinkPushCredit) {
+            const requestId = parsed.id
+            const gate = this.pushCreditGates.get(requestId)
+            if (gate !== undefined)
+                gate.replenish(parsed.credit)
         }
     }
 }

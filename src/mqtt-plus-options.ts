@@ -35,12 +35,13 @@ export type TopicMatch    = (topic: string) => TopicMatching | null
 
 /*  API option type  */
 export interface APIOptions {
-    id:         string
-    codec:      "cbor" | "json"
-    timeout:    number
-    chunkSize:  number
-    topicMake:  TopicMake
-    topicMatch: TopicMatch
+    id:          string
+    codec:       "cbor" | "json"
+    timeout:     number
+    chunkSize:   number
+    chunkCredit: number
+    topicMake:   TopicMake
+    topicMatch:  TopicMatch
 }
 
 /*  Options trait  */
@@ -55,8 +56,9 @@ export class OptionsTrait<T extends APISchema = APISchema> {
         this.options = {
             id:        nanoid(),
             codec:     "cbor",
-            timeout:   10 * 1000,
-            chunkSize: 16 * 1024,
+            timeout:     10 * 1000,
+            chunkSize:   16 * 1024,
+            chunkCredit: 4,
             topicMake: (name, operation, peerId) => {
                 return `${name}/${operation}/${peerId ?? "any"}`
             },

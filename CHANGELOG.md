@@ -2,6 +2,11 @@
 ChangeLog
 =========
 
+1.3.0 (2026-02-07)
+------------------
+
+- IMPROVEMENT: add credit-based flow control to sink/source facility
+
 1.2.1 (2026-02-07)
 ------------------
 

@@ -67,6 +67,58 @@ export class RefCountedSubscription {
     }
 }
 
+/*  credit-based flow control gate for chunk producers  */
+export class CreditGate {
+    private remaining: number
+    private waiter: ((aborted: boolean) => void) | null = null
+    private aborted = false
+
+    constructor (initialCredit: number) {
+        this.remaining = initialCredit
+    }
+
+    /*  acquire one unit of credit (wait if exhausted)  */
+    async acquire (): Promise<void> {
+        if (this.aborted)
+            throw new Error("credit gate aborted")
+        if (this.remaining > 0)
+            /*  directly take a remaining credit  */
+            this.remaining--
+        else
+            /*  wait for credit to be replenished  */
+            await new Promise<void>((resolve, reject) => {
+                this.waiter = (aborted) => {
+                    if (aborted) {
+                        reject(new Error("credit gate aborted"))
+                        return
+                    }
+                    this.remaining--
+                    resolve()
+                }
+            })
+    }
+
+    /*  replenish credit (called when credit message received)  */
+    replenish (amount: number): void {
+        this.remaining += amount
+        if (this.waiter !== null && this.remaining > 0) {
+            const waiter = this.waiter
+            this.waiter = null
+            waiter(false)
+        }
+    }
+
+    /*  release any waiting producer (for cleanup on error/abort)  */
+    abort (): void {
+        this.aborted = true
+        if (this.waiter !== null) {
+            const waiter = this.waiter
+            this.waiter = null
+            waiter(true)
+        }
+    }
+}
+
 /*  concatenate elements of an Uint8Array array  */
 function uint8ArrayConcat (arrays: Uint8Array[]) {
     const totalLength = arrays.reduce((acc, value) => acc + value.length, 0)
@@ -119,9 +171,10 @@ type SendChunkCallback = (
 
 /*  utility function for sending a buffer as chunks  */
 export async function sendBufferAsChunks (
-    buffer:    Uint8Array,
-    chunkSize: number,
-    sendChunk: SendChunkCallback
+    buffer:      Uint8Array,
+    chunkSize:   number,
+    sendChunk:   SendChunkCallback,
+    creditGate?: CreditGate
 ): Promise<void> {
     if (buffer.byteLength === 0)
         await sendChunk(undefined, undefined, true)
@@ -130,6 +183,8 @@ export async function sendBufferAsChunks (
             const size  = Math.min(buffer.byteLength - i, chunkSize)
             const chunk = buffer.subarray(i, i + size)
             const final = (i + size >= buffer.byteLength)
+            if (creditGate)
+                await creditGate.acquire()
             await sendChunk(chunk, undefined, final)
         }
     }
@@ -137,37 +192,29 @@ export async function sendBufferAsChunks (
 
 /*  utility function for sending a Readable stream as chunks  */
 export async function sendStreamAsChunks (
-    readable:  Readable,
-    chunkSize: number,
-    sendChunk: SendChunkCallback
+    readable:    Readable,
+    chunkSize:   number,
+    sendChunk:   SendChunkCallback,
+    creditGate?: CreditGate
 ): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-        let chain: Promise<void> = Promise.resolve()
-        const pushSend = (chunk: Uint8Array | undefined, error: string | undefined, final: boolean) => {
-            chain = chain.then(() => sendChunk(chunk, error, final))
-            return chain
-        }
-        const drain = () => chain
-        readable.on("readable", () => {
-            let chunk: unknown
-            while ((chunk = readable.read(chunkSize)) !== null) {
-                const buffer = chunkToBuffer(chunk)
-                for (let i = 0; i < buffer.byteLength; i += chunkSize) {
-                    const size  = Math.min(buffer.byteLength - i, chunkSize)
-                    const slice = buffer.subarray(i, i + size)
-                    pushSend(slice, undefined, false)
-                }
+    try {
+        for await (const chunkData of readable) {
+            const buffer = chunkToBuffer(chunkData)
+            if (buffer.byteLength === 0)
+                continue
+            for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+                const size  = Math.min(buffer.byteLength - i, chunkSize)
+                const chunk = buffer.subarray(i, i + size)
+                if (creditGate)
+                    await creditGate.acquire()
+                await sendChunk(chunk, undefined, false)
             }
-        })
-        readable.on("end", () => {
-            pushSend(undefined, undefined, true)
-                .then(() => drain())
-                .then(() => resolve(), (err) => reject(err))
-        })
-        readable.on("error", (err: Error) => {
-            pushSend(undefined, err.message, true)
-                .then(() => drain())
-                .then(() => reject(err), (sendErr) => reject(sendErr))
-        })
-    })
+        }
+        await sendChunk(undefined, undefined, true)
+    }
+    catch (err: unknown) {
+        const error = err instanceof Error ? err.message : String(err)
+        await sendChunk(undefined, error, true).catch(() => {})
+        throw err
+    }
 }
