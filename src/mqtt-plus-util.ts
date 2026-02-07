@@ -93,23 +93,34 @@ export class CreditGate {
     }
 
     /*  acquire one unit of credit (wait if exhausted)  */
-    async acquire (): Promise<void> {
+    async acquire (abortSignal?: AbortSignal): Promise<void> {
         if (this.aborted)
             throw new Error("credit gate aborted")
+        if (abortSignal?.aborted)
+            throw abortSignal.reason ?? new Error("aborted")
         if (this.remaining > 0)
             /*  directly take a remaining credit  */
             this.remaining--
         else
             /*  wait for credit to be replenished  */
             await new Promise<void>((resolve, reject) => {
-                this.waiters.push((aborted) => {
+                const onAbort = () => {
+                    this.waiters.splice(this.waiters.indexOf(waiter), 1)
+                    reject(abortSignal?.reason ?? new Error("aborted"))
+                }
+                if (abortSignal)
+                    abortSignal.addEventListener("abort", onAbort, { once: true })
+                const waiter = (aborted: boolean) => {
+                    if (abortSignal)
+                        abortSignal.removeEventListener("abort", onAbort)
                     if (aborted) {
                         reject(new Error("credit gate aborted"))
                         return
                     }
                     this.remaining--
                     resolve()
-                })
+                }
+                this.waiters.push(waiter)
             })
     }
 
