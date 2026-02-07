@@ -2,6 +2,11 @@
 ChangeLog
 =========
 
+1.3.1 (2026-02-07)
+------------------
+
+- CLEANUP: cleanup signatures of on/off methods
+
 1.3.0 (2026-02-07)
 ------------------
 
