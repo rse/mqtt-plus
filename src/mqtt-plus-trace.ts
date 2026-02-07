@@ -64,8 +64,9 @@ class LogEvent {
         /*  render optional data  */
         let extra = ""
         if (this.data !== undefined) {
-            const kv = Object.keys(this.data).map((key) => {
-                const value = this.data![key] instanceof Promise ? "<unresolved>" : this.data![key]
+            const data = this.data
+            const kv = Object.keys(data).map((key) => {
+                const value = data[key] instanceof Promise ? "<unresolved>" : data[key]
                 return `${key}: ${JSONX.stringify(value)}`
             }).join(", ")
             extra = ` (${kv})`
