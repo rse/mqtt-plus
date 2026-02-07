@@ -318,8 +318,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             ) => {
                 const wasFirstChunk = firstChunk
                 if (firstChunk) {
-                    firstChunk = false
-                    metaResolve?.(meta)
+                    if (meta !== undefined || error !== undefined || final === true) {
+                        firstChunk = false
+                        metaResolve?.(meta)
+                    }
                 }
                 if (error !== undefined) {
                     cleanup(!wasFirstChunk)
@@ -500,8 +502,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
             /*  handle chunk on fetch  */
             const handler = this.fetchCallbacks.get(requestId)
-            if (handler !== undefined)
+            if (handler !== undefined) {
+                if (parsed.sender)
+                    handler.serverId = parsed.sender
                 handler.callback(error ? new Error(error) : undefined, chunk, undefined, final)
+            }
         }
 
         /*  handle source fetch credit (on server-side for fetch, replenish producer credit)  */
