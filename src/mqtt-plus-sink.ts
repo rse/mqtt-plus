@@ -38,7 +38,7 @@ import type { WithInfo, InfoSink }                                from "./mqtt-p
 import { SourceTrait }                                            from "./mqtt-plus-source"
 import type { AuthOption }                                        from "./mqtt-plus-auth"
 
-/*  Sink Push Communication Trait  */
+/*  Sink Push Trait  */
 export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     /*  sink state  */
     private sinks = new Map<string, {

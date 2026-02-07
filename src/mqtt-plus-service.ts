@@ -37,7 +37,7 @@ import type { WithInfo, InfoService } from "./mqtt-plus-info"
 import { EventTrait }                 from "./mqtt-plus-event"
 import type { AuthOption }            from "./mqtt-plus-auth"
 
-/*  Service Communication Trait  */
+/*  Service Call Trait  */
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
     /*  internal state  */
     private services = new Map<string, {

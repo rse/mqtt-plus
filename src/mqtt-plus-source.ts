@@ -39,7 +39,7 @@ import type { WithInfo, InfoSource }                              from "./mqtt-p
 import { ServiceTrait }                                           from "./mqtt-plus-service"
 import type { AuthOption }                                        from "./mqtt-plus-auth"
 
-/*  Source Fetch Communication Trait  */
+/*  Source Fetch Trait  */
 export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
     /*  source state  */
     private sources = new Map<string, {

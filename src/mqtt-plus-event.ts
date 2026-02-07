@@ -34,7 +34,7 @@ import { APISchema, APIEndpointEvent,
 import type { WithInfo, InfoEvent }   from "./mqtt-plus-info"
 import { AuthTrait, type AuthOption } from "./mqtt-plus-auth"
 
-/*  Event Communication Trait  */
+/*  Event Emission Trait  */
 export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
     /*  internal state  */
     private events = new Map<string, {
