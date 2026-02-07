@@ -87,13 +87,13 @@ export class TraceTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
         "emit" method is in conflict with our one)  */
     on (event: "error", callback: (error: Error)  => void): void
     on (event: "log",   callback: (log: LogEvent) => void): void
-    on (...args: Parameters<typeof this._events.on>): ReturnType<typeof this._events.on> {
-        return this._events.on(...args)
+    on (...args: Parameters<typeof this._events.on>): void {
+        this._events.on(...args)
     }
     off (event: "error", callback: (error: Error)  => void): void
     off (event: "log",   callback: (log: LogEvent) => void): void
-    off (...args: Parameters<typeof this._events.off>): ReturnType<typeof this._events.off> {
-        return this._events.off(...args)
+    off (...args: Parameters<typeof this._events.off>): void {
+        this._events.off(...args)
     }
     protected emitEvent (event: "error", error: Error):  void
     protected emitEvent (event: "log",   log: LogEvent): void
