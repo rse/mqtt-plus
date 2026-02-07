@@ -23,11 +23,11 @@
 */
 
 /*  built-in requirements  */
-import { Buffer }   from "node:buffer"
-import { Readable } from "node:stream"
+import { Buffer }                  from "node:buffer"
+import { Readable }                from "node:stream"
 
 /*  external requirements  */
-import PLazy        from "p-lazy"
+import PLazy                       from "p-lazy"
 
 /*  internal requirements  */
 import { IClientSubscribeOptions } from "mqtt"
