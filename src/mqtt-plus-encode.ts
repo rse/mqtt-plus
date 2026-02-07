@@ -57,11 +57,12 @@ export class EncodeTrait<T extends APISchema = APISchema> extends CodecTrait<T> 
     buf2arr (data: Uint8Array, type: new () => Int8Array): Int8Array
     buf2arr <T extends Buffer | Uint8Array | Int8Array>(data: Uint8Array, cons: new (...args: any[]) => T): T {
         let arr: T | undefined
-        if (cons === (Buffer as unknown as new (...args: any[]) => T))
+        const ctor: unknown = cons
+        if (ctor === Buffer)
             arr = Buffer.from(data.buffer, data.byteOffset, data.byteLength) as T
-        else if (cons === (Uint8Array as unknown as new (...args: any[]) => T))
+        else if (ctor === Uint8Array)
             arr = data as T
-        else if (cons === (Int8Array as unknown as new (...args: any[]) => T))
+        else if (ctor === Int8Array)
             arr = new Int8Array(data.buffer, data.byteOffset, data.byteLength) as T
         else
             throw new Error("invalid data type")
