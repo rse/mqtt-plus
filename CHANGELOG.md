@@ -6,6 +6,7 @@ ChangeLog
 ------------------
 
 - CLEANUP: cleanup signatures of on/off methods
+- UPDATE: upgrade NPM dependencies
 
 1.3.0 (2026-02-07)
 ------------------
