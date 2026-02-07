@@ -118,8 +118,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
         const topicS      = `$share/${share}/${name}`
         const topicReqB   = this.options.topicMake(topicS, "sink-push-request")
-        const topicReqD   = this.options.topicMake(name, "sink-push-request", this.options.id)
-        const topicChunkD = this.options.topicMake(name, "sink-push-chunk",   this.options.id)
+        const topicReqD   = this.options.topicMake(name,   "sink-push-request", this.options.id)
+        const topicChunkD = this.options.topicMake(name,   "sink-push-chunk",   this.options.id)
 
         /*  remember the registration  */
         this.sinks.set(name, {
