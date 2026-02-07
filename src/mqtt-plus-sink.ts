@@ -64,8 +64,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     }>()
     private pushSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
-        (topic)          => this._unsubscribeTopic(topic),
-        (err)            => this.error(err)
+        (topic)          => this._unsubscribeTopic(topic)
     )
 
     /*  register a sink  */

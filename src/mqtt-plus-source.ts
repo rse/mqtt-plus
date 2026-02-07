@@ -61,8 +61,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
     private sourceTimers      = new Map<string, ReturnType<typeof setTimeout>>()
     private fetchSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
-        (topic)          => this._unsubscribeTopic(topic),
-        (err)            => this.error(err)
+        (topic)          => this._unsubscribeTopic(topic)
     )
 
     /*  establish a source (for fetch requests)  */

@@ -50,8 +50,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
     }>()
     private callSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
-        (topic)          => this._unsubscribeTopic(topic),
-        (err)            => this.error(err)
+        (topic)          => this._unsubscribeTopic(topic)
     )
 
     /*  register an RPC service  */
