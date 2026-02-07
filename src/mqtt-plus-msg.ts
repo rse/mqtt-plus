@@ -23,12 +23,12 @@
 */
 
 /*  external requirements  */
-import * as v               from "valibot"
+import * as v                             from "valibot"
 
 /*  internal requirements  */
-import { APISchema }        from "./mqtt-plus-api"
-import { EncodeTrait }      from "./mqtt-plus-encode"
-import { version, VERSION } from "./mqtt-plus-version"
+import { APISchema }                      from "./mqtt-plus-api"
+import { EncodeTrait }                    from "./mqtt-plus-encode"
+import { version, VERSION, versionToNum } from "./mqtt-plus-version"
 
 /*  message types  */
 type MessageType =
@@ -437,9 +437,9 @@ class Msg {
         if (typeof obj.version !== "string")
             throw new Error("invalid object: missing or invalid \"version\" field")
         const m = obj.version.match(/^MQTT\+\/(\d+\.\d+)$/)
-        const V = (m !== null ? parseFloat(m[1]) : 0)
+        const V = m !== null ? versionToNum(m[1]) : 0.0
         if (V !== version)
-            throw new Error(`protocol version mismatch (expected version ${version}, got version ${V})`)
+            throw new Error(`protocol version mismatch (expected version ${VERSION}, got version ${obj.version})`)
 
         /*  helper function for Valibot-based validation  */
         const parseObject = <T>(obj: unknown, name: string, schema: v.BaseSchema<any, any, any>): T => {

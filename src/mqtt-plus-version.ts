@@ -22,9 +22,24 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+/*  convert version string to number  */
+export const versionToNum = (str: string) => {
+    const m = str.match(/^(\d+)\.(\d+)$/)
+    if (m === null)
+        throw new Error("invalid version string")
+    return parseInt(m[1], 10) + parseInt(m[2], 10) / 100
+}
+
+/*  convert version number to string  */
+export const versionToStr = (num: number) => {
+    const intPart = Math.floor(num)
+    const decPart = Math.round((num - intPart) * 100)
+    return `${intPart.toFixed(0)}.${decPart.toFixed(0)}`
+}
+
 /*  package version (string format, injected)  */
 declare const __VERSION__: string
 export const VERSION = __VERSION__
 
 /*  package version (numeric format)  */
-export const version = parseFloat(VERSION)
+export const version = versionToNum(VERSION)
