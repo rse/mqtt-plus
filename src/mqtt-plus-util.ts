@@ -263,14 +263,3 @@ export function makeMutuallyExclusiveFields (
         configurable: true
     })
 }
-
-/*  sequentially await promises  */
-const promiseAllSeq = <T extends readonly Promise<any>[]>(
-    promises: T
-): Promise<{ [ K in keyof T ]: Awaited<T[K]> }> => {
-    return promises.reduce(
-        (chain, promise) =>
-            chain.then((results) => promise.then((result) => [ ...results, result ])),
-        Promise.resolve([])
-    ) as Promise<{ [K in keyof T]: Awaited<T[K]> }>
-}
