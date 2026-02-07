@@ -81,7 +81,7 @@ export class RefCountedSubscription {
 /*  credit-based flow control gate for chunk producers  */
 export class CreditGate {
     private remaining: number
-    private waiter: ((aborted: boolean) => void) | null = null
+    private waiters: Array<(aborted: boolean) => void> = []
     private aborted = false
 
     constructor (initialCredit: number) {
@@ -98,23 +98,24 @@ export class CreditGate {
         else
             /*  wait for credit to be replenished  */
             await new Promise<void>((resolve, reject) => {
-                this.waiter = (aborted) => {
+                this.waiters.push((aborted) => {
                     if (aborted) {
                         reject(new Error("credit gate aborted"))
                         return
                     }
                     this.remaining--
                     resolve()
-                }
+                })
             })
     }
 
     /*  replenish credit (called when credit message received)  */
     replenish (amount: number): void {
         this.remaining += amount
-        if (this.waiter !== null && this.remaining > 0) {
-            const waiter = this.waiter
-            this.waiter = null
+        while (this.waiters.length > 0 && this.remaining > 0) {
+            const waiter = this.waiters.shift()
+            if (waiter === undefined)
+                break
             waiter(false)
         }
     }
@@ -122,9 +123,10 @@ export class CreditGate {
     /*  release any waiting producer (for cleanup on error/abort)  */
     abort (): void {
         this.aborted = true
-        if (this.waiter !== null) {
-            const waiter = this.waiter
-            this.waiter = null
+        while (this.waiters.length > 0) {
+            const waiter = this.waiters.shift()
+            if (waiter === undefined)
+                break
             waiter(true)
         }
     }
