@@ -118,22 +118,23 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const topicReqD    = this.options.topicMake(name, "source-fetch-request", this.options.id)
         const topicCreditD = this.options.topicMake(name, "source-fetch-credit",  this.options.id)
 
+        /*  remember the registration  */
+        this.sources.set(name, {
+            callback: callback as WithInfo<APIEndpointSource, InfoSource>,
+            auth
+        })
+
         /*  subscribe to MQTT topics  */
         await Promise.all([
             this._subscribeTopic(topicReqB,    { qos: 2, ...options }),
             this._subscribeTopic(topicReqD,    { qos: 2, ...options }),
             this._subscribeTopic(topicCreditD, { qos: 2, ...options })
         ]).catch((err: Error) => {
+            this.sources.delete(name)
             this._unsubscribeTopic(topicReqB).catch(() => {})
             this._unsubscribeTopic(topicReqD).catch(() => {})
             this._unsubscribeTopic(topicCreditD).catch(() => {})
             throw err
-        })
-
-        /*  remember the registration  */
-        this.sources.set(name, {
-            callback: callback as WithInfo<APIEndpointSource, InfoSource>,
-            auth
         })
 
         /*  provide a registration for subsequent destruction  */
@@ -141,14 +142,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             destroy: async (): Promise<void> => {
                 if (!this.sources.has(name))
                     throw new Error(`destroy: source "${name}" not established`)
-                this.sources.delete(name)
-                return Promise.all([
+                await Promise.all([
                     this._unsubscribeTopic(topicReqB),
                     this._unsubscribeTopic(topicReqD),
                     this._unsubscribeTopic(topicCreditD)
                 ]).then(() => {}).catch((err: Error) => {
                     this.error(err, `destroy: failed to unsubscribe from topics for source "${name}"`)
                 })
+                this.sources.delete(name)
             }
         }
         return registration

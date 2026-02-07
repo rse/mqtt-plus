@@ -121,22 +121,23 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const topicReqD   = this.options.topicMake(name, "sink-push-request", this.options.id)
         const topicChunkD = this.options.topicMake(name, "sink-push-chunk",   this.options.id)
 
+        /*  remember the registration  */
+        this.sinks.set(name, {
+            callback: callback as WithInfo<APIEndpointSink, InfoSink>,
+            auth
+        })
+
         /*  subscribe to MQTT topics  */
         await Promise.all([
             this._subscribeTopic(topicReqB,   { qos: 2, ...options }),
             this._subscribeTopic(topicReqD,   { qos: 2, ...options }),
             this._subscribeTopic(topicChunkD, { qos: 2, ...options })
         ]).catch((err: Error) => {
+            this.sinks.delete(name)
             this._unsubscribeTopic(topicReqB).catch(() => {})
             this._unsubscribeTopic(topicReqD).catch(() => {})
             this._unsubscribeTopic(topicChunkD).catch(() => {})
             throw err
-        })
-
-        /*  remember the registration  */
-        this.sinks.set(name, {
-            callback: callback as WithInfo<APIEndpointSink, InfoSink>,
-            auth
         })
 
         /*  provide a registration for subsequent destruction  */
@@ -144,14 +145,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             destroy: async (): Promise<void> => {
                 if (!this.sinks.has(name))
                     throw new Error(`destroy: sink "${name}" not established`)
-                this.sinks.delete(name)
-                return Promise.all([
+                await Promise.all([
                     this._unsubscribeTopic(topicReqB),
                     this._unsubscribeTopic(topicReqD),
                     this._unsubscribeTopic(topicChunkD)
                 ]).then(() => {}).catch((err: Error) => {
                     this.error(err, `destroy: failed to unsubscribe from topics for sink "${name}"`)
                 })
+                this.sinks.delete(name)
             }
         }
         return registration

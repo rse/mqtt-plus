@@ -95,20 +95,21 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         const topicB = this.options.topicMake(topicS, "event-emission")
         const topicD = this.options.topicMake(name, "event-emission", this.options.id)
 
+        /*  remember the registration  */
+        this.events.set(name, {
+            callback: callback as WithInfo<APIEndpointEvent, InfoEvent>,
+            auth
+        })
+
         /*  subscribe to MQTT topics  */
         await Promise.all([
             this._subscribeTopic(topicB, { qos: 0, ...options }),
             this._subscribeTopic(topicD, { qos: 0, ...options })
         ]).catch((err: Error) => {
+            this.events.delete(name)
             this._unsubscribeTopic(topicB).catch(() => {})
             this._unsubscribeTopic(topicD).catch(() => {})
             throw err
-        })
-
-        /*  remember the registration  */
-        this.events.set(name, {
-            callback: callback as WithInfo<APIEndpointEvent, InfoEvent>,
-            auth
         })
 
         /*  provide a registration for subsequent destruction  */
@@ -116,13 +117,13 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             destroy: async (): Promise<void> => {
                 if (!this.events.has(name))
                     throw new Error(`destroy: event "${name}" not registered`)
-                this.events.delete(name)
-                return Promise.all([
+                await Promise.all([
                     this._unsubscribeTopic(topicB),
                     this._unsubscribeTopic(topicD)
                 ]).then(() => {}).catch((err: Error) => {
                     this.error(err, `destroy: failed to unsubscribe from topics for event "${name}"`)
                 })
+                this.events.delete(name)
             }
         }
         return registration

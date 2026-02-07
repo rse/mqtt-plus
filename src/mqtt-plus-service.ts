@@ -107,20 +107,21 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const topicB = this.options.topicMake(topicS, "service-call-request")
         const topicD = this.options.topicMake(name, "service-call-request", this.options.id)
 
+        /*  remember the registration  */
+        this.services.set(name, {
+            callback: callback as WithInfo<APIEndpointService, InfoService>,
+            auth
+        })
+
         /*  subscribe to MQTT topics  */
         await Promise.all([
             this._subscribeTopic(topicB, { qos: 2, ...options }),
             this._subscribeTopic(topicD, { qos: 2, ...options })
         ]).catch((err: Error) => {
+            this.services.delete(name)
             this._unsubscribeTopic(topicB).catch(() => {})
             this._unsubscribeTopic(topicD).catch(() => {})
             throw err
-        })
-
-        /*  remember the registration  */
-        this.services.set(name, {
-            callback: callback as WithInfo<APIEndpointService, InfoService>,
-            auth
         })
 
         /*  provide a registration for subsequent destruction  */
@@ -128,13 +129,13 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             destroy: async (): Promise<void> => {
                 if (!this.services.has(name))
                     throw new Error(`destroy: service "${name}" not registered`)
-                this.services.delete(name)
-                return Promise.all([
+                await Promise.all([
                     this._unsubscribeTopic(topicB),
                     this._unsubscribeTopic(topicD)
                 ]).then(() => {}).catch((err: Error) => {
                     this.error(err, `destroy: failed to unsubscribe from topics for service "${name}"`)
                 })
+                this.services.delete(name)
             }
         }
         return registration
