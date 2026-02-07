@@ -83,8 +83,8 @@ function uint8ArrayConcat (arrays: Uint8Array[]) {
 export function streamToBuffer (stream: Readable): Promise<Uint8Array> {
     return new PLazy<Uint8Array>((resolve, reject) => {
         const chunks: Uint8Array[] = []
-        stream.on("data", (_data: unknown) => {
-            const data = chunkToBuffer(_data)
+        stream.on("data", (raw: unknown) => {
+            const data = chunkToBuffer(raw)
             chunks.push(data)
         })
         stream.on("end", () => {
