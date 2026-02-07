@@ -193,10 +193,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
     }> {
         /*  determine actual parameters  */
         let name:      K
+        let params:    Parameters<T[K]>
         let receiver:  string | undefined
         let options:   IClientPublishOptions = {}
         let meta:      Record<string, any> | undefined
-        let params:    Parameters<T[K]>
         if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
             name     = nameOrConfig.name
