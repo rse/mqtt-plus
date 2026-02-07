@@ -6,6 +6,7 @@ ChangeLog
 ------------------
 
 - IMPROVEMENT: add credit-based flow control to sink/source facility
+- IMPROVEMENT: make "buffer" and "stream" fields always mutual-exlusive
 
 1.2.1 (2026-02-07)
 ------------------
