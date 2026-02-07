@@ -110,7 +110,7 @@ export class TraceTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
     }
 
     /*  raise an error event  */
-    error (error: Error, msg?: string) {
+    error (error: Error, msg?: string): void {
         let err = error
         if (msg !== undefined)
             err = new Error(`${msg}: ${error.message}`, { cause: error })
