@@ -134,12 +134,12 @@ export class CreditGate {
 
 /*  concatenate elements of an Uint8Array array  */
 function uint8ArrayConcat (arrays: Uint8Array[]) {
-    const totalLength = arrays.reduce((acc, value) => acc + value.length, 0)
+    const totalLength = arrays.reduce((acc, value) => acc + value.byteLength, 0)
     const result = new Uint8Array(totalLength)
     let offset = 0
     for (const array of arrays) {
         result.set(array, offset)
-        offset += array.length
+        offset += array.byteLength
     }
     return result
 }
@@ -171,7 +171,7 @@ function chunkToBuffer (chunk: unknown): Uint8Array {
     else if (typeof chunk === "string")
         buffer = new TextEncoder().encode(chunk)
     else
-        buffer = new TextEncoder().encode(String(chunk))
+        throw new Error("invalid chunk type: expected Buffer, Uint8Array, or string")
     return buffer
 }
 
@@ -233,7 +233,7 @@ export async function sendStreamAsChunks (
 }
 
 /*  utility function for making two object fields mutually exclusive  */
-export function makeMutuallyExclusiveFields(
+export function makeMutuallyExclusiveFields (
     obj:     any,
     f1Name:  string,
     f2Name:  string

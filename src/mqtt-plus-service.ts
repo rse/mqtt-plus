@@ -41,7 +41,7 @@ import type { AuthOption }            from "./mqtt-plus-auth"
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
     /*  internal state  */
     private services = new Map<string, {
-        callback: WithInfo<APIEndpointService, InfoService>
+        callback: WithInfo<APIEndpointService, InfoService>,
         auth?:    AuthOption
     }>()
     private callCallbacks = new Map<string, {
