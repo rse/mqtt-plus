@@ -37,7 +37,7 @@ export const versionToNum = (str: string) => {
 export const versionToStr = (num: number) => {
     const intPart = Math.floor(num)
     const decPart = Math.round((num - intPart) * 100)
-    return `${intPart.toFixed(0)}.${decPart.toFixed(0)}`
+    return `${intPart.toFixed(0)}.${decPart.toFixed(0).padStart(2, "0")}`
 }
 
 /*  package version (string format, injected)  */
