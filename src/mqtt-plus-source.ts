@@ -430,9 +430,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 }).then(async () => {
                     /*  check for valid data source  */
                     if (!(info.stream instanceof Readable) && !(info.buffer instanceof Promise))
-                        throw new Error("handler did not provide data via info.stream or info.buffer fields")
+                        throw new Error("handler did not provide data via info.stream or info.buffer field")
                     if (info.stream instanceof Readable && info.buffer instanceof Promise)
-                        throw new Error("handler has set both info.stream and info.buffer")
+                        throw new Error("handler has set both info.stream and info.buffer fields")
 
                     /*  send ack response  */
                     await sendResponse()
