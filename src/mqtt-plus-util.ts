@@ -35,25 +35,36 @@ import { IClientSubscribeOptions } from "mqtt"
 /*  reference-counted subscription helper  */
 export class RefCountedSubscription {
     private counts = new Map<string, number>()
+    private pending = new Map<string, Promise<void>>()
+
     constructor (
         private subscribeFn:   (topic: string, options: IClientSubscribeOptions) => Promise<void>,
         private unsubscribeFn: (topic: string) => Promise<void>,
         private errorFn?:      (err: Error) => void
     ) {}
     async subscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
+        /*  check for already pending subscription  */
+        const pending = this.pending.get(topic)
+        if (pending) {
+            this.counts.set(topic, (this.counts.get(topic) ?? 0) + 1)
+            return pending
+        }
+
+        /*  subscribe  */
         const count = this.counts.get(topic) ?? 0
         this.counts.set(topic, count + 1)
         if (count === 0) {
-            await this.subscribeFn(topic, options).catch((err: Error) => {
-                const currentCount = this.counts.get(topic) ?? 0
-                if (currentCount > 1)
-                    this.counts.set(topic, currentCount - 1)
-                else
-                    this.counts.delete(topic)
+            const promise = this.subscribeFn(topic, options).then(() => {
+                this.pending.delete(topic)
+            }, (err: Error) => {
+                this.pending.delete(topic)
+                this.counts.delete(topic)
                 if (this.errorFn)
                     this.errorFn(err)
                 throw err
             })
+            this.pending.set(topic, promise)
+            await promise
         }
     }
     async unsubscribe (topic: string): Promise<void> {
