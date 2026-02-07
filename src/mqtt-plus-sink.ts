@@ -441,6 +441,19 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                                 this._publishToTopic(creditTopic, encoded, { qos: 2 }).catch((err: Error) => {
                                     this.error(err, `sending credit for push "${state.name}" failed`)
                                 })
+
+                                /*  refresh timeout  */
+                                const timer = this.pushTimers.get(requestId)
+                                if (timer !== undefined) {
+                                    clearTimeout(timer)
+                                    this.pushTimers.set(requestId, setTimeout(() => {
+                                        const stream = this.pushStreams.get(requestId)
+                                        if (stream !== undefined) {
+                                            stream.destroy(new Error("push stream timeout"))
+                                            cleanupStream()
+                                        }
+                                    }, this.options.timeout))
+                                }
                             }
                         }
                     })
