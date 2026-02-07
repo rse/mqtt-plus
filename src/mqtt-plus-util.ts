@@ -34,49 +34,51 @@ import { IClientSubscribeOptions } from "mqtt"
 
 /*  reference-counted subscription helper  */
 export class RefCountedSubscription {
-    private counts = new Map<string, number>()
+    private counts  = new Map<string, number>()
     private pending = new Map<string, Promise<void>>()
-
     constructor (
         private subscribeFn:   (topic: string, options: IClientSubscribeOptions) => Promise<void>,
-        private unsubscribeFn: (topic: string) => Promise<void>,
-        private errorFn?:      (err: Error) => void
+        private unsubscribeFn: (topic: string) => Promise<void>
     ) {}
     async subscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
-        /*  check for already pending subscription  */
-        const pending = this.pending.get(topic)
-        if (pending) {
-            this.counts.set(topic, (this.counts.get(topic) ?? 0) + 1)
-            return pending
-        }
-
-        /*  subscribe  */
+        /*  increment count first to reserve our interest  */
         const count = this.counts.get(topic) ?? 0
         this.counts.set(topic, count + 1)
+
+        /*  if we are the first, we must perform the actual subscription  */
         if (count === 0) {
-            const promise = this.subscribeFn(topic, options).then(() => {
+            const promise = this.subscribeFn(topic, options).finally(() => {
                 this.pending.delete(topic)
-            }, (err: Error) => {
-                this.pending.delete(topic)
-                this.counts.delete(topic)
-                if (this.errorFn)
-                    this.errorFn(err)
+            }).catch((err: Error) => {
+                const count = this.counts.get(topic)
+                if (count) {
+                    if (count <= 1)
+                        this.counts.delete(topic)
+                    else
+                        this.counts.set(topic, count - 1)
+                }
                 throw err
             })
             this.pending.set(topic, promise)
-            await promise
+            return promise
+        }
+        else {
+            /*  perhaps still need to wait for a pending subscription  */
+            const pending = this.pending.get(topic)
+            if (pending)
+                return pending
         }
     }
     async unsubscribe (topic: string): Promise<void> {
         const count = this.counts.get(topic)
-        if (count === undefined)
-            return
-        if (count <= 1) {
-            this.counts.delete(topic)
-            await this.unsubscribeFn(topic).catch(() => {})
+        if (count) {
+            if (count <= 1) {
+                this.counts.delete(topic)
+                await this.unsubscribeFn(topic).catch(() => {})
+            }
+            else
+                this.counts.set(topic, count - 1)
         }
-        else
-            this.counts.set(topic, count - 1)
     }
 }
 
