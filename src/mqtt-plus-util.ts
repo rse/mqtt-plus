@@ -199,20 +199,23 @@ type SendChunkCallback = (
 
 /*  utility function for sending a buffer as chunks  */
 export async function sendBufferAsChunks (
-    buffer:      Uint8Array,
-    chunkSize:   number,
-    sendChunk:   SendChunkCallback,
-    creditGate?: CreditGate
+    buffer:       Uint8Array,
+    chunkSize:    number,
+    sendChunk:    SendChunkCallback,
+    creditGate?:  CreditGate,
+    abortSignal?: AbortSignal
 ): Promise<void> {
     if (buffer.byteLength === 0)
         await sendChunk(undefined, undefined, true)
     else {
         for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+            if (abortSignal?.aborted)
+                throw abortSignal.reason ?? new Error("aborted")
             const size  = Math.min(buffer.byteLength - i, chunkSize)
             const chunk = buffer.subarray(i, i + size)
             const final = (i + size >= buffer.byteLength)
             if (creditGate)
-                await creditGate.acquire()
+                await creditGate.acquire(abortSignal)
             await sendChunk(chunk, undefined, final)
         }
     }
@@ -220,12 +223,15 @@ export async function sendBufferAsChunks (
 
 /*  utility function for sending a Readable stream as chunks  */
 export async function sendStreamAsChunks (
-    readable:    Readable,
-    chunkSize:   number,
-    sendChunk:   SendChunkCallback,
-    creditGate?: CreditGate
+    readable:     Readable,
+    chunkSize:    number,
+    sendChunk:    SendChunkCallback,
+    creditGate?:  CreditGate,
+    abortSignal?: AbortSignal
 ): Promise<void> {
     for await (const chunkData of readable) {
+        if (abortSignal?.aborted)
+            throw abortSignal.reason ?? new Error("aborted")
         const buffer = chunkToBuffer(chunkData)
         if (buffer.byteLength === 0)
             continue
@@ -233,10 +239,12 @@ export async function sendStreamAsChunks (
             const size  = Math.min(buffer.byteLength - i, chunkSize)
             const chunk = buffer.subarray(i, i + size)
             if (creditGate)
-                await creditGate.acquire()
+                await creditGate.acquire(abortSignal)
             await sendChunk(chunk, undefined, false)
         }
     }
+    if (abortSignal?.aborted)
+        throw abortSignal.reason ?? new Error("aborted")
     await sendChunk(undefined, undefined, true)
 }
 
