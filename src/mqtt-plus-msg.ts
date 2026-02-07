@@ -438,10 +438,8 @@ class Msg {
             throw new Error("invalid object: missing or invalid \"version\" field")
         const m = obj.version.match(/^MQTT\+\/(\d+\.\d+)$/)
         const V = (m !== null ? parseFloat(m[1]) : 0)
-        if (V !== version) {
-            console.log(`protocol version mismatch (expected version ${version}, got version ${V})`)
+        if (V !== version)
             throw new Error(`protocol version mismatch (expected version ${version}, got version ${V})`)
-        }
 
         /*  helper function for Valibot-based validation  */
         const parseObject = <T>(obj: unknown, name: string, schema: v.BaseSchema<any, any, any>): T => {

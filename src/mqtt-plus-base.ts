@@ -62,7 +62,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
                         return () => {
                             throw new Error(`Underlying MQTT operation "${String(prop)}" called ` +
                                 "on a null MQTT client -- only MQTT+ \"emit({ ..., dry: true })\" " +
-                                "is supported in this special operation mode)")
+                                "is supported in this special operation mode")
                         }
                 }
             })
