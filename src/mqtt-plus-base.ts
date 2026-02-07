@@ -53,11 +53,17 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
         if (mqtt === null) {
             this.log("info", "establishing proxy MQTT client")
             mqtt = new Proxy<MqttClient>({} as MqttClient, {
-                get(_target, prop, _receiver): any {
+                get (_target, prop, _receiver): any {
                     if (prop === "isFakeProxy")
                         return true
-                    else
+                    else if (typeof prop === "string" && [ "on", "off", "once" ].includes(prop))
                         return () => {}
+                    else
+                        return () => {
+                            throw new Error(`Underlying MQTT operation "${String(prop)}" called ` +
+                                "on a null MQTT client -- only MQTT+ \"emit({ ..., dry: true })\" " +
+                                "is supported in this special operation mode)")
+                        }
                 }
             })
         }
