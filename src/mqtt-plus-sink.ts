@@ -299,6 +299,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  split buffer into chunks and send them  */
                 await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate)
         }
+        catch (err: unknown) {
+            const error = err instanceof Error ? err.message : String(err)
+            await sendChunk(undefined, error, true).catch(() => {})
+            throw err
+        }
         finally {
             if (creditGate) {
                 creditGate.abort()
