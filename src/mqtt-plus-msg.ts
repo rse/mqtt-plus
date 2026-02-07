@@ -23,12 +23,12 @@
 */
 
 /*  external requirements  */
-import * as v           from "valibot"
+import * as v               from "valibot"
 
 /*  internal requirements  */
-import { APISchema }    from "./mqtt-plus-api"
-import { EncodeTrait }  from "./mqtt-plus-encode"
-import { version }      from "./mqtt-plus-version"
+import { APISchema }        from "./mqtt-plus-api"
+import { EncodeTrait }      from "./mqtt-plus-encode"
+import { version, VERSION } from "./mqtt-plus-version"
 
 /*  message types  */
 type MessageType =
@@ -56,7 +56,7 @@ const AuthSchema = v.pipe(
 
 /*  base class  */
 class Base {
-    public version = `MQTT+/${version}`
+    public version = `MQTT+/${VERSION}`
     constructor (
         public type:      MessageType,
         public id:        string,
