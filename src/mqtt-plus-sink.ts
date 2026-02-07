@@ -390,7 +390,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         })
                     }
 
-                    /*  create readable for buffering received chunks  */
+                    /*  create a readable for buffering received chunks  */
                     const readable = new Readable({
                         highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
                         read: (_size) => {

@@ -230,7 +230,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         let creditGranted  = chunkCredit
         const serverPeerId = receiver
 
-        /*  establish readable for buffering received chunks  */
+        /*  establish a readable for buffering received chunks  */
         const stream = new Readable({
             highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
             read: (_size) => {
