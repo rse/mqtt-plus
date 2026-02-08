@@ -552,6 +552,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     clearPushTimer()
                     readable.destroy(new Error(error))
                     this.pushStreams.delete(requestId)
+                    this.pushCreditState.delete(requestId)
                 }
                 else {
                     const timer = this.pushTimers.get(requestId)
