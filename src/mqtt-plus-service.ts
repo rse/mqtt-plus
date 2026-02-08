@@ -29,6 +29,7 @@ import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
 import { RefCountedSubscription }     from "./mqtt-plus-util"
+import { run, Spool, ensureError }    from "./mqtt-plus-error"
 import { ServiceCallRequest,
     ServiceCallResponse }             from "./mqtt-plus-msg"
 import { APISchema, APIEndpointService,
@@ -53,7 +54,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         (topic)          => this._unsubscribeTopic(topic)
     )
 
-    /*  register an RPC service  */
+    /*  register a service call handler  */
     async service<K extends ServiceKeys<T> & string> (
         name:     K,
         callback: WithInfo<T[K], InfoService>
@@ -88,14 +89,17 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             name     = nameOrConfig.name
             callback = nameOrConfig.callback
             options  = nameOrConfig.options ?? {}
-            share    = nameOrConfig.share ?? "default"
+            share    = nameOrConfig.share   ?? "default"
             auth     = nameOrConfig.auth
         }
         else {
             /*  positional API  */
             name     = nameOrConfig as K
-            callback = args[0] as WithInfo<T[K], InfoService>
+            callback = args[0]
         }
+
+        /*  create a resource spool  */
+        const spool = new Spool()
 
         /*  sanity check situation  */
         if (this.services.has(name))
@@ -107,37 +111,27 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const topicD = this.options.topicMake(name, "service-call-request", this.options.id)
 
         /*  remember the registration  */
-        this.services.set(name, {
-            callback: callback as WithInfo<APIEndpointService, InfoService>,
-            auth
-        })
+        this.services.set(name, { callback, auth })
+        spool.roll(() => { this.services.delete(name) })
 
         /*  subscribe to MQTT topics  */
-        await Promise.all([
-            this._subscribeTopic(topicB, { qos: 2, ...options }),
-            this._subscribeTopic(topicD, { qos: 2, ...options })
-        ]).catch((err: Error) => {
-            this.services.delete(name)
-            this._unsubscribeTopic(topicB).catch(() => {})
-            this._unsubscribeTopic(topicD).catch(() => {})
-            throw err
-        })
+        await run(`subscribe to MQTT topic "${topicB}"`, spool, () =>
+            this._subscribeTopic(topicB, { qos: 2, ...options }))
+        spool.roll(() => this._unsubscribeTopic(topicB).catch(() => {}))
+        await run(`subscribe to MQTT topic "${topicD}"`, spool, () =>
+            this._subscribeTopic(topicD, { qos: 2, ...options }))
+        spool.roll(() => this._unsubscribeTopic(topicD).catch(() => {}))
 
         /*  provide a registration for subsequent destruction  */
-        const registration: Registration = {
+        return {
             destroy: async (): Promise<void> => {
                 if (!this.services.has(name))
-                    throw new Error(`destroy: service "${name}" not registered`)
-                await Promise.all([
-                    this._unsubscribeTopic(topicB),
-                    this._unsubscribeTopic(topicD)
-                ]).then(() => {}).catch((err: Error) => {
-                    this.error(err, `destroy: failed to unsubscribe from topics for service "${name}"`)
+                    throw new Error(`destroy: service "${name}" no longer registered`)
+                await spool.unroll()?.catch((err: Error) => {
+                    this.error(err, `destroy: failed to cleanup: ${err.message}`)
                 })
-                this.services.delete(name)
             }
         }
-        return registration
     }
 
     /*  call service ("request and response")  */
@@ -184,53 +178,57 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             params   = args as Parameters<T[K]>
         }
 
+        /*  create a resource spool  */
+        const spool = new Spool()
+
         /*  generate unique request id  */
         const requestId = nanoid()
 
         /*  subscribe to MQTT response topic  */
         const responseTopic = this.options.topicMake(name, "service-call-response", this.options.id)
-        await this.callSubscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 })
+        await run(`subscribe to MQTT topic "${responseTopic}"`, spool, () =>
+            this.callSubscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
+        spool.roll(() => this.callSubscriptions.unsubscribe(responseTopic))
 
         /*  create promise for MQTT response handling  */
         const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {
-            let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
-                this.callCallbacks.delete(requestId)
-                this.callSubscriptions.unsubscribe(responseTopic)
+            let timer: ReturnType<typeof setTimeout> | null = setTimeout(async () => {
                 timer = null
+                await spool.unroll()
                 reject(new Error("communication timeout"))
             }, this.options.timeout)
-            this.callCallbacks.set(requestId, {
-                name,
-                callback: (err: any, result: Awaited<ReturnType<T[K]>>) => {
-                    if (timer !== null) {
-                        clearTimeout(timer)
-                        timer = null
-                    }
-                    if (err) reject(err)
-                    else     resolve(result)
+            spool.roll(() => {
+                if (timer !== null) {
+                    clearTimeout(timer)
+                    timer = null
                 }
             })
+            this.callCallbacks.set(requestId, {
+                name,
+                callback: async (err: any, result: Awaited<ReturnType<T[K]>>) => {
+                    await spool.unroll()
+                    if (err)
+                        reject(err)
+                    else
+                        resolve(result)
+                }
+            })
+            spool.roll(() => { this.callCallbacks.delete(requestId) })
         })
 
         /*  generate encoded message  */
         const auth      = this.authenticate()
         const metaStore = this.metaStore(meta)
-        const request   = this.msg.makeServiceCallRequest(requestId, name, params, this.options.id, receiver, auth, metaStore)
+        const request   = this.msg.makeServiceCallRequest(requestId, name, params,
+            this.options.id, receiver, auth, metaStore)
         const message   = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
         const topic = this.options.topicMake(name, "service-call-request", receiver)
 
         /*  publish message to MQTT topic  */
-        this._publishToTopic(topic, message, { qos: 2, ...options }).catch((err: Error) => {
-            /*  handle request failure (only if not already handled)  */
-            const pendingRequest = this.callCallbacks.get(requestId)
-            if (pendingRequest !== undefined) {
-                this.callCallbacks.delete(requestId)
-                this.callSubscriptions.unsubscribe(responseTopic)
-                pendingRequest.callback(err, undefined)
-            }
-        })
+        await run(`publish service request as MQTT message to topic "${topic}"`, spool, () =>
+            this._publishToTopic(topic, message, { qos: 2, ...options }))
 
         return promise
     }
@@ -239,77 +237,74 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
     protected async _dispatchMessage (topic: string, parsed: any) {
         await super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
+
+        /*  on server-side handle service call request  */
         if (topicMatch !== null
             && topicMatch.operation === "service-call-request"
             && parsed instanceof ServiceCallRequest) {
             /*  deliver service request and send response  */
+
+            /*  determine request information  */
             const requestId = parsed.id
-            const name      = parsed.name
-            if (topicMatch.name !== name)
-                throw new Error(`service name mismatch between topic "${topicMatch.name}" and payload "${name}"`)
-            const handler   = this.services.get(name)
-            const params    = parsed.params ?? []
-            const info: InfoService = { sender: parsed.sender ?? "" }
+            const senderId  = parsed.sender
+            if (senderId === undefined || senderId === "")
+                throw new Error("invalid request: missing sender")
+            const name    = parsed.name
+            const handler = this.services.get(name)
+            const params  = parsed.params ?? []
+
+            /*  create information object  */
+            const info: InfoService = { sender: senderId }
             if (parsed.receiver)
                 info.receiver = parsed.receiver
             if (parsed.meta)
                 info.meta = parsed.meta
             if (handler?.auth)
-                info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
+                info.authenticated = await this.authenticated(senderId, parsed.auth, handler.auth)
+
+            /*  asynchronously execute handler and send response  */
             Promise.resolve().then(() => {
+                if (topicMatch.name !== name)
+                    throw new Error(`service name mismatch (topic: "${topicMatch.name}", payload: "${name}")`)
                 if (handler === undefined)
                     throw new Error(`handler for service "${name}" not found`)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`service "${name}" failed authentication`)
                 return handler.callback(...params, info)
             }).then((result: any) => {
-                /*  create success response  */
+                /*  create success response message  */
                 return this.msg.makeServiceCallResponse(requestId, result,
-                    undefined, this.options.id, parsed.sender)
-            }, (result: any) => {
-                /*  create error response  */
-                let errorMessage: string
-                if (result === undefined || result === null)
-                    errorMessage = "undefined error"
-                else if (typeof result === "string")
-                    errorMessage = result
-                else if (result instanceof Error)
-                    errorMessage = result.message
-                else
-                    errorMessage = String(result)
-                this.error(new Error(errorMessage), `handler for service "${name}" failed`)
+                    undefined, this.options.id, senderId)
+            }, (result: unknown) => {
+                /*  create error response message  */
+                const error = ensureError(result, `handler for service "${name}" failed`)
+                this.error(error, `handler for service "${name}" failed`)
                 return this.msg.makeServiceCallResponse(requestId, undefined,
-                    errorMessage, this.options.id, parsed.sender)
+                    error.message, this.options.id, senderId)
             }).then((rpcResponse) => {
                 /*  send response message  */
-                const senderPeerId = parsed.sender
-                if (senderPeerId === undefined)
-                    throw new Error("invalid request: missing sender")
                 const encoded = this.codec.encode(rpcResponse)
-                const topic = this.options.topicMake(name, "service-call-response", senderPeerId)
+                const topic = this.options.topicMake(name, "service-call-response", senderId)
                 return this._publishToTopic(topic, encoded, { qos: 2 })
             }).catch((err: Error) => {
                 this.error(err)
             })
         }
+
+        /*  on client-side handle service call response  */
         else if (topicMatch !== null
             && topicMatch.operation === "service-call-response"
             && topicMatch.peerId === this.options.id
             && parsed instanceof ServiceCallResponse) {
-            /*  handle service response  */
+            /*  determine response information  */
             const requestId = parsed.id
             const request = this.callCallbacks.get(requestId)
             if (request !== undefined) {
-                /*  call callback function  */
+                /*  call response callback function  */
                 if (parsed.error !== undefined)
                     request.callback(new Error(parsed.error), undefined)
                 else
                     request.callback(undefined, parsed.result)
-
-                /*  unsubscribe from response  */
-                this.callCallbacks.delete(requestId)
-                const respTopic = this.options.topicMake(request.name, "service-call-response", this.options.id)
-                this.callSubscriptions.unsubscribe(respTopic)
             }
         }
     }

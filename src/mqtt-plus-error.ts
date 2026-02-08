@@ -1,0 +1,501 @@
+/*
+**  MQTT+ -- MQTT Communication Patterns
+**  Copyright (c) 2018-2026 Dr. Ralf S. Engelschall <rse@engelschall.com>
+**
+**  Permission is hereby granted, free of charge, to any person obtaining
+**  a copy of this software and associated documentation files (the
+**  "Software"), to deal in the Software without restriction, including
+**  without limitation the rights to use, copy, modify, merge, publish,
+**  distribute, sublicense, and/or sell copies of the Software, and to
+**  permit persons to whom the Software is furnished to do so, subject to
+**  the following conditions:
+**
+**  The above copyright notice and this permission notice shall be included
+**  in all copies or substantial portions of the Software.
+**
+**  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+**  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+**  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+**  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+**  CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+**  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+**  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+/*  type of a single resource cleanup handler  */
+type SpoolCleanup<T = unknown> =
+    (resource: T) => void | Promise<void>
+
+/*  type of a single resource  */
+type SpoolResource<T = unknown> = {
+    resource: T,
+    cleanup:  SpoolCleanup<T>
+}
+
+export class Spool {
+    /*  internal state  */
+    private resources: SpoolResource<unknown>[] = []
+
+    /*  roll cleanup procedure onto spool  */
+    roll (cleanup: SpoolCleanup): void
+    roll <T>(resource: T, cleanup: SpoolCleanup<T>): void
+    roll (...args: any[]): void {
+        /*  determine parameters  */
+        let resource: unknown
+        let cleanup:  SpoolCleanup<unknown>
+        if      (args.length === 1) { resource = undefined; cleanup  = args[0] }
+        else if (args.length === 2) { resource = args[0];   cleanup  = args[1] }
+        else
+            throw new Error("invalid number of arguments")
+
+        /*  store information  */
+        this.resources.push({ resource, cleanup })
+    }
+
+    /*  roll a sub-spool onto spool  */
+    sub (): Spool {
+        /*  create new spool  */
+        const spool = new Spool()
+
+        /*  roll sub-spool onto spool  */
+        this.roll(spool, () => {})
+
+        /*  return new spool  */
+        return spool
+    }
+
+    /*  unroll last or all cleanup procedures from spool  */
+    unroll (suppress = true): Promise<void> | void {
+        /*  NOTICE: we operate synchronously until the first
+            cleanup procedure returns a Promise. Then we continue
+            asynchronously, regardless of whether the following
+            cleanup procedures return a Promise or not!  */
+        try {
+            let promise: Promise<void> | undefined
+            while (this.resources.length > 0) {
+                const entry    = this.resources.pop()!
+                const resource = entry.resource
+                const cleanup  = entry.cleanup
+                if (promise) {
+                    if (resource instanceof Spool)
+                        promise = promise.then(() => resource.unroll() /* RECURSION */)
+                    else
+                        promise = promise.then(() => cleanup(resource))
+                }
+                else {
+                    let result: Promise<void> | void
+                    if (resource instanceof Spool)
+                        result = resource.unroll() /* RECURSION */
+                    else
+                        result = cleanup(resource)
+                    if (result instanceof Promise)
+                        promise = result
+                }
+            }
+            if (promise)
+                return suppress ? promise.catch(() => {}) : promise
+            else
+                return
+        }
+        catch (error: unknown) {
+            if (suppress)
+                return
+            throw error
+        }
+    }
+}
+
+/*  helper function for retrieving an Error object  */
+export function ensureError (error: unknown, prefix?: string, debug = false): Error {
+    if (error instanceof Error && prefix === undefined && debug === false)
+        return error
+    let msg = error instanceof Error
+        ? error.message
+        : String(error)
+    if (prefix)
+        msg = `${prefix}: ${msg}`
+    if (debug && error instanceof Error)
+        msg = `${msg}\n${error.stack}`
+    if (error instanceof Error) {
+        const err = new Error(msg, { cause: error })
+        err.stack = error.stack
+        return err
+    }
+    else
+        return new Error(msg)
+}
+
+/*  helper function for retrieving a Promise object  */
+function ensurePromise<T> (arg: T | Promise<T>): Promise<T> {
+    if (arg instanceof Promise)
+        return arg
+    return Promise.resolve(arg)
+}
+
+/*  helper function for running the finally code of "run"  */
+function runFinally (isAsync: false,   onfinally?: () => void): void
+function runFinally (isAsync: true,    onfinally?: () => Promise<void> | void): Promise<void>
+function runFinally (isAsync: boolean, onfinally?: () => Promise<void> | void): Promise<void> | void {
+    if (!onfinally) {
+        if (isAsync)
+            return Promise.resolve()
+        else
+            return
+    }
+    let result: Promise<void> | void
+    try {
+        result = onfinally()
+    }
+    catch (error: unknown) {
+        if (isAsync)
+            return Promise.reject(error)
+        else
+            throw error
+    }
+    if (!isAsync && result instanceof Promise)
+        throw new Error("onfinally callback returned Promise in non-async context")
+    if (isAsync && !(result instanceof Promise))
+        result = Promise.resolve(result)
+    return result
+}
+
+/*  helper function for unrolling a spool  */
+function runUnroll (isAsync: false,   spool?: Spool): void
+function runUnroll (isAsync: true,    spool?: Spool): Promise<void>
+function runUnroll (isAsync: boolean, spool?: Spool): Promise<void> | void {
+    if (!spool) {
+        if (isAsync) return Promise.resolve()
+        else         return
+    }
+    let result = spool.unroll()
+    if (!isAsync && result instanceof Promise)
+        throw new Error("spool unroll returned Promise in non-async context")
+    if (isAsync && !(result instanceof Promise))
+        result = Promise.resolve(result)
+    return result
+}
+
+/*  helper type for ensuring T contains no Promise  */
+type RunNoPromise<T> =
+    [ T ] extends [ Promise<any> ] ? never : T
+
+/*  run a synchronous or asynchronous action  */
+export function run<T, X extends RunNoPromise<T> | never> (
+    action:      ()             => X,
+    oncatch?:    (error: Error) => X,
+    onfinally?:  ()             => void,
+    oncleanup?:  (value: T)     => void
+): X
+export function run<T, X extends RunNoPromise<T> | never> (
+    description: string,
+    action:      ()             => X,
+    oncatch?:    (error: Error) => X,
+    onfinally?:  ()             => void,
+    oncleanup?:  (value: T)     => void
+): X
+export function run<T, X extends Promise<T> | never> (
+    action:      ()             => X,
+    oncatch?:    (error: Error) => X,
+    onfinally?:  ()             => Promise<void>,
+    oncleanup?:  (value: T)     => Promise<void>
+): X
+export function run<T, X extends Promise<T> | never> (
+    description: string,
+    action:      ()             => X,
+    oncatch?:    (error: Error) => X,
+    onfinally?:  ()             => Promise<void> | void,
+    oncleanup?:  (value: T)     => Promise<void> | void
+): X
+export function run<T, X extends RunNoPromise<T> | never> (
+    spool:       Spool | undefined,
+    action:      ()             => X,
+    oncatch?:    (error: Error) => X,
+    onfinally?:  ()             => void,
+    oncleanup?:  (value: T)     => void
+): X
+export function run<T, X extends RunNoPromise<T> | never> (
+    description: string,
+    spool:       Spool | undefined,
+    action:      ()             => X,
+    oncatch?:    (error: Error) => X,
+    onfinally?:  ()             => void,
+    oncleanup?:  (value: T)     => void
+): X
+export function run<T, X extends Promise<T> | never> (
+    spool:       Spool | undefined,
+    action:      ()             => X,
+    oncatch?:    (error: Error) => X,
+    onfinally?:  ()             => Promise<void>,
+    oncleanup?:  (value: T)     => Promise<void>
+): X
+export function run<T, X extends Promise<T> | never> (
+    description: string,
+    spool:       Spool | undefined,
+    action:      ()             => X,
+    oncatch?:    (error: Error) => X,
+    onfinally?:  ()             => Promise<void>,
+    oncleanup?:  (value: T)     => Promise<void>
+): X
+export function run<T, X extends RunNoPromise<T> | never> (
+    config: {
+        description?: string,
+        spool?:       Spool | undefined,
+        action:       ()             => X,
+        oncatch?:     (error: Error) => X,
+        onfinally?:   ()             => void,
+        oncleanup?:   (value: T)     => void
+    }
+): X
+export function run<T, X extends Promise<T>> (
+    config: {
+        description?: string,
+        spool?:       Spool | undefined,
+        action:       ()             => X,
+        oncatch?:     (error: Error) => X,
+        onfinally?:   ()             => Promise<void>,
+        oncleanup?:   (value: T)     => Promise<void>
+    }
+): X
+export function run<T> (
+    ...args: any[]
+): T | Promise<T> | never {
+    /*  support overloaded signatures  */
+    let description: string | undefined
+    let spool:       Spool | undefined
+    let action:      () => T | Promise<T> | never
+    let oncatch:     ((error: Error) => T | Promise<T> | never) | undefined
+    let onfinally:   (() => void) | undefined
+    let oncleanup:   ((value: T) => void) | undefined
+    if (args.length === 1 && typeof args[0] === "object" && args[0] !== null) {
+        description = args[0].description
+        spool       = args[0].spool
+        action      = args[0].action
+        oncatch     = args[0].oncatch
+        onfinally   = args[0].onfinally
+        oncleanup   = args[0].oncleanup
+    }
+    else if (typeof args[0] === "string") {
+        description = args[0]
+        if (args[1] instanceof Spool) {
+            spool       = args[1]
+            action      = args[2]
+            oncatch     = args[3]
+            onfinally   = args[4]
+            oncleanup   = args[5]
+        }
+        else {
+            action      = args[1]
+            oncatch     = args[2]
+            onfinally   = args[3]
+            oncleanup   = args[4]
+        }
+    }
+    else {
+        if (args[0] instanceof Spool) {
+            spool       = args[0]
+            action      = args[1]
+            oncatch     = args[2]
+            onfinally   = args[3]
+            oncleanup   = args[4]
+        }
+        else {
+            action      = args[0]
+            oncatch     = args[1]
+            onfinally   = args[2]
+            oncleanup   = args[3]
+        }
+    }
+
+    /*  sanity check spool/oncleanup scenario  */
+    if (oncleanup && !spool)
+        throw new Error("oncleanup requires a spool")
+
+    /*  perform the action  */
+    let result: T | Promise<T>
+    try {
+        result = action()
+    }
+    catch (arg: unknown) {
+        /*  synchronous case (error branch)  */
+        let error = ensureError(arg, description)
+        if (oncatch) {
+            try {
+                result = oncatch(error)
+            }
+            catch (arg: unknown) {
+                error = ensureError(arg, description)
+                runFinally(false, onfinally)
+                runUnroll(false, spool)
+                throw error
+            }
+            runFinally(false, onfinally)
+            return result
+        }
+        runFinally(false, onfinally)
+        runUnroll(false, spool)
+        throw error
+    }
+    if (result instanceof Promise) {
+        /*  asynchronous case (result or error branch)  */
+        return result.then(async (result) => {
+            await runFinally(true, onfinally)
+            if (spool && oncleanup)
+                spool.roll(result, oncleanup as SpoolCleanup<unknown>)
+            return result
+        }, async (arg: unknown) => {
+            /*  asynchronous case (error branch)  */
+            let error = ensureError(arg, description)
+            if (oncatch) {
+                try {
+                    const result = oncatch(error)
+                    await runFinally(true, onfinally)
+                    return result
+                }
+                catch (arg: unknown) {
+                    error = ensureError(arg, description)
+                    await runFinally(true, onfinally)
+                    await runUnroll(true, spool)
+                    throw error
+                }
+            }
+            await runFinally(true, onfinally)
+            await runUnroll(true, spool)
+            throw error
+        })
+    }
+    else {
+        /*  synchronous case (result branch)  */
+        runFinally(false, onfinally)
+        if (spool && oncleanup)
+            spool.roll(result, oncleanup as SpoolCleanup<unknown>)
+        return result
+    }
+}
+
+/*  wrap a synchronous or asynchronous action into a reusable runner  */
+/* eslint @typescript-eslint/unified-signatures: off */
+function runner<T, X extends RunNoPromise<T> | never, F extends (...args: any[]) => X> (
+    action:      F,
+    oncatch?:    (error: Error) => X | never,
+    onfinally?:  ()             => void,
+    oncleanup?:  (value: T)     => void
+): F
+function runner<T, X extends RunNoPromise<T> | never, F extends (...args: any[]) => X> (
+    description: string,
+    action:      F,
+    oncatch?:    (error: Error) => X | never,
+    onfinally?:  ()             => void,
+    oncleanup?:  (value: T)     => void
+): F
+function runner<T, X extends Promise<T> | never, F extends (...args: any[]) => Promise<T>> (
+    action:      F,
+    oncatch?:    (error: Error) => X,
+    onfinally?:  ()             => Promise<void>,
+    oncleanup?:  (value: T)     => Promise<void>
+): F
+function runner<T, X extends Promise<T> | never, F extends (...args: any[]) => Promise<T>> (
+    description: string,
+    action:      F,
+    oncatch?:    (error: Error) => X,
+    onfinally?:  ()             => Promise<void>,
+    oncleanup?:  (value: T)     => Promise<void>
+): F
+function runner<T, X extends RunNoPromise<T> | never, F extends (...args: any[]) => X> (
+    spool:       Spool | undefined,
+    action:      F,
+    oncatch?:    (error: Error) => X | never,
+    onfinally?:  ()             => void,
+    oncleanup?:  (value: T)     => void
+): F
+function runner<T, X extends RunNoPromise<T> | never, F extends (...args: any[]) => X> (
+    description: string,
+    spool:       Spool | undefined,
+    action:      F,
+    oncatch?:    (error: Error) => X | never,
+    onfinally?:  ()             => void,
+    oncleanup?:  (value: T)     => void
+): F
+function runner<T, X extends Promise<T> | never, F extends (...args: any[]) => Promise<T>> (
+    spool:       Spool | undefined,
+    action:      F,
+    oncatch?:    (error: Error) => X,
+    onfinally?:  ()             => Promise<void>,
+    oncleanup?:  (value: T)     => Promise<void>
+): F
+function runner<T, X extends Promise<T> | never, F extends (...args: any[]) => Promise<T>> (
+    description: string,
+    spool:       Spool | undefined,
+    action:      F,
+    oncatch?:    (error: Error) => X,
+    onfinally?:  ()             => Promise<void>,
+    oncleanup?:  (value: T)     => Promise<void>
+): F
+function runner<T> (
+    ...args: any[]
+): (...args: any[]) => T | Promise<T> | never {
+    /*  support overloaded signatures  */
+    let description: string | undefined
+    let spool:       Spool | undefined
+    let action:      (...args: any[]) => T | Promise<T> | never
+    let oncatch:     (error: Error) => T | Promise<T> | never
+    let onfinally:   () => Promise<void> | void
+    let oncleanup:   ((value: T) => void) | undefined
+    if (typeof args[0] === "string") {
+        description = args[0]
+        if (args[1] instanceof Spool) {
+            spool       = args[1]
+            action      = args[2]
+            oncatch     = args[3]
+            onfinally   = args[4]
+            oncleanup   = args[5]
+        }
+        else {
+            action      = args[1]
+            oncatch     = args[2]
+            onfinally   = args[3]
+            oncleanup   = args[4]
+        }
+    }
+    else {
+        if (args[0] instanceof Spool) {
+            spool       = args[0]
+            action      = args[1]
+            oncatch     = args[2]
+            onfinally   = args[3]
+            oncleanup   = args[4]
+        }
+        else {
+            action      = args[0]
+            oncatch     = args[1]
+            onfinally   = args[2]
+            oncleanup   = args[3]
+        }
+    }
+
+    /*  wrap the "run" operation on "action" into function
+        which exposes the signature of "action"
+        NOTICE: use implementation signature of "run" because TypeScript
+        overload resolution cannot handle the T | Promise<T> union  */
+    const _run = run as (...args: any[]) => any
+    return (...args: any[]) => {
+        if (description) {
+            if (spool)
+                return _run(description, spool, () => action(...args), oncatch, onfinally, oncleanup)
+            else
+                return _run(description, () => action(...args), oncatch, onfinally, oncleanup)
+        }
+        else {
+            if (spool)
+                return _run(spool, () => action(...args), oncatch, onfinally, oncleanup)
+            else
+                return _run(() => action(...args), oncatch, onfinally, oncleanup)
+        }
+    }
+}
+
+/*  shield cleanup operation, ignoring errors  */
+function shield<T, X extends RunNoPromise<T> | never> (op: () => X): X
+function shield<T, X extends Promise<T> | never>      (op: () => X): X
+function shield (op: () => any): any {
+    return run("shielded operation", op, (_err) => { /* ignore error */ })
+}
