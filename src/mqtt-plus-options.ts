@@ -54,8 +54,8 @@ export class OptionsTrait<T extends APISchema = APISchema> {
     ) {
         /*  determine options and provide defaults  */
         this.options = {
-            id:        nanoid(),
-            codec:     "cbor",
+            id:          nanoid(),
+            codec:       "cbor",
             timeout:     10 * 1000,
             chunkSize:   16 * 1024,
             chunkCredit: 4,
