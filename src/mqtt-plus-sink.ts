@@ -215,6 +215,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const responseTopic = this.options.topicMake(name, "sink-push-response", this.options.id)
         await this.pushSubscriptions.subscribe(responseTopic, { qos: 2 })
 
+        /*  define abort controller and signal  */
+        const abortController = new AbortController()
+        const abortSignal     = abortController.signal
+
         /*  define timer  */
         let timer: ReturnType<typeof setTimeout> | null = null
 
@@ -224,8 +228,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 clearTimeout(timer)
             timer = setTimeout(() => {
                 cleanup()
-                if (creditGate)
-                    creditGate.abort()
+                abortController.abort(new Error(`push to sink "${name}" timed out`))
             }, this.options.timeout)
         }
 
@@ -251,17 +254,24 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         let creditGate: CreditGate | undefined
         try {
             await new Promise<void>((resolve, reject) => {
+                /*  handle abort signal  */
+                const onAbort = () => { reject(abortSignal.reason) }
+                abortSignal.addEventListener("abort", onAbort, { once: true })
+
                 /*  register callback for response  */
                 this.pushCallbacks.set(requestId, {
                     name,
                     onResponse: (response: SinkPushResponse) => {
                         const error = response.error
-                        if (error)
+                        if (error) {
+                            abortSignal.removeEventListener("abort", onAbort)
                             reject(new Error(error))
+                        }
                         else {
                             if (response.sender)
                                 receiver = response.sender
                             initialCredit = response.credit
+                            abortSignal.removeEventListener("abort", onAbort)
                             resolve()
                         }
                     },
@@ -278,9 +288,23 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const message   = this.codec.encode(request)
                 const requestTopic = this.options.topicMake(name, "sink-push-request", receiver)
                 this._publishToTopic(requestTopic, message, { qos: 2, ...options }).catch((err: Error) => {
+                    abortSignal.removeEventListener("abort", onAbort)
                     reject(err)
                 })
             })
+
+            /*  override response handler to handle mid-stream responses  */
+            const handler = this.pushCallbacks.get(requestId)
+            if (handler !== undefined) {
+                handler.onResponse = (response: SinkPushResponse) => {
+                    const error = response.error
+                    if (error)
+                        abortController.abort(new Error(error))
+                }
+                handler.onCredit = (_credit: number) => {
+                    refreshTimeout()
+                }
+            }
 
             /*  create credit gate for flow control (if server granted credit)  */
             if (initialCredit !== undefined && initialCredit > 0)
@@ -310,10 +334,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  iterate over all chunks of the buffer  */
                 if (data instanceof Readable)
                     /*  attach to the readable  */
-                    await sendStreamAsChunks(data, this.options.chunkSize, sendChunk, creditGate)
+                    await sendStreamAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
                 else if (data instanceof Uint8Array)
                     /*  split buffer into chunks and send them  */
-                    await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate)
+                    await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
             }
             finally {
                 if (creditTopic)
@@ -405,7 +429,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 }
 
                 /*  check authentication and prepare stream  */
-                let responseSent = false
                 Promise.resolve().then(async () => {
                     if (info.authenticated !== undefined && !info.authenticated)
                         throw new Error(`sink "${name}" failed authentication`)
@@ -477,7 +500,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                     /*  send ack response  */
                     await sendResponse()
-                    responseSent = true
 
                     /*  call handler  */
                     return handler.callback(...params, info)
@@ -487,8 +509,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                     /*  send error (nak response)  */
                     this.error(err)
-                    if (!responseSent)
-                        await sendResponse(err.message)
+                    await sendResponse(err.message)
                 })
             }
         }
