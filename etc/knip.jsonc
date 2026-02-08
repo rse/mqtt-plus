@@ -39,8 +39,6 @@
     "ignoreDependencies": [
         "shx",
         "chokidar-cli"
-    ],
-    "ignore": [
     ]
 }
 
