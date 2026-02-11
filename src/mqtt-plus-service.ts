@@ -242,8 +242,6 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         if (topicMatch !== null
             && topicMatch.operation === "service-call-request"
             && parsed instanceof ServiceCallRequest) {
-            /*  deliver service request and send response  */
-
             /*  determine request information  */
             const requestId = parsed.id
             const senderId  = parsed.sender
@@ -287,7 +285,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 const topic = this.options.topicMake(name, "service-call-response", senderId)
                 return this._publishToTopic(topic, encoded, { qos: 2 })
             }).catch((err: Error) => {
-                this.error(err)
+                this.error(err, `handler for service "${name}" failed`)
             })
         }
 
