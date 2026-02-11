@@ -33,6 +33,7 @@ import { APISchema, APIEndpointEvent,
     EventKeys, Registration }         from "./mqtt-plus-api"
 import type { WithInfo, InfoEvent }   from "./mqtt-plus-info"
 import { AuthTrait, type AuthOption } from "./mqtt-plus-auth"
+import { run, Spool, ensureError }    from "./mqtt-plus-error"
 
 /*  Event Emission Trait  */
 export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
@@ -86,6 +87,9 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             callback = args[0] as WithInfo<T[K], InfoEvent>
         }
 
+        /*  create resource spool  */
+        const spool = new Spool()
+
         /*  sanity check situation  */
         if (this.events.has(name))
             throw new Error(`event: event "${name}" already registered`)
@@ -96,37 +100,27 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         const topicD = this.options.topicMake(name, "event-emission", this.options.id)
 
         /*  remember the registration  */
-        this.events.set(name, {
-            callback: callback as WithInfo<APIEndpointEvent, InfoEvent>,
-            auth
-        })
+        this.events.set(name, { callback, auth })
+        spool.roll(() => { this.events.delete(name) })
 
         /*  subscribe to MQTT topics  */
-        await Promise.all([
-            this._subscribeTopic(topicB, { qos: 0, ...options }),
-            this._subscribeTopic(topicD, { qos: 0, ...options })
-        ]).catch((err: Error) => {
-            this.events.delete(name)
-            this._unsubscribeTopic(topicB).catch(() => {})
-            this._unsubscribeTopic(topicD).catch(() => {})
-            throw err
-        })
+        await run(`subscribe to MQTT topic "${topicB}"`, spool, () =>
+            this._subscribeTopic(topicB, { qos: 2, ...options }))
+        spool.roll(() => this._unsubscribeTopic(topicB).catch(() => {}))
+        await run(`subscribe to MQTT topic "${topicD}"`, spool, () =>
+            this._subscribeTopic(topicD, { qos: 2, ...options }))
+        spool.roll(() => this._unsubscribeTopic(topicD).catch(() => {}))
 
         /*  provide a registration for subsequent destruction  */
-        const registration: Registration = {
+        return {
             destroy: async (): Promise<void> => {
                 if (!this.events.has(name))
                     throw new Error(`destroy: event "${name}" not registered`)
-                await Promise.all([
-                    this._unsubscribeTopic(topicB),
-                    this._unsubscribeTopic(topicD)
-                ]).then(() => {}).catch((err: Error) => {
-                    this.error(err, `destroy: failed to unsubscribe from topics for event "${name}"`)
+                await spool.unroll()?.catch((err: Error) => {
+                    this.error(err, `destroy: failed to cleanup: ${err.message}`)
                 })
-                this.events.delete(name)
             }
         }
-        return registration
     }
 
     /*  emit event ("fire and forget")  */
@@ -213,30 +207,38 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
     protected async _dispatchMessage (topic: string, parsed: any) {
         await super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
+
+        /*  on server-side handle event emission request  */
         if (topicMatch !== null
             && topicMatch.operation === "event-emission"
             && parsed instanceof EventEmission) {
-            /*  just deliver event  */
-            const name = parsed.name
-            if (topicMatch.name !== name)
-                throw new Error(`event name mismatch between topic "${topicMatch.name}" and payload "${name}"`)
-            const handler = this.events.get(name)
-            if (handler === undefined)
-                throw new Error(`handler for event "${name}" not found`)
-            const params = parsed.params ?? []
-            const info: InfoEvent = { sender: parsed.sender ?? "" }
+            /*  determine request information  */
+            const name     = parsed.name
+            const senderId = parsed.sender
+            const handler  = this.events.get(name)
+            const params   = parsed.params ?? []
+
+            /*  create information object  */
+            const info: InfoEvent = { sender: senderId ?? "" }
             if (parsed.receiver)
                 info.receiver = parsed.receiver
             if (parsed.meta)
                 info.meta = parsed.meta
-            if (handler.auth)
+            if (handler?.auth)
                 info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
+
+            /*  asynchronously execute handler  */
             Promise.resolve().then(() => {
+                if (topicMatch.name !== name)
+                    throw new Error(`event name mismatch (topic: "${topicMatch.name}", payload: "${name}")`)
+                if (handler === undefined)
+                    throw new Error(`handler for event "${name}" not found`)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`authentication on event "${name}" failed`)
                 return handler.callback(...params, info)
-            }).catch((err: Error) => {
-                this.error(err, `handler for event "${name}" failed`)
+            }).catch((result: unknown) => {
+                const error = ensureError(result)
+                this.error(error, `handler for event "${name}" failed`)
             })
         }
     }
