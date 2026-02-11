@@ -275,7 +275,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     undefined, this.options.id, senderId)
             }, (result: unknown) => {
                 /*  create error response message  */
-                const error = ensureError(result, `handler for service "${name}" failed`)
+                const error = ensureError(result)
                 this.error(error, `handler for service "${name}" failed`)
                 return this.msg.makeServiceCallResponse(requestId, undefined,
                     error.message, this.options.id, senderId)
