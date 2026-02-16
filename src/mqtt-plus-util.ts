@@ -263,6 +263,8 @@ export async function sendStreamAsChunks (
         if (buffer.byteLength === 0)
             continue
         for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+            if (abortSignal?.aborted)
+                throw abortSignal.reason ?? new Error("aborted")
             const size  = Math.min(buffer.byteLength - i, chunkSize)
             const chunk = buffer.subarray(i, i + size)
             if (creditGate)
