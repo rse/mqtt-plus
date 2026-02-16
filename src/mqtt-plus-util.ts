@@ -28,8 +28,6 @@ import { Readable }                from "node:stream"
 
 /*  external requirements  */
 import PLazy                       from "p-lazy"
-
-/*  internal requirements  */
 import { IClientSubscribeOptions } from "mqtt"
 
 /*  reference-counted subscription helper  */
@@ -159,6 +157,20 @@ function uint8ArrayConcat (arrays: Uint8Array[]) {
     return result
 }
 
+/*  utility function for converting a chunk to a buffer  */
+function chunkToBuffer (chunk: unknown): Uint8Array {
+    let buffer: Uint8Array
+    if (chunk instanceof Buffer)
+        buffer = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.length)
+    else if (chunk instanceof Uint8Array)
+        buffer = chunk
+    else if (typeof chunk === "string")
+        buffer = new TextEncoder().encode(chunk)
+    else
+        throw new Error("invalid chunk type: expected Buffer, Uint8Array, or string")
+    return buffer
+}
+
 /*  utility function for collecting stream chunks into a buffer  */
 export function streamToBuffer (stream: Readable): Promise<Uint8Array> {
     return new PLazy<Uint8Array>((resolve, reject) => {
@@ -174,20 +186,6 @@ export function streamToBuffer (stream: Readable): Promise<Uint8Array> {
             reject(err)
         })
     })
-}
-
-/*  utility function for converting a chunk to a buffer  */
-function chunkToBuffer (chunk: unknown): Uint8Array {
-    let buffer: Uint8Array
-    if (chunk instanceof Buffer)
-        buffer = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.length)
-    else if (chunk instanceof Uint8Array)
-        buffer = chunk
-    else if (typeof chunk === "string")
-        buffer = new TextEncoder().encode(chunk)
-    else
-        throw new Error("invalid chunk type: expected Buffer, Uint8Array, or string")
-    return buffer
 }
 
 /*  callback type for sending chunks  */
