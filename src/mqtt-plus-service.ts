@@ -94,7 +94,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         }
         else {
             /*  positional API  */
-            name     = nameOrConfig as K
+            name     = nameOrConfig
             callback = args[0]
         }
 
@@ -108,7 +108,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
         const topicS = `$share/${share}/${name}`
         const topicB = this.options.topicMake(topicS, "service-call-request")
-        const topicD = this.options.topicMake(name, "service-call-request", this.options.id)
+        const topicD = this.options.topicMake(name,   "service-call-request", this.options.id)
 
         /*  remember the registration  */
         this.services.set(name, { callback, auth })

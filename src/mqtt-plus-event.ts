@@ -83,8 +83,8 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         }
         else {
             /*  positional API  */
-            name     = nameOrConfig as K
-            callback = args[0] as WithInfo<T[K], InfoEvent>
+            name     = nameOrConfig
+            callback = args[0]
         }
 
         /*  create resource spool  */
