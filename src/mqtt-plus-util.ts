@@ -256,10 +256,10 @@ export async function sendStreamAsChunks (
     creditGate?:  CreditGate,
     abortSignal?: AbortSignal
 ): Promise<void> {
-    for await (const chunkData of readable) {
+    for await (const raw of readable) {
         if (abortSignal?.aborted)
             throw abortSignal.reason ?? new Error("aborted")
-        const buffer = chunkToBuffer(chunkData)
+        const buffer = chunkToBuffer(raw)
         if (buffer.byteLength === 0)
             continue
         for (let i = 0; i < buffer.byteLength; i += chunkSize) {
