@@ -107,8 +107,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         }
         else {
             /*  positional API  */
-            name     = nameOrConfig as K
-            callback = args[0] as WithInfo<T[K], InfoSink>
+            name     = nameOrConfig
+            callback = args[0]
         }
 
         /*  sanity check situation  */
@@ -203,8 +203,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         }
         else {
             /*  positional API  */
-            name     = nameOrConfig as K
-            data     = args[0] as Readable | Uint8Array
+            name     = nameOrConfig
+            data     = args[0]
             params   = args.slice(1) as Parameters<T[K]>
         }
 
