@@ -99,13 +99,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             name     = nameOrConfig.name
             callback = nameOrConfig.callback
             options  = nameOrConfig.options ?? {}
-            share    = nameOrConfig.share ?? "default"
+            share    = nameOrConfig.share   ?? "default"
             auth     = nameOrConfig.auth
         }
         else {
             /*  positional API  */
-            name     = nameOrConfig as K
-            callback = args[0] as WithInfo<T[K], InfoSource>
+            name     = nameOrConfig
+            callback = args[0]
         }
 
         /*  sanity check situation  */
