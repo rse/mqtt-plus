@@ -154,23 +154,15 @@ export class CreditGate {
     /*  replenish credit (called when credit message received)  */
     replenish (amount: number): void {
         this.remaining += amount
-        while (this.waiters.length > 0 && this.remaining > 0) {
-            const waiter = this.waiters.shift()
-            if (waiter === undefined)
-                break
-            waiter(false)
-        }
+        while (this.waiters.length > 0 && this.remaining > 0)
+            this.waiters.shift()!(false)
     }
 
     /*  release any waiting producer (for cleanup on error/abort)  */
     abort (): void {
         this.aborted = true
-        while (this.waiters.length > 0) {
-            const waiter = this.waiters.shift()
-            if (waiter === undefined)
-                break
-            waiter(true)
-        }
+        while (this.waiters.length > 0)
+            this.waiters.shift()!(true)
     }
 }
 
