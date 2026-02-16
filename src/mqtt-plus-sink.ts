@@ -33,6 +33,7 @@ import { nanoid }                                                 from "nanoid"
 import { CreditGate, RefCountedSubscription,
     streamToBuffer, sendBufferAsChunks,
     sendStreamAsChunks, makeMutuallyExclusiveFields }             from "./mqtt-plus-util"
+import { run, Spool, ensureError }                                from "./mqtt-plus-error"
 import { SinkPushRequest, SinkPushResponse,
     SinkPushChunk, SinkPushCredit }                               from "./mqtt-plus-msg"
 import { APISchema, SinkKeys, APIEndpointSink, Registration }     from "./mqtt-plus-api"
@@ -102,7 +103,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             name     = nameOrConfig.name
             callback = nameOrConfig.callback
             options  = nameOrConfig.options ?? {}
-            share    = nameOrConfig.share ?? "default"
+            share    = nameOrConfig.share   ?? "default"
             auth     = nameOrConfig.auth
         }
         else {
@@ -110,6 +111,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             name     = nameOrConfig
             callback = args[0]
         }
+
+        /*  create a resource spool  */
+        const spool = new Spool()
 
         /*  sanity check situation  */
         if (this.sinks.has(name))
@@ -122,40 +126,30 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const topicChunkD = this.options.topicMake(name,   "sink-push-chunk",   this.options.id)
 
         /*  remember the registration  */
-        this.sinks.set(name, {
-            callback: callback as WithInfo<APIEndpointSink, InfoSink>,
-            auth
-        })
+        this.sinks.set(name, { callback, auth })
+        spool.roll(() => { this.sinks.delete(name) })
 
         /*  subscribe to MQTT topics  */
-        await Promise.all([
-            this._subscribeTopic(topicReqB,   { qos: 2, ...options }),
-            this._subscribeTopic(topicReqD,   { qos: 2, ...options }),
-            this._subscribeTopic(topicChunkD, { qos: 2, ...options })
-        ]).catch((err: Error) => {
-            this.sinks.delete(name)
-            this._unsubscribeTopic(topicReqB).catch(() => {})
-            this._unsubscribeTopic(topicReqD).catch(() => {})
-            this._unsubscribeTopic(topicChunkD).catch(() => {})
-            throw err
-        })
+        await run(`subscribe to MQTT topic "${topicReqB}"`, spool, () =>
+            this._subscribeTopic(topicReqB, { qos: 2, ...options }))
+        spool.roll(() => this._unsubscribeTopic(topicReqB).catch(() => {}))
+        await run(`subscribe to MQTT topic "${topicReqD}"`, spool, () =>
+            this._subscribeTopic(topicReqD, { qos: 2, ...options }))
+        spool.roll(() => this._unsubscribeTopic(topicReqD).catch(() => {}))
+        await run(`subscribe to MQTT topic "${topicChunkD}"`, spool, () =>
+            this._subscribeTopic(topicChunkD, { qos: 2, ...options }))
+        spool.roll(() => this._unsubscribeTopic(topicChunkD).catch(() => {}))
 
         /*  provide a registration for subsequent destruction  */
-        const registration: Registration = {
+        return {
             destroy: async (): Promise<void> => {
                 if (!this.sinks.has(name))
                     throw new Error(`destroy: sink "${name}" not established`)
-                await Promise.all([
-                    this._unsubscribeTopic(topicReqB),
-                    this._unsubscribeTopic(topicReqD),
-                    this._unsubscribeTopic(topicChunkD)
-                ]).then(() => {}).catch((err: Error) => {
-                    this.error(err, `destroy: failed to unsubscribe from topics for sink "${name}"`)
+                await spool.unroll()?.catch((err: Error) => {
+                    this.error(err, `destroy: failed to cleanup: ${err.message}`)
                 })
-                this.sinks.delete(name)
             }
         }
-        return registration
     }
 
     /*  push to sink ("chunked content")  */
