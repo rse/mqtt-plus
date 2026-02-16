@@ -34,14 +34,25 @@ import { IClientSubscribeOptions } from "mqtt"
 export class RefCountedSubscription {
     private counts  = new Map<string, number>()
     private pending = new Map<string, Promise<void>>()
+    private lingers = new Map<string, ReturnType<typeof setTimeout>>()
     constructor (
         private subscribeFn:   (topic: string, options: IClientSubscribeOptions) => Promise<void>,
-        private unsubscribeFn: (topic: string) => Promise<void>
+        private unsubscribeFn: (topic: string) => Promise<void>,
+        private lingerMs:      number = 30 * 1000
     ) {}
     async subscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
         /*  increment count first to reserve our interest  */
         const count = this.counts.get(topic) ?? 0
         this.counts.set(topic, count + 1)
+
+        /*  optionally just cancel a pending linger unsubscription
+            (subscription is still kept active on the broker)  */
+        const linger = this.lingers.get(topic)
+        if (linger) {
+            clearTimeout(linger)
+            this.lingers.delete(topic)
+            return
+        }
 
         /*  if we are the first, we must perform the actual subscription  */
         if (count === 0) {
@@ -72,10 +83,28 @@ export class RefCountedSubscription {
         if (count) {
             if (count <= 1) {
                 this.counts.delete(topic)
-                await this.unsubscribeFn(topic).catch(() => {})
+                if (this.lingerMs > 0) {
+                    /*  defer the actual broker unsubscription  */
+                    const timer = setTimeout(() => {
+                        this.lingers.delete(topic)
+                        this.unsubscribeFn(topic).catch(() => {})
+                    }, this.lingerMs)
+                    this.lingers.set(topic, timer)
+                }
+                else
+                    await this.unsubscribeFn(topic).catch(() => {})
             }
             else
                 this.counts.set(topic, count - 1)
+        }
+    }
+    async flush (): Promise<void> {
+        /*  flush all pending linger timers and unsubscribe immediately  */
+        const topics = [ ...this.lingers.keys() ]
+        for (const topic of topics) {
+            clearTimeout(this.lingers.get(topic))
+            this.lingers.delete(topic)
+            await this.unsubscribeFn(topic).catch(() => {})
         }
     }
 }
