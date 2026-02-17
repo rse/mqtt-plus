@@ -119,10 +119,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const topicCreditD = this.options.topicMake(name, "source-fetch-credit",  this.options.id)
 
         /*  remember the registration  */
-        this.sources.set(name, {
-            callback: callback as WithInfo<APIEndpointSource, InfoSource>,
-            auth
-        })
+        this.sources.set(name, { callback, auth })
 
         /*  subscribe to MQTT topics  */
         await Promise.all([
