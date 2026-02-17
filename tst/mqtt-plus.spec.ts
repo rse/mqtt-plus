@@ -417,9 +417,13 @@ describe("MQTT+ Library", function () {
 
     /*  actions after all test cases  */
     after(async function () {
-        /*  disconnect with MQTT  */
-        mqttC.end()
-        mqttS.end()
+        /*  destroy API instances  */
+        apiC.destroy()
+        apiS.destroy()
+
+        /*  disconnect from MQTT  */
+        await mqttC.endAsync()
+        await mqttS.endAsync()
 
         /*  stop Mosquitto  */
         this.timeout(4000)
