@@ -32,6 +32,7 @@ type SpoolResource<T = unknown> = {
     cleanup:  SpoolCleanup<T>
 }
 
+/*  resource spooling class  */
 export class Spool {
     /*  internal state  */
     private resources: SpoolResource<unknown>[] = []
