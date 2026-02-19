@@ -64,6 +64,28 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         (topic)          => this._unsubscribeTopic(topic)
     )
 
+    /*  refresh source timer for a specific request  */
+    private _refreshSourceTimer (requestId: string) {
+        const timer = this.sourceTimers.get(requestId)
+        if (timer !== undefined)
+            clearTimeout(timer)
+        this.sourceTimers.set(requestId, setTimeout(() => {
+            this.sourceTimers.delete(requestId)
+            const gate = this.sourceCreditGates.get(requestId)
+            if (gate !== undefined)
+                gate.abort()
+        }, this.options.timeout))
+    }
+
+    /*  clear source timer for a specific request  */
+    private _clearSourceTimer (requestId: string) {
+        const timer = this.sourceTimers.get(requestId)
+        if (timer !== undefined) {
+            clearTimeout(timer)
+            this.sourceTimers.delete(requestId)
+        }
+    }
+
     /*  establish a source (for fetch requests)  */
     async source<K extends SourceKeys<T> & string> (
         name:     K,
@@ -315,10 +337,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             ) => {
                 const wasFirstChunk = firstChunk
                 if (firstChunk) {
-                    if (meta !== undefined || error !== undefined || final === true) {
-                        firstChunk = false
-                        metaResolve?.(meta)
-                    }
+                    firstChunk = false
+                    metaResolve?.(meta)
                 }
                 if (error !== undefined) {
                     cleanup(!wasFirstChunk)
@@ -414,25 +434,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     await this._publishToTopic(chunkTopic, message, { qos: 2 })
                 }
 
-                /*  utility function for timeout management  */
-                const refreshSourceTimeout = () => {
-                    const timer = this.sourceTimers.get(requestId)
-                    if (timer !== undefined)
-                        clearTimeout(timer)
-                    this.sourceTimers.set(requestId, setTimeout(() => {
-                        this.sourceTimers.delete(requestId)
-                        const gate = this.sourceCreditGates.get(requestId)
-                        if (gate !== undefined)
-                            gate.abort()
-                    }, this.options.timeout))
-                }
-                const clearSourceTimeout = () => {
-                    const timer = this.sourceTimers.get(requestId)
-                    if (timer !== undefined) {
-                        clearTimeout(timer)
-                        this.sourceTimers.delete(requestId)
-                    }
-                }
+                /*  utility functions for timeout management  */
+                const refreshSourceTimeout = () => this._refreshSourceTimer(requestId)
+                const clearSourceTimeout   = () => this._clearSourceTimer(requestId)
                 refreshSourceTimeout()
 
                 /*  handle credit-based flow control (if credit provided in request)  */
@@ -539,14 +543,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 gate.replenish(parsed.credit)
 
                 /*  refresh timeout  */
-                const timer = this.sourceTimers.get(requestId)
-                if (timer !== undefined) {
-                    clearTimeout(timer)
-                    this.sourceTimers.set(requestId, setTimeout(() => {
-                        this.sourceTimers.delete(requestId)
-                        gate.abort()
-                    }, this.options.timeout))
-                }
+                this._refreshSourceTimer(requestId)
             }
         }
     }
