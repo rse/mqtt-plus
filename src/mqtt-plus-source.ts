@@ -45,10 +45,6 @@ import type { AuthOption }                                from "./mqtt-plus-auth
 /*  Source Fetch Trait  */
 export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
     /*  source state  */
-    private sources                = new Map<string, (request: SourceFetchRequest, topicName: string) => void>()
-    private fetchResponseCallbacks = new Map<string, (response: SourceFetchResponse) => void>()
-    private fetchChunkCallbacks    = new Map<string, (response: SourceFetchChunk) => void>()
-    private sourceCreditCallbacks  = new Map<string, (response: SourceFetchCredit) => void>()
     private sourceCreditGates      = new Map<string, CreditGate>()
     private sourceTimers           = new Map<string, ReturnType<typeof setTimeout>>()
     private fetchSubscriptions     = new RefCountedSubscription(
@@ -132,7 +128,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const spool = new Spool()
 
         /*  sanity check situation  */
-        if (this.sources.has(name))
+        if (this.onRequest.has(`source-fetch-request:${name}`))
             throw new Error(`source: source "${name}" already established`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
@@ -142,7 +138,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const topicCreditD = this.options.topicMake(name,   "source-fetch-credit",  this.options.id)
 
         /*  remember the registration  */
-        this.sources.set(name, (request: SourceFetchRequest, topicName: string) => {
+        this.onRequest.set(`source-fetch-request:${name}`, (request: SourceFetchRequest, topicName: string) => {
             /*  determine information  */
             const requestId = request.id
             const params    = request.params ?? []
@@ -194,7 +190,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 ? new CreditGate(initialCredit) : undefined
             if (creditGate) {
                 this.sourceCreditGates.set(requestId, creditGate)
-                this.sourceCreditCallbacks.set(requestId, (creditParsed: SourceFetchCredit) => {
+                this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
                     creditGate.replenish(creditParsed.credit)
                     this._refreshSourceTimer(requestId)
                 })
@@ -243,10 +239,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     creditGate.abort()
                     this.sourceCreditGates.delete(requestId)
                 }
-                this.sourceCreditCallbacks.delete(requestId)
+                this.onResponse.delete(`source-fetch-credit:${requestId}`)
             })
         })
-        spool.roll(() => { this.sources.delete(name) })
+        spool.roll(() => { this.onRequest.delete(`source-fetch-request:${name}`) })
 
         /*  subscribe to MQTT topics  */
         await run(`subscribe to MQTT topic "${topicReqB}"`, spool, () =>
@@ -262,7 +258,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         /*  provide a registration for subsequent destruction  */
         return {
             destroy: async (): Promise<void> => {
-                if (!this.sources.has(name))
+                if (!this.onRequest.has(`source-fetch-request:${name}`))
                     throw new Error(`destroy: source "${name}" not established`)
                 await spool.unroll(false)?.catch((err: Error) => {
                     this.error(err, `destroy: failed to cleanup: ${err.message}`)
@@ -353,7 +349,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const stream = new Readable({
             highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
             read: (_size) => {
-                if (chunkCredit <= 0 || !this.fetchChunkCallbacks.has(requestId))
+                if (chunkCredit <= 0 || !this.onResponse.has(`source-fetch-chunk:${requestId}`))
                     return
                 const targetId = serverId ?? receiver
                 if (!targetId)
@@ -409,7 +405,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         stream.once("error", () => spool.unroll())
 
         /*  register response dispatch callback  */
-        this.fetchResponseCallbacks.set(requestId, (response: SourceFetchResponse) => {
+        this.onResponse.set(`source-fetch-response:${requestId}`, (response: SourceFetchResponse) => {
             if (response.sender)
                 serverId = response.sender
             metaResolve?.(response.meta)
@@ -422,7 +418,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         })
 
         /*  register chunk dispatch callback  */
-        this.fetchChunkCallbacks.set(requestId, (response: SourceFetchChunk) => {
+        this.onResponse.set(`source-fetch-chunk:${requestId}`, (response: SourceFetchChunk) => {
             if (response.sender)
                 serverId = response.sender
             if (response.error) {
@@ -442,8 +438,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             }
         })
         spool.roll(() => {
-            this.fetchResponseCallbacks.delete(requestId)
-            this.fetchChunkCallbacks.delete(requestId)
+            this.onResponse.delete(`source-fetch-response:${requestId}`)
+            this.onResponse.delete(`source-fetch-chunk:${requestId}`)
         })
 
         /*  generate encoded message  */
@@ -470,45 +466,4 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         return result
     }
 
-    /*  dispatch message (Source Fetch pattern handling)  */
-    protected override async _dispatchMessage (topic: string, message: any) {
-        await super._dispatchMessage(topic, message)
-        const topicMatch = this.options.topicMatch(topic)
-
-        /*  handle source fetch request (on server-side)  */
-        if (topicMatch !== null
-            && topicMatch.operation === "source-fetch-request"
-            && message instanceof SourceFetchRequest) {
-            const handler = this.sources.get(message.name)
-            if (handler !== undefined)
-                handler(message, topicMatch.name)
-        }
-
-        /*  handle source fetch response (on client-side)  */
-        else if (topicMatch !== null
-            && topicMatch.operation === "source-fetch-response"
-            && message instanceof SourceFetchResponse) {
-            const handler = this.fetchResponseCallbacks.get(message.id)
-            if (handler !== undefined)
-                handler(message)
-        }
-
-        /*  handle source fetch chunk (on client-side)  */
-        else if (topicMatch !== null
-            && topicMatch.operation === "source-fetch-chunk"
-            && message instanceof SourceFetchChunk) {
-            const handler = this.fetchChunkCallbacks.get(message.id)
-            if (handler !== undefined)
-                handler(message)
-        }
-
-        /*  handle source fetch credit (on server-side)  */
-        else if (topicMatch !== null
-            && topicMatch.operation === "source-fetch-credit"
-            && message instanceof SourceFetchCredit) {
-            const handler = this.sourceCreditCallbacks.get(message.id)
-            if (handler !== undefined)
-                handler(message)
-        }
-    }
 }

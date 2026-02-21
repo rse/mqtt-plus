@@ -41,8 +41,6 @@ import type { AuthOption }            from "./mqtt-plus-auth"
 /*  Service Call Trait  */
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
     /*  internal state  */
-    private services          = new Map<string, (request: ServiceCallRequest, topicName: string) => void>()
-    private callCallbacks     = new Map<string, (response: ServiceCallResponse) => void>()
     private callSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
         (topic)          => this._unsubscribeTopic(topic)
@@ -102,7 +100,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const spool = new Spool()
 
         /*  sanity check situation  */
-        if (this.services.has(name))
+        if (this.onRequest.has(`service-call-request:${name}`))
             throw new Error(`register: service "${name}" already registered`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
@@ -111,7 +109,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const topicD = this.options.topicMake(name,   "service-call-request", this.options.id)
 
         /*  remember the registration  */
-        this.services.set(name, (request: ServiceCallRequest, topicName: string) => {
+        this.onRequest.set(`service-call-request:${name}`, (request: ServiceCallRequest, topicName: string) => {
             /*  determine request information  */
             const requestId = request.id
             const senderId  = request.sender
@@ -154,7 +152,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 this.error(err, `handler for service "${name}" failed`)
             })
         })
-        spool.roll(() => { this.services.delete(name) })
+        spool.roll(() => { this.onRequest.delete(`service-call-request:${name}`) })
 
         /*  subscribe to MQTT topics  */
         await run(`subscribe to MQTT topic "${topicB}"`, spool, () =>
@@ -167,7 +165,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         /*  provide a registration for subsequent destruction  */
         return {
             destroy: async (): Promise<void> => {
-                if (!this.services.has(name))
+                if (!this.onRequest.has(`service-call-request:${name}`))
                     throw new Error(`destroy: service "${name}" no longer registered`)
                 await spool.unroll(false)?.catch((err: Error) => {
                     this.error(err, `destroy: failed to cleanup: ${err.message}`)
@@ -245,14 +243,14 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     timer = null
                 }
             })
-            this.callCallbacks.set(requestId, async (response: ServiceCallResponse) => {
+            this.onResponse.set(`service-call-response:${requestId}`, async (response: ServiceCallResponse) => {
                 await spool.unroll()
                 if (response.error !== undefined)
                     reject(new Error(response.error))
                 else
                     resolve(response.result)
             })
-            spool.roll(() => { this.callCallbacks.delete(requestId) })
+            spool.roll(() => { this.onResponse.delete(`service-call-response:${requestId}`) })
         })
 
         /*  generate encoded message  */
@@ -272,28 +270,4 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         return promise
     }
 
-    /*  dispatch message (Service pattern handling)  */
-    protected override async _dispatchMessage (topic: string, message: any) {
-        await super._dispatchMessage(topic, message)
-        const topicMatch = this.options.topicMatch(topic)
-
-        /*  on server-side handle service call request  */
-        if (topicMatch !== null
-            && topicMatch.operation === "service-call-request"
-            && message instanceof ServiceCallRequest) {
-            const handler = this.services.get(message.name)
-            if (handler !== undefined)
-                handler(message, topicMatch.name)
-        }
-
-        /*  on client-side handle service call response  */
-        else if (topicMatch !== null
-            && topicMatch.operation === "service-call-response"
-            && topicMatch.peerId === this.options.id
-            && message instanceof ServiceCallResponse) {
-            const handler = this.callCallbacks.get(message.id)
-            if (handler !== undefined)
-                handler(message)
-        }
-    }
 }

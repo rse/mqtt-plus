@@ -509,6 +509,34 @@ class Msg {
         else
             throw new Error("invalid object: not of any known type")
     }
+
+    /*  guard for request messages  */
+    isRequest (msg: any): msg is (
+        EventEmission | ServiceCallRequest | SourceFetchRequest | SinkPushRequest
+    ) {
+        return (
+            msg instanceof EventEmission
+            || msg instanceof ServiceCallRequest
+            || msg instanceof SourceFetchRequest
+            || msg instanceof SinkPushRequest
+        )
+    }
+
+    /*  guard for response messages  */
+    isResponse (msg: any): msg is (
+        ServiceCallResponse | SinkPushResponse | SinkPushChunk | SinkPushCredit |
+        SourceFetchResponse | SourceFetchChunk | SourceFetchCredit
+    ) {
+        return (
+            msg instanceof ServiceCallResponse
+            || msg instanceof SinkPushResponse
+            || msg instanceof SinkPushChunk
+            || msg instanceof SinkPushCredit
+            || msg instanceof SourceFetchResponse
+            || msg instanceof SourceFetchChunk
+            || msg instanceof SourceFetchCredit
+        )
+    }
 }
 
 /*  message trait  */

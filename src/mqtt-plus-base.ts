@@ -34,11 +34,16 @@ import { MqttClient,
 import type { APISchema }    from "./mqtt-plus-api"
 import type { APIOptions }   from "./mqtt-plus-options"
 import { TraceTrait }        from "./mqtt-plus-trace"
+import { ensureError }       from "./mqtt-plus-error"
 
 /*  MQTTp Base class with shared infrastructure  */
 export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     protected mqtt: MqttClient
     private _messageHandler: OnMessageCallback
+
+    /*  central message callback registries  */
+    protected onRequest  = new Map<string, (message: any, topicName: string) => void>()
+    protected onResponse = new Map<string, (message: any, topicName: string) => void>()
 
     /*  construct API class  */
     constructor (
@@ -171,36 +176,61 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     }
 
     /*  handle incoming MQTT message  */
-    private _onMessage (topic: string, message: string | Uint8Array, packet: IPublishPacket): void {
-        /*  try to parse message as payload  */
-        if (typeof message === "string")
-            this.log("info", `received from MQTT topic "${topic}" (type: string, length: ${message.length} chars)`)
+    private _onMessage (topic: string, data: string | Uint8Array, packet: IPublishPacket): void {
+        /*  parse MQTT topic  */
+        const topicMatch = this.options.topicMatch(topic)
+        if (topicMatch === null)
+            return
+
+        /*  parse MQTT data into payload object  */
+        if (typeof data === "string")
+            this.log("info", `received from MQTT topic "${topic}" (type: string, length: ${data.length} chars)`)
         else
-            this.log("info", `received from MQTT topic "${topic}" (type: buffer, length: ${message.byteLength} bytes)`)
-        let parsed: any
+            this.log("info", `received from MQTT topic "${topic}" (type: buffer, length: ${data.byteLength} bytes)`)
+        let payload: any
         try {
-            const payload = this.codec.decode(message)
-            parsed = this.msg.parse(payload)
+            payload = this.codec.decode(data)
         }
-        catch (_err: unknown) {
-            const err = _err instanceof Error
-                ? new Error(`failed to parse message: ${_err.message}`, { cause: _err })
-                : new Error("failed to parse message")
-            this.error(err)
+        catch (err: unknown) {
+            this.error(ensureError(err, "failed to parse message into object"))
             return
         }
-        this.log("debug", `received from MQTT topic "${topic}"`, { message: parsed })
 
-        /*  dispatch to trait handlers  */
-        this._dispatchMessage(topic, parsed).catch((err: Error) => {
-            this.error(err, `dispatching message from MQTT topic "${topic}" failed`)
-        })
+        /*  parse payload object into typed MQTT+ message  */
+        let message: any
+        try {
+            message = this.msg.parse(payload)
+        }
+        catch (err: unknown) {
+            this.error(ensureError(err, "failed to parse object into typed message object"))
+            return
+        }
+        this.log("debug", `received from MQTT topic "${topic}"`, { message })
+
+        /*  dispatch MQTT+ message  */
+        if (this.msg.isRequest(message)) {
+            /*  dispatch request message  */
+            const handler = this.onRequest.get(`${topicMatch.operation}:${message.name}`)
+            if (handler !== undefined) {
+                try {
+                    handler(message, topicMatch.name)
+                }
+                catch (err: unknown) {
+                    this.error(ensureError(err, `dispatching request message from MQTT topic "${topic}" failed`))
+                }
+            }
+        }
+        else if (this.msg.isResponse(message)) {
+            /*  dispatch response message  */
+            const handler = this.onResponse.get(`${topicMatch.operation}:${message.id}`)
+            if (handler !== undefined) {
+                try {
+                    handler(message, topicMatch.name)
+                }
+                catch (err: unknown) {
+                    this.error(ensureError(err, `dispatching response message from MQTT topic "${topic}" failed`))
+                }
+            }
+        }
     }
-
-    /*  dispatch parsed message to appropriate handler
-        (base implementation, to be overridden in sub-traits)  */
-    protected async _dispatchMessage (
-        _topic:  string,
-        _parsed: any
-    ): Promise<void> {}
 }

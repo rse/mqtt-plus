@@ -37,9 +37,6 @@ import { run, Spool, ensureError }    from "./mqtt-plus-error"
 
 /*  Event Emission Trait  */
 export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
-    /*  internal state  */
-    private events = new Map<string, (request: EventEmission, topicName: string) => void>()
-
     /*  register an event handler  */
     async event<K extends EventKeys<T> & string> (
         name:     K,
@@ -88,7 +85,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         const spool = new Spool()
 
         /*  sanity check situation  */
-        if (this.events.has(name))
+        if (this.onRequest.has(`event-emission:${name}`))
             throw new Error(`event: event "${name}" already registered`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
@@ -97,7 +94,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         const topicD = this.options.topicMake(name, "event-emission", this.options.id)
 
         /*  remember the registration  */
-        this.events.set(name, (request: EventEmission, topicName: string) => {
+        this.onRequest.set(`event-emission:${name}`, (request: EventEmission, topicName: string) => {
             /*  determine event information  */
             const senderId = request.sender
             const params   = request.params ?? []
@@ -123,7 +120,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
                 this.error(error, `handler for event "${name}" failed`)
             })
         })
-        spool.roll(() => { this.events.delete(name) })
+        spool.roll(() => { this.onRequest.delete(`event-emission:${name}`) })
 
         /*  subscribe to MQTT topics  */
         await run(`subscribe to MQTT topic "${topicB}"`, spool, () =>
@@ -136,7 +133,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         /*  provide a registration for subsequent destruction  */
         return {
             destroy: async (): Promise<void> => {
-                if (!this.events.has(name))
+                if (!this.onRequest.has(`event-emission:${name}`))
                     throw new Error(`destroy: event "${name}" not registered`)
                 await spool.unroll(false)?.catch((err: Error) => {
                     this.error(err, `destroy: failed to cleanup: ${err.message}`)
@@ -208,7 +205,8 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         /*  generate encoded message  */
         const auth      = this.authenticate()
         const metaStore = this.metaStore(meta)
-        const request   = this.msg.makeEventEmission(requestId, event, params, this.options.id, receiver, auth, metaStore)
+        const request   = this.msg.makeEventEmission(requestId, event, params,
+            this.options.id, receiver, auth, metaStore)
         const message   = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
@@ -225,18 +223,4 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             })
     }
 
-    /*  dispatch message (Event pattern handling)  */
-    protected override async _dispatchMessage (topic: string, message: any) {
-        await super._dispatchMessage(topic, message)
-        const topicMatch = this.options.topicMatch(topic)
-
-        /*  on server-side handle event emission request  */
-        if (topicMatch !== null
-            && topicMatch.operation === "event-emission"
-            && message instanceof EventEmission) {
-            const handler = this.events.get(message.name)
-            if (handler !== undefined)
-                handler(message, topicMatch.name)
-        }
-    }
 }

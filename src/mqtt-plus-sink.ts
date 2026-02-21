@@ -45,13 +45,9 @@ import type { AuthOption }                                from "./mqtt-plus-auth
 /*  Sink Push Trait  */
 export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     /*  sink state  */
-    private sinks                 = new Map<string, (request: SinkPushRequest, topicName: string) => void>()
     private pushStreams           = new Map<string, Readable>()
     private pushSpools            = new Map<string, Spool>()
     private pushTimers            = new Map<string, ReturnType<typeof setTimeout>>()
-    private pushChunkCallbacks    = new Map<string, (response: SinkPushChunk, topicName: string) => void>()
-    private pushResponseCallbacks = new Map<string, (response: SinkPushResponse) => void>()
-    private pushCreditCallbacks   = new Map<string, (response: SinkPushCredit) => void>()
     private pushSubscriptions     = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
         (topic)          => this._unsubscribeTopic(topic)
@@ -135,7 +131,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const spool = new Spool()
 
         /*  sanity check situation  */
-        if (this.sinks.has(name))
+        if (this.onRequest.has(`sink-push-request:${name}`))
             throw new Error(`sink: sink "${name}" already established`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
@@ -145,7 +141,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const topicChunkD = this.options.topicMake(name,   "sink-push-chunk",   this.options.id)
 
         /*  remember the registration  */
-        this.sinks.set(name, (request: SinkPushRequest, topicName: string) => {
+        this.onRequest.set(`sink-push-request:${name}`, (request: SinkPushRequest, topicName: string) => {
             /*  determine information  */
             const requestId = request.id
             const params    = request.params ?? []
@@ -226,7 +222,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 readable.once("error", () => reqSpool.unroll())
 
                 /*  register chunk dispatch callback  */
-                this.pushChunkCallbacks.set(requestId, (chunkParsed: SinkPushChunk, chunkTopicName: string) => {
+                this.onResponse.set(`sink-push-chunk:${requestId}`, (chunkParsed: SinkPushChunk, chunkTopicName: string) => {
                     if (chunkTopicName !== chunkParsed.name)
                         throw new Error(`sink name mismatch between topic "${chunkTopicName}" ` +
                             `and payload "${chunkParsed.name}"`)
@@ -247,7 +243,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         }
                     }
                 })
-                reqSpool.roll(() => { this.pushChunkCallbacks.delete(requestId) })
+                reqSpool.roll(() => { this.onResponse.delete(`sink-push-chunk:${requestId}`) })
 
                 /*  start timeout for push stream cleanup  */
                 refreshPushTimeout()
@@ -276,7 +272,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 await sendResponse(err.message).catch(() => {})
             })
         })
-        spool.roll(() => { this.sinks.delete(name) })
+        spool.roll(() => { this.onRequest.delete(`sink-push-request:${name}`) })
 
         /*  subscribe to MQTT topics  */
         await run(`subscribe to MQTT topic "${topicReqB}"`, spool, () =>
@@ -292,7 +288,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  provide a registration for subsequent destruction  */
         return {
             destroy: async (): Promise<void> => {
-                if (!this.sinks.has(name))
+                if (!this.onRequest.has(`sink-push-request:${name}`))
                     throw new Error(`destroy: sink "${name}" not established`)
                 await spool.unroll(false)?.catch((err: Error) => {
                     this.error(err, `destroy: failed to cleanup: ${err.message}`)
@@ -400,7 +396,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 spool.roll(() => { abortSignal.removeEventListener("abort", onAbort) })
 
                 /*  register handlers for initial response  */
-                this.pushResponseCallbacks.set(requestId, (response: SinkPushResponse) => {
+                this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
                     if (response.error)
                         reject(new Error(response.error))
                     else {
@@ -410,11 +406,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         resolve()
                     }
                 })
-                spool.roll(() => { this.pushResponseCallbacks.delete(requestId) })
-                this.pushCreditCallbacks.set(requestId, (_response: SinkPushCredit) => {
+                spool.roll(() => { this.onResponse.delete(`sink-push-response:${requestId}`) })
+                this.onResponse.set(`sink-push-credit:${requestId}`, (_response: SinkPushCredit) => {
                     refreshTimeout()
                 })
-                spool.roll(() => { this.pushCreditCallbacks.delete(requestId) })
+                spool.roll(() => { this.onResponse.delete(`sink-push-credit:${requestId}`) })
 
                 /*  generate and send request message  */
                 const auth      = this.authenticate()
@@ -430,7 +426,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             })
 
             /*  override handler for mid-stream (error) responses  */
-            this.pushResponseCallbacks.set(requestId, (response: SinkPushResponse) => {
+            this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
                 if (response.error)
                     abortController.abort(new Error(response.error))
             })
@@ -449,7 +445,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 spool.roll(() => { gate.abort() })
 
                 /*  update credit callback to include gate replenish  */
-                this.pushCreditCallbacks.set(requestId, (response: SinkPushCredit) => {
+                this.onResponse.set(`sink-push-credit:${requestId}`, (response: SinkPushCredit) => {
                     gate.replenish(response.credit)
                     refreshTimeout()
                 })
@@ -493,48 +489,4 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         }
     }
 
-    /*  dispatch incoming MQTT message  */
-    protected override async _dispatchMessage (topic: string, message: any) {
-        /*  forward dispatching to other traits  */
-        await super._dispatchMessage(topic, message)
-
-        /*  match the MQTT topic  */
-        const topicMatch = this.options.topicMatch(topic)
-
-        /*  handle sink push request (on server-side)  */
-        if (topicMatch !== null
-            && topicMatch.operation === "sink-push-request"
-            && message instanceof SinkPushRequest) {
-            const handler = this.sinks.get(message.name)
-            if (handler !== undefined)
-                handler(message, topicMatch.name)
-        }
-
-        /*  handle sink push response (on client-side)  */
-        else if (topicMatch !== null
-            && topicMatch.operation === "sink-push-response"
-            && message instanceof SinkPushResponse) {
-            const handler = this.pushResponseCallbacks.get(message.id)
-            if (handler !== undefined)
-                handler(message)
-        }
-
-        /*  handle sink push chunk (on server-side)  */
-        else if (topicMatch !== null
-            && topicMatch.operation === "sink-push-chunk"
-            && message instanceof SinkPushChunk) {
-            const handler = this.pushChunkCallbacks.get(message.id)
-            if (handler !== undefined)
-                handler(message, topicMatch.name)
-        }
-
-        /*  handle sink push credit (on client-side)  */
-        else if (topicMatch !== null
-            && topicMatch.operation === "sink-push-credit"
-            && message instanceof SinkPushCredit) {
-            const handler = this.pushCreditCallbacks.get(message.id)
-            if (handler !== undefined)
-                handler(message)
-        }
-    }
 }
