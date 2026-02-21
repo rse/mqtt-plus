@@ -141,7 +141,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const response = this.msg.makeSinkPushResponse(requestId,
                     name, error, this.options.id, sender, authToken, metaStore, credit)
                 const message = this.codec.encode(response)
-                await this.publishToTopic(responseTopic, message, { qos: 2 })
+                await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 })
             }
 
             /*  create a resource spool for stream cleanup  */
@@ -189,7 +189,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                             const encoded = this.codec.encode(creditMsg)
                             const creditTopic = this.options.topicMake(
                                 name, "sink-push-credit", sender)
-                            this.publishToTopic(creditTopic, encoded, { qos: 2 }).catch((err: Error) => {
+                            this.publishToTopic(creditTopic, encoded, { qos: options.qos ?? 2 }).catch((err: Error) => {
                                 this.error(err, `sending credit for push "${name}" failed`)
                             })
                             refreshPushTimeout()
@@ -411,7 +411,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             if (creditGate) {
                 const creditTopic = this.options.topicMake(name, "sink-push-credit", this.options.id)
                 await run(`subscribe to MQTT topic "${creditTopic}"`, spool, () =>
-                    this.subscriptions.subscribe(creditTopic, { qos: 2 }))
+                    this.subscriptions.subscribe(creditTopic, { qos: options.qos ?? 2 }))
                 spool.roll(() => this.subscriptions.unsubscribe(creditTopic))
                 const gate = creditGate
                 spool.roll(() => { gate.abort() })

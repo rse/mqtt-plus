@@ -138,7 +138,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const response = this.msg.makeSourceFetchResponse(requestId,
                     name, error, this.options.id, sender, authToken, metaStore)
                 const message = this.codec.encode(response)
-                await this.publishToTopic(responseTopic, message, { qos: 2 })
+                await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 })
             }
 
             /*  utility functions for timeout management  */
@@ -160,7 +160,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const chunkMsg = this.msg.makeSourceFetchChunk(requestId,
                     name, chunk, error, final, this.options.id, sender)
                 const message = this.codec.encode(chunkMsg)
-                await this.publishToTopic(chunkTopic, message, { qos: 2 })
+                await this.publishToTopic(chunkTopic, message, { qos: options.qos ?? 2 })
             }
 
             /*  handle credit-based flow control (if credit provided in request)  */
@@ -332,7 +332,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         name, creditToGrant, this.options.id, targetId)
                     const encoded = this.codec.encode(creditMsg)
                     const creditTopic = this.options.topicMake(name, "source-fetch-credit", targetId)
-                    this.publishToTopic(creditTopic, encoded, { qos: 2 }).catch((err: Error) => {
+                    this.publishToTopic(creditTopic, encoded, { qos: options.qos ?? 2 }).catch((err: Error) => {
                         this.error(err, `sending credit for fetch "${name}" failed`)
                     })
                 }

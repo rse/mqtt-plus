@@ -135,7 +135,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 /*  send response message  */
                 const encoded = this.codec.encode(rpcResponse)
                 const topic = this.options.topicMake(name, "service-call-response", senderId)
-                return this.publishToTopic(topic, encoded, { qos: 2 })
+                return this.publishToTopic(topic, encoded, { qos: options.qos ?? 2 })
             }).catch((err: Error) => {
                 this.error(err, `handler for service "${name}" failed`)
             })
