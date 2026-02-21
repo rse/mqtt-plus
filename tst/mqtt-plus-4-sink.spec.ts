@@ -61,7 +61,7 @@ describe("MQTT+ Sink Push", function () {
             info.buffer!.then((buf: Uint8Array) => {
                 spy("buffer")
                 expect(Buffer.from(buf)).to.deep.equal(data)
-            })
+            }).catch(() => {})
         })
 
         /*  push a buffer (instead of a stream)  */
@@ -93,7 +93,7 @@ describe("MQTT+ Sink Push", function () {
             if (name !== "foo")
                 throw new Error("invalid sink push")
             expect(name).to.be.equal("foo")
-            expect(info).to.be.of.an("object")
+            expect(info).to.be.an("object")
             expect(info.stream).to.be.instanceOf(stream.Readable)
             const chunks: Buffer[] = []
             info.stream!.on("data", (chunk: Buffer) => {
@@ -148,7 +148,7 @@ describe("MQTT+ Sink Push", function () {
             info.buffer!.then((buf: Uint8Array) => {
                 spy("buffer")
                 expect(Buffer.from(buf)).to.deep.equal(data)
-            })
+            }).catch(() => {})
         })
 
         /*  push with metadata  */

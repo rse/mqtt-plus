@@ -46,7 +46,7 @@ const { expect } = chai
 
 /*  test suite  */
 describe("MQTT+ Miscellaneous", function () {
-    /*  test case: Dry-Run & Last-Will */
+    /*  test case: Dry-Run & Last-Will  */
     it("MQTT+ Dry-Run & MQTT Last-Will", async function () {
         this.timeout(3000)
 
@@ -67,7 +67,7 @@ describe("MQTT+ Miscellaneous", function () {
 
         /*  observe connection events  */
         const spy = sinon.spy()
-        apiServer.event("example/server/connection", (state) => {
+        const eventReg = await apiServer.event("example/server/connection", (state) => {
             expect(state).to.match(/^(?:open|close)$/)
             spy(state)
         })
@@ -96,8 +96,9 @@ describe("MQTT+ Miscellaneous", function () {
         await new Promise((resolve) => { setTimeout(resolve, 1000) })
 
         /*  perform regular destruction of client  */
+        await eventReg.destroy()
         apiServer.destroy()
-        mqttServer.end()
+        await mqttServer.endAsync()
 
         /*  ensure connection open and close events were seen  */
         expect(spy.getCalls().map((call) => call.firstArg))
