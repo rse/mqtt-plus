@@ -436,5 +436,4 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         makeMutuallyExclusiveFields(result, "stream", "buffer")
         return result
     }
-
 }

@@ -460,5 +460,4 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             await spool.unroll()
         }
     }
-
 }

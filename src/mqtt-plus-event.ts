@@ -214,5 +214,4 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
                 this.error(err, `emitting event "${event}" failed`)
             })
     }
-
 }
