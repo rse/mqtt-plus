@@ -4,7 +4,7 @@
 MQTT+
 =====
 
-[MQTT](http://mqtt.org/) Communication Patterns
+[MQTT](http://mqtt.org/) [Communication Patterns](doc/mqtt-plus-communication.md)
 
 <p/>
 <img src="https://nodei.co/npm/mqtt-plus.png?downloads=true&stars=true" alt=""/>
