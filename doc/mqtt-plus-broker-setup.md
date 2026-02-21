@@ -1,6 +1,6 @@
 
-Broker Setup
-------------
+MQTT+ Broker Setup
+------------------
 
 **MQTT+** can be used with an arbitrary MQTT broker. One popular
 MQTT broker is [Mosquitto](https://mosquitto.org/).
@@ -155,3 +155,4 @@ topic   write     example/client/+/sink-push-chunk/+
 ```
 example:$6$awYNe6oCAi+xlvo5$mWIUqyy4I0O3nJ99lP1mkRVqsDGymF8en5NChQQxf7KrVJLUp1SzrrVDe94wWWJa3JGIbOXD9wfFGZdi948e6A==
 ```
+

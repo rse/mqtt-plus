@@ -1,6 +1,6 @@
 
-Internals
----------
+MQTT+ Internals
+---------------
 
 In the following, we assume that an **MQTT+** instance is created with:
 
