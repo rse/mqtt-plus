@@ -104,13 +104,16 @@ class RefCountedSubscription {
 
     /*  flush all pending linger timers and unsubscribe  */
     async flush (): Promise<void> {
-        /*  flush all pending linger timers and unsubscribe immediately  */
+        /*  cancel all pending linger timers first (synchronously)  */
         const topics = [ ...this.lingers.keys() ]
         for (const topic of topics) {
             clearTimeout(this.lingers.get(topic))
             this.lingers.delete(topic)
-            await this.unsubscribeFn(topic).catch(() => {})
         }
+
+        /*  then unsubscribe from all lingered topics  */
+        for (const topic of topics)
+            await this.unsubscribeFn(topic).catch(() => {})
     }
 }
 
