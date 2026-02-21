@@ -38,6 +38,8 @@ class LogEvent {
         public msg:       string | Promise<string>,
         public data?:     Record<string, Promise<any> | any>
     ) {}
+
+    /*  resolve all pending promises in the log event  */
     async resolve () {
         if (this.msg instanceof Promise)
             this.msg = await this.msg.catch(() => "<resolve-failed>")
@@ -46,6 +48,8 @@ class LogEvent {
                 if (this.data[field] instanceof Promise)
                     this.data[field] = await this.data[field].catch(() => "<resolve-failed>")
     }
+
+    /*  render log event as string  */
     toString () {
         /*  render time  */
         const timestamp = new Date(this.timestamp)
