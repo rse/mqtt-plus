@@ -287,7 +287,7 @@ The **MQTT+** API provides the following functionalities:
 
       /*  add/remove client-side token (client-side)  */
       authenticate(token: string): void
-      authenticate(token: string, remove: true): void
+      authenticate(token: string, remove: boolean): void
 
   MQTT+ provides JWT-based authentication for securing events, services,
   sources, and sinks. Authentication works by issuing tokens on the
@@ -551,7 +551,9 @@ The **MQTT+** API provides the following functionalities:
   - Internally, on the MQTT broker, the topics by
     `topicMake(name, "source-fetch-request")`
     (default: `${name}/source-fetch-request/any` and
-    `${name}/source-fetch-request/${peerId}`) are subscribed.
+    `${name}/source-fetch-request/${peerId}`) and
+    `topicMake(name, "source-fetch-credit", peerId)`
+    (default: `${name}/source-fetch-credit/${peerId}`) are subscribed.
 
   - Returns a `Registration` object with a `destroy()` method.
 
@@ -823,8 +825,10 @@ The **MQTT+** API provides the following functionalities:
     subscribed for receiving the ack/nak response,
     then publishes to the MQTT topic by `topicMake(name, "sink-push-request", peerId)`
     (default: `${name}/sink-push-request/any` or `${name}/sink-push-request/${peerId}`)
-    for the initial request and `topicMake(name, "sink-push-chunk", peerId)`
-    (default: `${name}/sink-push-chunk/${peerId}`) for the data chunks.
+    for the initial request, `topicMake(name, "sink-push-chunk", peerId)`
+    (default: `${name}/sink-push-chunk/${peerId}`) for the data chunks,
+    and optionally `topicMake(name, "sink-push-credit", peerId)`
+    (default: `${name}/sink-push-credit/${peerId}`) for credit-based flow control.
 
 - **Data Type Conversion Utilities**:<br/>
 
