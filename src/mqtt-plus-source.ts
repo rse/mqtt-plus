@@ -33,7 +33,7 @@ import { nanoid }                                                 from "nanoid"
 import { CreditGate, RefCountedSubscription,
     streamToBuffer, sendBufferAsChunks,
     sendStreamAsChunks, makeMutuallyExclusiveFields }             from "./mqtt-plus-util"
-import { run, Spool }                                             from "./mqtt-plus-error"
+import { run, Spool, ensureError }                                from "./mqtt-plus-error"
 import { SourceFetchRequest, SourceFetchResponse,
     SourceFetchChunk, SourceFetchCredit }                         from "./mqtt-plus-msg"
 import { APISchema, SourceKeys, APIEndpointSource, Registration } from "./mqtt-plus-api"
@@ -306,8 +306,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         refreshTimeout()
 
         /*  ensure resources are released if consumer aborts stream early  */
-        stream.once("close", () => { spool.unroll() })
-        stream.once("error", () => { spool.unroll() })
+        stream.once("close", () => spool.unroll())
+        stream.once("error", () => spool.unroll())
 
         /*  register stream handler to collect chunks  */
         let firstChunk = true
@@ -356,8 +356,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         /*  publish message to MQTT topic  */
         run(`publish fetch request as MQTT message to topic "${topic}"`, spool, () =>
             this._publishToTopic(topic, message, { qos: 2, ...options })).catch((err: unknown) => {
-            const error = err instanceof Error ? err : new Error(String(err))
-            stream.destroy(error)
+            stream.destroy(ensureError(err))
             spool.unroll()
         })
 
@@ -459,8 +458,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         await sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk, creditGate)
                 }).catch((err: unknown) => {
                     /*  send error as nak response or as error chunk  */
-                    const error = err instanceof Error ? err : new Error(String(err))
-                    this.error(error)
+                    const error = ensureError(err)
+                    this.error(error, `handler for source "${name}" failed`)
                     if (ackSent)
                         return sendChunk(undefined, error.message, true).catch(() => {})
                     else
