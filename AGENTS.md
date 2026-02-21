@@ -54,19 +54,19 @@ each extending the previous. The final exported class `MQTTp` sits at
 the bottom of this chain:
 
 ```
-OptionsTrait          — configuration (id, codec, timeout, chunkSize, chunkCredit, topicMake/topicMatch)
-  ↓ CodecTrait        — CBOR/JSON codec handling
-  ↓ EncodeTrait       — message encoding/validation (valibot schemas)
-  ↓ MsgTrait          — message class definitions and parsing
-  ↓ TraceTrait        — EventEmitter + structured logging
-  ↓ BaseTrait         — MQTT client hookup, subscription management, message routing
-  ↓ MetaTrait         — instance/per-request metadata
-  ↓ AuthTrait         — JWT authentication (jose), role-based access
-  ↓ EventTrait        — Event Emission pattern (event/emit)
-  ↓ ServiceTrait      — Service Call / RPC pattern (service/call)
-  ↓ SourceTrait       — Source Fetch pattern (source/fetch)
-  ↓ SinkTrait         — Sink Push pattern (sink/push)
-  ↓ MQTTp             — final exported class
+    OptionsTrait   — configuration (id, codec, timeout, chunkSize, chunkCredit, topicMake/topicMatch)
+  ↓ CodecTrait     — CBOR/JSON codec handling
+  ↓ EncodeTrait    — message encoding/validation (valibot schemas)
+  ↓ MsgTrait       — message class definitions and parsing
+  ↓ TraceTrait     — EventEmitter + structured logging
+  ↓ BaseTrait      — MQTT client hookup, subscription management, message routing
+  ↓ MetaTrait      — instance/per-request metadata
+  ↓ AuthTrait      — JWT authentication (jose), role-based access
+  ↓ EventTrait     — Event Emission pattern (event/emit)
+  ↓ ServiceTrait   — Service Call / RPC pattern (service/call)
+  ↓ SourceTrait    — Source Fetch pattern (source/fetch)
+  ↓ SinkTrait      — Sink Push pattern (sink/push)
+  ↓ MQTTp          — final exported class
 ```
 
 Each trait lives in its own file: `src/mqtt-plus-<trait>.ts`.
