@@ -2,12 +2,23 @@
 ChangeLog
 =========
 
-1.3.1 (2026-02-07)
+1.4.0 (2026-02-21)
 ------------------
 
-- CLEANUP: cleanup signatures of on/off methods
-- UPDATE: upgrade NPM dependencies
+- BUGFIX: do not suppress errors in order to catch them
+- BUGFIX: do not have lingering resources on destroy
+- BUGFIX: fix cleanup of resources
+- BUGFIX: avoid hangs in processing
 - IMPROVEMENT: add spooling and runner for error handling
+- IMPROVEMENT: add lingering unsubscribe to reduce contention on broker
+- IMPROVEMENT: move code from _dispatchMessage into domain methods
+- IMPROVEMENT: factor out similar code for reusability
+- IMPROVEMENT: split test suite and add more tests
+- CLEANUP: cleanup signatures of on/off methods
+- CLEANUP: simplify typing and remove unused code
+- CLEANUP: rename variables and align code formatting
+- CLEANUP: various code cleanups
+- UPDATE: upgrade NPM dependencies
 
 1.3.0 (2026-02-07)
 ------------------
