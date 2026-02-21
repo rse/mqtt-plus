@@ -254,7 +254,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             destroy: async (): Promise<void> => {
                 if (!this.sources.has(name))
                     throw new Error(`destroy: source "${name}" not established`)
-                await spool.unroll()?.catch((err: Error) => {
+                await spool.unroll(false)?.catch((err: Error) => {
                     this.error(err, `destroy: failed to cleanup: ${err.message}`)
                 })
             }

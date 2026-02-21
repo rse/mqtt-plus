@@ -138,7 +138,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             destroy: async (): Promise<void> => {
                 if (!this.events.has(name))
                     throw new Error(`destroy: event "${name}" not registered`)
-                await spool.unroll()?.catch((err: Error) => {
+                await spool.unroll(false)?.catch((err: Error) => {
                     this.error(err, `destroy: failed to cleanup: ${err.message}`)
                 })
             }
