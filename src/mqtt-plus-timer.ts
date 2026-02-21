@@ -31,6 +31,14 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
     /*  internal state  */
     private timers = new Map<string, ReturnType<typeof setTimeout>>()
 
+    /*  destroy timer trait  */
+    override async destroy () {
+        for (const timer of this.timers.values())
+            clearTimeout(timer)
+        this.timers.clear()
+        await super.destroy()
+    }
+
     /*  refresh (or start) a named timer  */
     protected timerRefresh (id: string, onTimeout: () => void) {
         const timer = this.timers.get(id)
