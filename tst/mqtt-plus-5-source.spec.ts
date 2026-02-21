@@ -65,7 +65,7 @@ describe("MQTT+ Source Fetch", function () {
         expect(error2).to.be.equal("invalid source")
 
         /*  fetch non-existing source (invalid source name)  */
-        const result3 = await ctx.apiC.fetch("example/server/download-invalid", "foo").catch((err) => err.message)
+        const result3 = await ctx.apiC.fetch("example/server/download-invalid", "foo")
         const error3 = await result3.buffer.catch((err: Error) => {
             return err.message
         })
@@ -110,7 +110,7 @@ describe("MQTT+ Source Fetch", function () {
         ctx.apiS.meta("server-version", "1.0")
 
         /*  establish source  */
-        const sourcing = await ctx.apiS.source("example/server/download", async (filename, info) => {
+        const sourcing = await ctx.apiS.source("example/server/download", async (_filename, info) => {
             info.buffer = Promise.resolve(Buffer.from("data"))
         })
 
