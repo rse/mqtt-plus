@@ -18,14 +18,14 @@ About
 **MQTT+** is a companion add-on API for the TypeScript/JavaScript
 API [MQTT.js](https://www.npmjs.com/package/mqtt), providing
 additional communication patterns with full type safety for
-[MQTT](http://mqtt.org/). Currently, the essential
-[communication patterns](doc/mqtt-plus-comm.md)
-fire-and-forget *Event Emission*, RPC-style *Service Call*, stream-based *Sink Push* and stream-based *Source Fetch* are
-supported. This allows you to implement complex and bi-directional
+[MQTT](http://mqtt.org/). Four essential
+[communication patterns](doc/mqtt-plus-comm.md) are provided:
+fire-and-forget *Event Emission*, RPC-style *Service Call*, stream-based *Sink Push*, and stream-based *Source Fetch*.
+This allows the implementation of complex and bi-directional
 client/server and server/server communications over the robust but
-uni-directional [MQTT](http://mqtt.org/) protocol. This is intended for
-applications based on the [*Hub & Spoke*](https://en.wikipedia.org/wiki/Spoke%E2%80%93hub_distribution_paradigm)
-communication architecture pattern.
+uni-directional [MQTT](http://mqtt.org/) protocol. This is key for
+applications based on a [*Hub & Spoke*](https://en.wikipedia.org/wiki/Spoke%E2%80%93hub_distribution_paradigm)
+communication architecture.
 
 Installation
 ------------
