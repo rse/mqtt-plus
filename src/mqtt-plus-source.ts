@@ -176,7 +176,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             refreshSourceTimeout()
 
             /*  callback for creating and sending a chunk message  */
-            const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
+            const sendChunk = async (
+                chunk: Uint8Array | undefined,
+                error: string | undefined,
+                final: boolean
+            ): Promise<void> => {
                 refreshSourceTimeout()
                 const chunkMsg = this.msg.makeSourceFetchChunk(requestId,
                     name, chunk, error, final, this.options.id, sender)

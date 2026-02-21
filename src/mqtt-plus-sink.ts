@@ -459,7 +459,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
 
             /*  callback for creating and sending a chunk message  */
-            const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
+            const sendChunk = async (
+                chunk: Uint8Array | undefined,
+                error: string | undefined,
+                final: boolean
+            ): Promise<void> => {
                 refreshTimeout()
                 const chunkMsg = this.msg.makeSinkPushChunk(requestId,
                     name, chunk, error, final, this.options.id, receiver)
