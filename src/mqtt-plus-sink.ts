@@ -47,31 +47,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     /*  sink state  */
     private pushStreams = new Map<string, Readable>()
     private pushSpools  = new Map<string, Spool>()
-    private pushTimers  = new Map<string, ReturnType<typeof setTimeout>>()
-
-    /*  refresh push timer for a specific request  */
-    private _refreshPushTimer (requestId: string) {
-        const timer = this.pushTimers.get(requestId)
-        if (timer !== undefined)
-            clearTimeout(timer)
-        this.pushTimers.set(requestId, setTimeout(() => {
-            this.pushTimers.delete(requestId)
-            const stream = this.pushStreams.get(requestId)
-            if (stream !== undefined)
-                stream.destroy(new Error("push stream timeout"))
-            const spool = this.pushSpools.get(requestId)
-            spool?.unroll()
-        }, this.options.timeout))
-    }
-
-    /*  clear push timer for a specific request  */
-    private _clearPushTimer (requestId: string) {
-        const timer = this.pushTimers.get(requestId)
-        if (timer !== undefined) {
-            clearTimeout(timer)
-            this.pushTimers.delete(requestId)
-        }
-    }
 
     /*  register a sink  */
     async sink<K extends SinkKeys<T> & string> (
@@ -181,8 +156,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 } : undefined
 
                 /*  utility functions for timeout management  */
-                const refreshPushTimeout = () => this._refreshPushTimer(requestId)
-                const clearPushTimeout   = () => this._clearPushTimer(requestId)
+                const refreshPushTimeout = () => this.timerRefresh(requestId, () => {
+                    const stream = this.pushStreams.get(requestId)
+                    if (stream !== undefined)
+                        stream.destroy(new Error("push stream timeout"))
+                    const spool = this.pushSpools.get(requestId)
+                    spool?.unroll()
+                })
+                const clearPushTimeout   = () => this.timerClear(requestId)
 
                 /*  create a readable for buffering received chunks  */
                 const readable = new Readable({

@@ -24,38 +24,30 @@
 
 /*  internal requirements  */
 import type { APISchema }     from "./mqtt-plus-api"
-import { TimerTrait }         from "./mqtt-plus-timer"
+import { SubscriptionTrait }  from "./mqtt-plus-subscription"
 
-/*  Meta trait with meta information management  */
-export class MetaTrait<T extends APISchema = APISchema> extends TimerTrait<T> {
+/*  Timer trait with reusable timer management  */
+export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTrait<T> {
     /*  internal state  */
-    private _meta: Map<string, any> = new Map()
+    private timers = new Map<string, ReturnType<typeof setTimeout>>()
 
-    /*  set/delete/retrieve meta information  */
-    meta (): Record<string, any>
-    meta (key: string): any
-    meta (key: string, value: any): void
-    meta (key?: string, value?: any): Record<string, any> | any | void {
-        if (key === undefined)
-            return Object.fromEntries(this._meta)
-        else if (arguments.length === 1)
-            return this._meta.get(key)
-        else if (value === undefined || value === null)
-            this._meta.delete(key)
-        else
-            this._meta.set(key, value)
+    /*  refresh (or start) a named timer  */
+    protected timerRefresh (id: string, onTimeout: () => void) {
+        const timer = this.timers.get(id)
+        if (timer !== undefined)
+            clearTimeout(timer)
+        this.timers.set(id, setTimeout(() => {
+            this.timers.delete(id)
+            onTimeout()
+        }, this.options.timeout))
     }
 
-    /*  determine meta store  */
-    protected metaStore (extra?: Record<string, any>): Record<string, any> | undefined {
-        const extraEmpty = (extra === undefined || Object.keys(extra).length === 0)
-        if (this._meta.size === 0 && extraEmpty)
-            return undefined
-        else if (this._meta.size > 0 && extraEmpty)
-            return Object.fromEntries(this._meta)
-        else if (this._meta.size === 0 && !extraEmpty)
-            return extra
-        else
-            return { ...Object.fromEntries(this._meta), ...extra }
+    /*  clear a named timer  */
+    protected timerClear (id: string) {
+        const timer = this.timers.get(id)
+        if (timer !== undefined) {
+            clearTimeout(timer)
+            this.timers.delete(id)
+        }
     }
 }

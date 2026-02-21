@@ -46,29 +46,6 @@ import type { AuthOption }                                from "./mqtt-plus-auth
 export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
     /*  source state  */
     private sourceCreditGates = new Map<string, CreditGate>()
-    private sourceTimers      = new Map<string, ReturnType<typeof setTimeout>>()
-
-    /*  refresh source timer for a specific request  */
-    private _refreshSourceTimer (requestId: string) {
-        const timer = this.sourceTimers.get(requestId)
-        if (timer !== undefined)
-            clearTimeout(timer)
-        this.sourceTimers.set(requestId, setTimeout(() => {
-            this.sourceTimers.delete(requestId)
-            const gate = this.sourceCreditGates.get(requestId)
-            if (gate !== undefined)
-                gate.abort()
-        }, this.options.timeout))
-    }
-
-    /*  clear source timer for a specific request  */
-    private _clearSourceTimer (requestId: string) {
-        const timer = this.sourceTimers.get(requestId)
-        if (timer !== undefined) {
-            clearTimeout(timer)
-            this.sourceTimers.delete(requestId)
-        }
-    }
 
     /*  establish a source (for fetch requests)  */
     async source<K extends SourceKeys<T> & string> (
@@ -157,8 +134,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             }
 
             /*  utility functions for timeout management  */
-            const refreshSourceTimeout = () => this._refreshSourceTimer(requestId)
-            const clearSourceTimeout   = () => this._clearSourceTimer(requestId)
+            const refreshSourceTimeout = () => this.timerRefresh(requestId, () => {
+                const gate = this.sourceCreditGates.get(requestId)
+                if (gate !== undefined)
+                    gate.abort()
+            })
+            const clearSourceTimeout   = () => this.timerClear(requestId)
             refreshSourceTimeout()
 
             /*  callback for creating and sending a chunk message  */
@@ -182,7 +163,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 this.sourceCreditGates.set(requestId, creditGate)
                 this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
                     creditGate.replenish(creditParsed.credit)
-                    this._refreshSourceTimer(requestId)
+                    refreshSourceTimeout()
                 })
             }
 
