@@ -17,7 +17,7 @@ receive the parameters as extra information.
 > provides optional information about the sender and receiver to
 > receivers, supports authentication and meta-data, etc.
 
-![Event Emission](mqtt-plus-1-event-emission.svg)
+![Event Emission](mqtt-plus-comm-event-emission.svg)
 
 Service Call
 ------------
@@ -35,7 +35,7 @@ provide the service response.
 > Procedure Call](https://en.wikipedia.org/wiki/Remote_procedure_call)
 > (RPC) style communication, supports authentication and meta-data, etc.
 
-![Service Call](mqtt-plus-2-service-call.svg)
+![Service Call](mqtt-plus-comm-service-call.svg)
 
 Sink Push
 ---------
@@ -52,7 +52,7 @@ chunks as a stream with arguments.
 > chunking the data via a stream. Additionally, it supports authentication
 > and meta-data, etc.
 
-![Sink Push](mqtt-plus-3-sink-push.svg)
+![Sink Push](mqtt-plus-comm-sink-push.svg)
 
 Source Fetch
 ------------
@@ -69,5 +69,5 @@ data chunks as a stream with arguments.
 > chunking the data via a stream. Additionally, it supports
 > authentication and meta-data, etc.
 
-![Source Fetch](mqtt-plus-4-source-fetch.svg)
+![Source Fetch](mqtt-plus-comm-source-fetch.svg)
 

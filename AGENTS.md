@@ -110,10 +110,10 @@ Each trait lives in its own file: `src/mqtt-plus-<trait>.ts`.
 The `doc/` directory contains D2 diagram sources and generated SVG files
 illustrating the four communication patterns:
 
-- `doc/mqtt-plus-1-event-emission.{d2,svg}`
-- `doc/mqtt-plus-2-service-call.{d2,svg}`
-- `doc/mqtt-plus-3-sink-push.{d2,svg}`
-- `doc/mqtt-plus-4-source-fetch.{d2,svg}`
+- `doc/mqtt-plus-comm-event-emission.{d2,svg}`
+- `doc/mqtt-plus-comm-service-call.{d2,svg}`
+- `doc/mqtt-plus-comm-sink-push.{d2,svg}`
+- `doc/mqtt-plus-comm-source-fetch.{d2,svg}`
 - `doc/theme.d2` — shared D2 theme
 
 Regenerate with `npm start build-doc` (requires the `etc/d2.mts` helper script).

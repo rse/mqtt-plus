@@ -4,7 +4,7 @@
 MQTT+
 =====
 
-[MQTT](http://mqtt.org/) [Communication Patterns](doc/mqtt-plus-communication.md)
+[MQTT](http://mqtt.org/) [Communication Patterns](doc/mqtt-plus-comm.md)
 
 <p/>
 <img src="https://nodei.co/npm/mqtt-plus.png?downloads=true&stars=true" alt=""/>
@@ -19,7 +19,7 @@ About
 API [MQTT.js](https://www.npmjs.com/package/mqtt), providing
 additional communication patterns with full type safety for
 [MQTT](http://mqtt.org/). Currently the essential
-[communication patterns](doc/mqtt-plus-communication.md)
+[communication patterns](doc/mqtt-plus-comm.md)
 *Event Emission*, *Service Call*, *Sink Push* and *Source Fetch* are
 supported.
 
@@ -117,7 +117,7 @@ mqtt.on("connect", async () => {
 Documentation
 -------------
 
-- [**Communication Patterns**](doc/mqtt-plus-communication.md)
+- [**Communication Patterns**](doc/mqtt-plus-comm.md)
 - [**Application Programming Interface (API)**](doc/mqtt-plus-api.md)
 - [Extra: Internals](doc/mqtt-plus-internals.md)
 - [Extra: Broker Setup](doc/mqtt-plus-broker-setup.md)
