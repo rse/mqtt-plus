@@ -210,7 +210,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         }
         else {
             /*  positional API  */
-            name     = nameOrConfig as K
+            name     = nameOrConfig
             params   = args as Parameters<T[K]>
         }
 
