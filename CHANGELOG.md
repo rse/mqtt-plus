@@ -2,6 +2,11 @@
 ChangeLog
 =========
 
+1.4.5 (2026-02-21)
+------------------
+
+- IMPROVEMENT: add a "npm start publish" target for convenient publishing
+
 1.4.4 (2026-02-21)
 ------------------
 
