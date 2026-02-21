@@ -31,7 +31,7 @@ import type { IClientPublishOptions,
 import { nanoid }                                         from "nanoid"
 
 /*  internal requirements  */
-import { CreditGate, RefCountedSubscription,
+import { CreditGate,
     streamToBuffer, sendBufferAsChunks,
     sendStreamAsChunks, makeMutuallyExclusiveFields }     from "./mqtt-plus-util"
 import { run, Spool }                                     from "./mqtt-plus-error"
@@ -48,16 +48,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     private pushStreams           = new Map<string, Readable>()
     private pushSpools            = new Map<string, Spool>()
     private pushTimers            = new Map<string, ReturnType<typeof setTimeout>>()
-    private pushSubscriptions     = new RefCountedSubscription(
-        (topic, options) => this._subscribeTopic(topic, options),
-        (topic)          => this._unsubscribeTopic(topic)
-    )
-
-    /*  destroy sink trait  */
-    override destroy () {
-        super.destroy()
-        this.pushSubscriptions.flush()
-    }
 
     /*  refresh push timer for a specific request  */
     private _refreshPushTimer (requestId: string) {
@@ -356,8 +346,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  subscribe to response topic (for ack/nak)  */
         const responseTopic = this.options.topicMake(name, "sink-push-response", this.options.id)
         await run(`subscribe to MQTT topic "${responseTopic}"`, spool, () =>
-            this.pushSubscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
-        spool.roll(() => this.pushSubscriptions.unsubscribe(responseTopic))
+            this.subscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
+        spool.roll(() => this.subscriptions.unsubscribe(responseTopic))
 
         /*  define abort controller and signal  */
         const abortController = new AbortController()
@@ -439,8 +429,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             if (creditGate) {
                 const creditTopic = this.options.topicMake(name, "sink-push-credit", this.options.id)
                 await run(`subscribe to MQTT topic "${creditTopic}"`, spool, () =>
-                    this.pushSubscriptions.subscribe(creditTopic, { qos: 2 }))
-                spool.roll(() => this.pushSubscriptions.unsubscribe(creditTopic))
+                    this.subscriptions.subscribe(creditTopic, { qos: 2 }))
+                spool.roll(() => this.subscriptions.unsubscribe(creditTopic))
                 const gate = creditGate
                 spool.roll(() => { gate.abort() })
 

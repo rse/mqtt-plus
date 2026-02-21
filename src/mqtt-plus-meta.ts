@@ -23,11 +23,11 @@
 */
 
 /*  internal requirements  */
-import type { APISchema } from "./mqtt-plus-api"
-import { BaseTrait }      from "./mqtt-plus-base"
+import type { APISchema }     from "./mqtt-plus-api"
+import { SubscriptionTrait }  from "./mqtt-plus-subscription"
 
 /*  Meta trait with meta information management  */
-export class MetaTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
+export class MetaTrait<T extends APISchema = APISchema> extends SubscriptionTrait<T> {
     /*  internal state  */
     private _meta: Map<string, any> = new Map()
 

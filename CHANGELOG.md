@@ -6,6 +6,8 @@ ChangeLog
 ------------------
 
 - CLEANUP: cleanup documentation
+- CLEANUP: simplify internal message handling
+- CLEANUP: simplify internal MQTT topic subscription handling
 
 1.4.1 (2026-02-21)
 ------------------

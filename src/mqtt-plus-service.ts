@@ -28,7 +28,6 @@ import type { IClientPublishOptions,
 import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
-import { RefCountedSubscription }     from "./mqtt-plus-util"
 import { run, Spool, ensureError }    from "./mqtt-plus-error"
 import { ServiceCallRequest,
     ServiceCallResponse }             from "./mqtt-plus-msg"
@@ -40,17 +39,6 @@ import type { AuthOption }            from "./mqtt-plus-auth"
 
 /*  Service Call Trait  */
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
-    /*  internal state  */
-    private callSubscriptions = new RefCountedSubscription(
-        (topic, options) => this._subscribeTopic(topic, options),
-        (topic)          => this._unsubscribeTopic(topic)
-    )
-
-    /*  destroy service trait  */
-    override destroy () {
-        super.destroy()
-        this.callSubscriptions.flush()
-    }
 
     /*  register a service call handler  */
     async service<K extends ServiceKeys<T> & string> (
@@ -227,8 +215,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         /*  subscribe to MQTT response topic  */
         const responseTopic = this.options.topicMake(name, "service-call-response", this.options.id)
         await run(`subscribe to MQTT topic "${responseTopic}"`, spool, () =>
-            this.callSubscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
-        spool.roll(() => this.callSubscriptions.unsubscribe(responseTopic))
+            this.subscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
+        spool.roll(() => this.subscriptions.unsubscribe(responseTopic))
 
         /*  create promise for MQTT response handling  */
         const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {

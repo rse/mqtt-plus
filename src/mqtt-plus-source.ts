@@ -31,7 +31,7 @@ import type { IClientPublishOptions,
 import { nanoid }                                         from "nanoid"
 
 /*  internal requirements  */
-import { CreditGate, RefCountedSubscription,
+import { CreditGate,
     streamToBuffer, sendBufferAsChunks,
     sendStreamAsChunks, makeMutuallyExclusiveFields }     from "./mqtt-plus-util"
 import { run, Spool, ensureError }                        from "./mqtt-plus-error"
@@ -47,10 +47,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
     /*  source state  */
     private sourceCreditGates      = new Map<string, CreditGate>()
     private sourceTimers           = new Map<string, ReturnType<typeof setTimeout>>()
-    private fetchSubscriptions     = new RefCountedSubscription(
-        (topic, options) => this._subscribeTopic(topic, options),
-        (topic)          => this._unsubscribeTopic(topic)
-    )
 
     /*  refresh source timer for a specific request  */
     private _refreshSourceTimer (requestId: string) {
@@ -72,12 +68,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             clearTimeout(timer)
             this.sourceTimers.delete(requestId)
         }
-    }
-
-    /*  destroy source trait  */
-    override destroy () {
-        super.destroy()
-        this.fetchSubscriptions.flush()
     }
 
     /*  establish a source (for fetch requests)  */
@@ -333,11 +323,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const responseTopic = this.options.topicMake(name, "source-fetch-response", this.options.id)
         const chunkTopic    = this.options.topicMake(name, "source-fetch-chunk",    this.options.id)
         await run(`subscribe to MQTT topic "${responseTopic}"`, spool, () =>
-            this.fetchSubscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
-        spool.roll(() => this.fetchSubscriptions.unsubscribe(responseTopic))
+            this.subscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
+        spool.roll(() => this.subscriptions.unsubscribe(responseTopic))
         await run(`subscribe to MQTT topic "${chunkTopic}"`, spool, () =>
-            this.fetchSubscriptions.subscribe(chunkTopic, { qos: options.qos ?? 2 }))
-        spool.roll(() => this.fetchSubscriptions.unsubscribe(chunkTopic))
+            this.subscriptions.subscribe(chunkTopic, { qos: options.qos ?? 2 }))
+        spool.roll(() => this.subscriptions.unsubscribe(chunkTopic))
 
         /*  credit-based flow control state  */
         const chunkCredit  = this.options.chunkCredit
