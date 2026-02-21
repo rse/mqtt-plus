@@ -116,8 +116,8 @@ mqtt.on("connect", async () => {
 Documentation
 -------------
 
-- [Communication Patterns](doc/mqtt-plus-communication.md)
-- [Application Programming Interface (API)](doc/mqtt-plus-api.md)
+- [**Communication Patterns**](doc/mqtt-plus-communication.md)
+- [**Application Programming Interface (API)**](doc/mqtt-plus-api.md)
 - [Extra: Internals](doc/mqtt-plus-internals.md)
 - [Extra: Broker Setup](doc/mqtt-plus-broker-setup.md)
 
