@@ -182,7 +182,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         let params:    Parameters<T[K]>
         let receiver:  string | undefined
         let options:   IClientPublishOptions = {}
-        let meta:      Record<string, any> = {}
+        let meta:      Record<string, any> | undefined
         let dry:       boolean | undefined
         if (typeof eventOrConfig === "object" && eventOrConfig !== null) {
             /*  object-based API  */
@@ -190,7 +190,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             params   = eventOrConfig.params
             receiver = eventOrConfig.receiver
             options  = eventOrConfig.options ?? {}
-            meta     = eventOrConfig.meta ?? {}
+            meta     = eventOrConfig.meta
             dry      = eventOrConfig.dry
         }
         else {

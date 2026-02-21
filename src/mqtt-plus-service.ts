@@ -191,14 +191,14 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         let params:    Parameters<T[K]>
         let receiver:  string | undefined
         let options:   IClientPublishOptions = {}
-        let meta:      Record<string, any> = {}
+        let meta:      Record<string, any> | undefined
         if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
             name     = nameOrConfig.name
             params   = nameOrConfig.params
             receiver = nameOrConfig.receiver
             options  = nameOrConfig.options ?? {}
-            meta     = nameOrConfig.meta ?? {}
+            meta     = nameOrConfig.meta
         }
         else {
             /*  positional API  */
