@@ -14,17 +14,26 @@ It uses `mqtt` as a peer dependency and builds to ESM, CJS, and UMD formats.
 Commands
 --------
 
+MQTT+ plus uses NPM:
+
+```bash
+npm install             # install dependencies
+```
+
 Build and development commands use STX (`@rse/stx`) as the task runner:
 
 ```bash
-npm start lint          # type-check (tsc), lint (eslint), dead-code check (knip)
-npm start build         # lint + vite bundle (ESM, CJS, UMD into dst-stage2/)
-npm start test          # lint test file + run mocha test suite
-npm start dev           # watch mode (chokidar → rebuild on change)
-npm start sample        # run sample/sample.ts via tsx
-npm start build-doc     # generate SVG diagrams from D2 sources in doc/
+npm start lint          # standard: perform static code analysis
+npm start build         # standard: build everything
+npm start test          # standard: run unit test suite
+
+npm start build-doc     # generate SVG diagrams from D2 sources only
+npm start dev           # development watch mode (rebuild on change)
+npm start sample        # run sample/sample.ts via `tsx`
+
 npm start clean         # remove dst-stage1/ and dst-stage2/
-npm start distclean     # clean + remove node_modules/ and package-lock.json
+npm start distclean     # remove node_modules/ and package-lock.json
+
 ```
 
 Tests require a Mosquitto MQTT broker under run-time; the `mosquitto`
