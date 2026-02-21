@@ -21,9 +21,10 @@ additional communication patterns with full type safety for
 [MQTT](http://mqtt.org/). Currently, the essential
 [communication patterns](doc/mqtt-plus-comm.md)
 *Event Emission*, *Service Call*, *Sink Push* and *Source Fetch* are
-supported. This allows you to implement complex bi-directional
-client/server and server/server communications over the robust
-[MQTT](http://mqtt.org/) protocol.
+supported. This allows you to implement complex and bi-directional
+client/server and server/server communications over the robust but
+uni-directional [MQTT](http://mqtt.org/) protocol. This is key in
+applications based on the *Hub & Spoke* software pattern.
 
 Installation
 ------------
