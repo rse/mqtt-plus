@@ -1,6 +1,6 @@
 {
     "name":                           "mqtt-plus",
-    "version":                        "1.4.4",
+    "version":                        "1.4.5",
     "description":                    "MQTT Communication Patterns",
     "keywords":                       [   "mqtt",
                                           "event", "emit",
