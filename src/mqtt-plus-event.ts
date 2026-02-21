@@ -29,8 +29,8 @@ import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
 import { EventEmission }              from "./mqtt-plus-msg"
-import { APISchema, APIEndpointEvent,
-    EventKeys, Registration }         from "./mqtt-plus-api"
+import { APISchema, EventKeys,
+    Registration }                    from "./mqtt-plus-api"
 import type { WithInfo, InfoEvent }   from "./mqtt-plus-info"
 import { AuthTrait, type AuthOption } from "./mqtt-plus-auth"
 import { run, Spool, ensureError }    from "./mqtt-plus-error"
@@ -38,10 +38,7 @@ import { run, Spool, ensureError }    from "./mqtt-plus-error"
 /*  Event Emission Trait  */
 export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
     /*  internal state  */
-    private events = new Map<string, {
-        callback: WithInfo<APIEndpointEvent, InfoEvent>,
-        auth?:    AuthOption
-    }>()
+    private events = new Map<string, (parsed: EventEmission, topicName: string) => void>()
 
     /*  register an event handler  */
     async event<K extends EventKeys<T> & string> (
@@ -100,7 +97,32 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         const topicD = this.options.topicMake(name, "event-emission", this.options.id)
 
         /*  remember the registration  */
-        this.events.set(name, { callback, auth })
+        this.events.set(name, (parsed: EventEmission, topicName: string) => {
+            /*  determine event information  */
+            const senderId = parsed.sender
+            const params   = parsed.params ?? []
+
+            /*  create information object  */
+            const info: InfoEvent = { sender: senderId ?? "" }
+            if (parsed.receiver)
+                info.receiver = parsed.receiver
+            if (parsed.meta)
+                info.meta = parsed.meta
+
+            /*  asynchronously execute handler  */
+            Promise.resolve().then(async () => {
+                if (topicName !== name)
+                    throw new Error(`event name mismatch (topic: "${topicName}", payload: "${name}")`)
+                if (auth)
+                    info.authenticated = await this.authenticated(parsed.sender, parsed.auth, auth)
+                if (info.authenticated !== undefined && !info.authenticated)
+                    throw new Error(`authentication on event "${name}" failed`)
+                return callback(...params, info)
+            }).catch((result: unknown) => {
+                const error = ensureError(result)
+                this.error(error, `handler for event "${name}" failed`)
+            })
+        })
         spool.roll(() => { this.events.delete(name) })
 
         /*  subscribe to MQTT topics  */
@@ -212,34 +234,9 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         if (topicMatch !== null
             && topicMatch.operation === "event-emission"
             && parsed instanceof EventEmission) {
-            /*  determine request information  */
-            const name     = parsed.name
-            const senderId = parsed.sender
-            const handler  = this.events.get(name)
-            const params   = parsed.params ?? []
-
-            /*  create information object  */
-            const info: InfoEvent = { sender: senderId ?? "" }
-            if (parsed.receiver)
-                info.receiver = parsed.receiver
-            if (parsed.meta)
-                info.meta = parsed.meta
-            if (handler?.auth)
-                info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
-
-            /*  asynchronously execute handler  */
-            Promise.resolve().then(() => {
-                if (topicMatch.name !== name)
-                    throw new Error(`event name mismatch (topic: "${topicMatch.name}", payload: "${name}")`)
-                if (handler === undefined)
-                    throw new Error(`handler for event "${name}" not found`)
-                if (info.authenticated !== undefined && !info.authenticated)
-                    throw new Error(`authentication on event "${name}" failed`)
-                return handler.callback(...params, info)
-            }).catch((result: unknown) => {
-                const error = ensureError(result)
-                this.error(error, `handler for event "${name}" failed`)
-            })
+            const handler = this.events.get(parsed.name)
+            if (handler !== undefined)
+                handler(parsed, topicMatch.name)
         }
     }
 }

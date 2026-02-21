@@ -36,7 +36,7 @@ import { CreditGate, RefCountedSubscription,
 import { run, Spool }                                             from "./mqtt-plus-error"
 import { SinkPushRequest, SinkPushResponse,
     SinkPushChunk, SinkPushCredit }                               from "./mqtt-plus-msg"
-import { APISchema, SinkKeys, APIEndpointSink, Registration }     from "./mqtt-plus-api"
+import { APISchema, SinkKeys, Registration }                      from "./mqtt-plus-api"
 import type { WithInfo, InfoSink }                                from "./mqtt-plus-info"
 import { SourceTrait }                                            from "./mqtt-plus-source"
 import type { AuthOption }                                        from "./mqtt-plus-auth"
@@ -44,26 +44,13 @@ import type { AuthOption }                                        from "./mqtt-p
 /*  Sink Push Trait  */
 export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     /*  sink state  */
-    private sinks = new Map<string, {
-        callback: WithInfo<APIEndpointSink, InfoSink>,
-        auth?:    AuthOption
-    }>()
-    private pushStreams   = new Map<string, Readable>()
-    private pushSpools    = new Map<string, Spool>()
-    private pushTimers    = new Map<string, ReturnType<typeof setTimeout>>()
-    private pushCallbacks = new Map<string, {
-        name:       string,
-        onResponse: (parsed: SinkPushResponse) => void,
-        onCredit?:  (credit: number) => void
-    }>()
-    private pushCreditGates = new Map<string, CreditGate>()
-    private pushCreditState = new Map<string, {
-        chunkCredit:    number,
-        chunksReceived: number,
-        creditGranted:  number,
-        sender:         string,
-        name:           string
-    }>()
+    private sinks = new Map<string, (parsed: SinkPushRequest, topicName: string) => void>()
+    private pushStreams            = new Map<string, Readable>()
+    private pushSpools            = new Map<string, Spool>()
+    private pushTimers            = new Map<string, ReturnType<typeof setTimeout>>()
+    private pushChunkCallbacks    = new Map<string, (parsed: SinkPushChunk, topicName: string) => void>()
+    private pushResponseCallbacks = new Map<string, (parsed: SinkPushResponse) => void>()
+    private pushCreditCallbacks   = new Map<string, (parsed: SinkPushCredit) => void>()
     private pushSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
         (topic)          => this._unsubscribeTopic(topic)
@@ -151,7 +138,138 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const topicChunkD = this.options.topicMake(name,   "sink-push-chunk",   this.options.id)
 
         /*  remember the registration  */
-        this.sinks.set(name, { callback, auth })
+        this.sinks.set(name, (parsed: SinkPushRequest, topicName: string) => {
+            if (topicName !== parsed.name)
+                throw new Error(`sink name mismatch between topic "${topicName}" and payload "${parsed.name}"`)
+
+            /*  determine information  */
+            const requestId = parsed.id
+            const params    = parsed.params ?? []
+            const sender    = parsed.sender
+            if (sender === undefined || sender === "")
+                throw new Error("invalid request: missing sender")
+            const receiver  = parsed.receiver
+            const info: InfoSink = { sender }
+            if (receiver)
+                info.receiver = receiver
+            if (parsed.meta)
+                info.meta = parsed.meta
+
+            /*  generate corresponding MQTT topic for response  */
+            const responseTopic = this.options.topicMake(name, "sink-push-response", sender)
+
+            /*  callback for sending the ack/nak response  */
+            const chunkCredit = this.options.chunkCredit
+            const sendResponse = async (error?: string) => {
+                const authToken = this.authenticate()
+                const metaStore = this.metaStore(info.meta)
+                const credit = chunkCredit > 0 ? chunkCredit : undefined
+                const response = this.msg.makeSinkPushResponse(requestId,
+                    name, error, this.options.id, sender, authToken, metaStore, credit)
+                const message = this.codec.encode(response)
+                await this._publishToTopic(responseTopic, message, { qos: 2 })
+            }
+
+            /*  create a resource spool for stream cleanup  */
+            const reqSpool = new Spool()
+            this.pushSpools.set(requestId, reqSpool)
+            reqSpool.roll(() => { this.pushSpools.delete(requestId) })
+
+            /*  check authentication and prepare stream  */
+            Promise.resolve().then(async () => {
+                if (auth)
+                    info.authenticated = await this.authenticated(parsed.sender, parsed.auth, auth)
+                if (info.authenticated !== undefined && !info.authenticated)
+                    throw new Error(`sink "${name}" failed authentication`)
+
+                /*  initialize credit-based flow control state  */
+                const creditState = chunkCredit > 0 ? {
+                    chunksReceived: 0,
+                    creditGranted:  chunkCredit
+                } : undefined
+
+                /*  utility functions for timeout management  */
+                const refreshPushTimeout = () => this._refreshPushTimer(requestId)
+                const clearPushTimeout   = () => this._clearPushTimer(requestId)
+
+                /*  create a readable for buffering received chunks  */
+                const readable = new Readable({
+                    highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
+                    read: (_size) => {
+                        if (!creditState || !this.pushSpools.has(requestId))
+                            return
+                        const creditToGrant = Math.max(0,
+                            creditState.chunksReceived + chunkCredit - creditState.creditGranted)
+                        if (creditToGrant > 0) {
+                            creditState.creditGranted += creditToGrant
+                            const creditMsg = this.msg.makeSinkPushCredit(requestId,
+                                name, creditToGrant, this.options.id, sender)
+                            const encoded = this.codec.encode(creditMsg)
+                            const creditTopic = this.options.topicMake(
+                                name, "sink-push-credit", sender)
+                            this._publishToTopic(creditTopic, encoded, { qos: 2 }).catch((err: Error) => {
+                                this.error(err, `sending credit for push "${name}" failed`)
+                            })
+                            refreshPushTimeout()
+                        }
+                    }
+                })
+                this.pushStreams.set(requestId, readable)
+                reqSpool.roll(() => { this.pushStreams.delete(requestId) })
+                readable.once("close", () => reqSpool.unroll())
+                readable.once("error", () => reqSpool.unroll())
+
+                /*  register chunk dispatch callback  */
+                this.pushChunkCallbacks.set(requestId, (chunkParsed: SinkPushChunk, chunkTopicName: string) => {
+                    if (chunkTopicName !== chunkParsed.name)
+                        throw new Error(`sink name mismatch between topic "${chunkTopicName}" ` +
+                            `and payload "${chunkParsed.name}"`)
+                    if (chunkParsed.error !== undefined) {
+                        readable.destroy(new Error(chunkParsed.error))
+                        reqSpool.unroll()
+                    }
+                    else {
+                        refreshPushTimeout()
+                        if (chunkParsed.chunk !== undefined) {
+                            if (creditState)
+                                creditState.chunksReceived++
+                            readable.push(chunkParsed.chunk)
+                        }
+                        if (chunkParsed.final) {
+                            readable.push(null)
+                            reqSpool.unroll()
+                        }
+                    }
+                })
+                reqSpool.roll(() => { this.pushChunkCallbacks.delete(requestId) })
+
+                /*  start timeout for push stream cleanup  */
+                refreshPushTimeout()
+                reqSpool.roll(() => { clearPushTimeout() })
+
+                /*  prepare info object  */
+                const promise = streamToBuffer(readable)
+                info.stream = readable
+                info.buffer = promise
+                makeMutuallyExclusiveFields(info, "stream", "buffer")
+
+                /*  send ack response  */
+                await sendResponse()
+
+                /*  call handler  */
+                return callback(...params, info)
+            }).catch(async (err: Error) => {
+                /*  cleanup resources  */
+                const stream = this.pushStreams.get(requestId)
+                if (stream !== undefined)
+                    stream.destroy()
+                reqSpool.unroll()
+
+                /*  send error (nak response)  */
+                this.error(err)
+                await sendResponse(err.message).catch(() => {})
+            })
+        })
         spool.roll(() => { this.sinks.delete(name) })
 
         /*  subscribe to MQTT topics  */
@@ -276,24 +394,21 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 spool.roll(() => { abortSignal.removeEventListener("abort", onAbort) })
 
                 /*  register handlers for initial response  */
-                this.pushCallbacks.set(requestId, {
-                    name,
-                    onResponse: (response: SinkPushResponse) => {
-                        const error = response.error
-                        if (error)
-                            reject(new Error(error))
-                        else {
-                            if (response.sender)
-                                receiver = response.sender
-                            initialCredit = response.credit
-                            resolve()
-                        }
-                    },
-                    onCredit: (_credit: number) => {
-                        refreshTimeout()
+                this.pushResponseCallbacks.set(requestId, (parsed: SinkPushResponse) => {
+                    if (parsed.error)
+                        reject(new Error(parsed.error))
+                    else {
+                        if (parsed.sender)
+                            receiver = parsed.sender
+                        initialCredit = parsed.credit
+                        resolve()
                     }
                 })
-                spool.roll(() => { this.pushCallbacks.delete(requestId) })
+                spool.roll(() => { this.pushResponseCallbacks.delete(requestId) })
+                this.pushCreditCallbacks.set(requestId, (_parsed: SinkPushCredit) => {
+                    refreshTimeout()
+                })
+                spool.roll(() => { this.pushCreditCallbacks.delete(requestId) })
 
                 /*  generate and send request message  */
                 const auth      = this.authenticate()
@@ -308,18 +423,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 })
             })
 
-            /*  override handlers for mid-stream (error) responses  */
-            const handler = this.pushCallbacks.get(requestId)
-            if (handler === undefined)
-                throw new Error(`push: handler for request "${requestId}" unexpectedly disappeared`)
-            handler.onResponse = (response: SinkPushResponse) => {
-                const error = response.error
-                if (error)
-                    abortController.abort(new Error(error))
-            }
-            handler.onCredit = (_credit: number) => {
-                refreshTimeout()
-            }
+            /*  override handler for mid-stream (error) responses  */
+            this.pushResponseCallbacks.set(requestId, (parsed: SinkPushResponse) => {
+                if (parsed.error)
+                    abortController.abort(new Error(parsed.error))
+            })
 
             /*  create credit gate for flow control (if server granted credit)  */
             if (initialCredit !== undefined && initialCredit > 0)
@@ -331,11 +439,13 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 await run(`subscribe to MQTT topic "${creditTopic}"`, spool, () =>
                     this.pushSubscriptions.subscribe(creditTopic, { qos: 2 }))
                 spool.roll(() => this.pushSubscriptions.unsubscribe(creditTopic))
-                this.pushCreditGates.set(requestId, creditGate)
                 const gate = creditGate
-                spool.roll(() => {
-                    gate.abort()
-                    this.pushCreditGates.delete(requestId)
+                spool.roll(() => { gate.abort() })
+
+                /*  update credit callback to include gate replenish  */
+                this.pushCreditCallbacks.set(requestId, (parsed: SinkPushCredit) => {
+                    gate.replenish(parsed.credit)
+                    refreshTimeout()
                 })
             }
 
@@ -385,194 +495,36 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         if (topicMatch !== null
             && topicMatch.operation === "sink-push-request"
             && parsed instanceof SinkPushRequest) {
-            const name = parsed.name
-            if (topicMatch.name !== name)
-                throw new Error(`sink name mismatch between topic "${topicMatch.name}" and payload "${name}"`)
-            const handler = this.sinks.get(name)
-            if (handler === undefined)
-                throw new Error(`handler for sink "${name}" not found`)
-            else {
-                /*  determine information  */
-                const requestId = parsed.id
-                const params    = parsed.params ?? []
-                const sender    = parsed.sender
-                if (sender === undefined || sender === "")
-                    throw new Error("invalid request: missing sender")
-                const receiver  = parsed.receiver
-                const info: InfoSink = { sender }
-                if (receiver)
-                    info.receiver = receiver
-                if (parsed.meta)
-                    info.meta = parsed.meta
-                if (handler.auth)
-                    info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
-
-                /*  generate corresponding MQTT topic for response  */
-                const responseTopic = this.options.topicMake(name, "sink-push-response", sender)
-
-                /*  callback for sending the ack/nak response  */
-                const chunkCredit = this.options.chunkCredit
-                const sendResponse = async (error?: string) => {
-                    const auth = this.authenticate()
-                    const metaStore = this.metaStore(info.meta)
-                    const credit = chunkCredit > 0 ? chunkCredit : undefined
-                    const response = this.msg.makeSinkPushResponse(requestId,
-                        name, error, this.options.id, sender, auth, metaStore, credit)
-                    const message = this.codec.encode(response)
-                    await this._publishToTopic(responseTopic, message, { qos: 2 })
-                }
-
-                /*  create a resource spool for stream cleanup  */
-                const spool = new Spool()
-                this.pushSpools.set(requestId, spool)
-                spool.roll(() => { this.pushSpools.delete(requestId) })
-
-                /*  check authentication and prepare stream  */
-                Promise.resolve().then(async () => {
-                    if (info.authenticated !== undefined && !info.authenticated)
-                        throw new Error(`sink "${name}" failed authentication`)
-
-                    /*  initialize credit-based flow control state  */
-                    if (chunkCredit > 0) {
-                        this.pushCreditState.set(requestId, {
-                            chunkCredit,
-                            chunksReceived: 0,
-                            creditGranted:  chunkCredit,
-                            sender,
-                            name
-                        })
-                        spool.roll(() => { this.pushCreditState.delete(requestId) })
-                    }
-
-                    /*  utility functions for timeout management  */
-                    const refreshPushTimeout = () => this._refreshPushTimer(requestId)
-                    const clearPushTimeout   = () => this._clearPushTimer(requestId)
-
-                    /*  create a readable for buffering received chunks  */
-                    const readable = new Readable({
-                        highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
-                        read: (_size) => {
-                            const state = this.pushCreditState.get(requestId)
-                            if (!state || !this.pushSpools.has(requestId))
-                                return
-                            const creditToGrant = Math.max(0,
-                                state.chunksReceived + state.chunkCredit - state.creditGranted)
-                            if (creditToGrant > 0) {
-                                state.creditGranted += creditToGrant
-                                const creditMsg = this.msg.makeSinkPushCredit(requestId,
-                                    state.name, creditToGrant, this.options.id, state.sender)
-                                const encoded = this.codec.encode(creditMsg)
-                                const creditTopic = this.options.topicMake(
-                                    state.name, "sink-push-credit", state.sender)
-                                this._publishToTopic(creditTopic, encoded, { qos: 2 }).catch((err: Error) => {
-                                    this.error(err, `sending credit for push "${state.name}" failed`)
-                                })
-                                refreshPushTimeout()
-                            }
-                        }
-                    })
-                    this.pushStreams.set(requestId, readable)
-                    spool.roll(() => { this.pushStreams.delete(requestId) })
-                    readable.once("close", () => spool.unroll())
-                    readable.once("error", () => spool.unroll())
-
-                    /*  start timeout for push stream cleanup  */
-                    refreshPushTimeout()
-                    spool.roll(() => { clearPushTimeout() })
-
-                    /*  prepare info object  */
-                    const promise = streamToBuffer(readable)
-                    info.stream = readable
-                    info.buffer = promise
-                    makeMutuallyExclusiveFields(info, "stream", "buffer")
-
-                    /*  send ack response  */
-                    await sendResponse()
-
-                    /*  call handler  */
-                    return handler.callback(...params, info)
-                }).catch(async (err: Error) => {
-                    /*  cleanup resources  */
-                    const stream = this.pushStreams.get(requestId)
-                    if (stream !== undefined)
-                        stream.destroy()
-                    spool.unroll()
-
-                    /*  send error (nak response)  */
-                    this.error(err)
-                    await sendResponse(err.message).catch(() => {})
-                })
-            }
+            const handler = this.sinks.get(parsed.name)
+            if (handler !== undefined)
+                handler(parsed, topicMatch.name)
         }
 
         /*  handle sink push response (on client-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "sink-push-response"
             && parsed instanceof SinkPushResponse) {
-            const requestId = parsed.id
-            if (topicMatch.name !== parsed.name)
-                throw new Error(`sink name mismatch between topic "${topicMatch.name}" and payload "${parsed.name}"`)
-            const handler = this.pushCallbacks.get(requestId)
+            const handler = this.pushResponseCallbacks.get(parsed.id)
             if (handler !== undefined)
-                handler.onResponse(parsed)
+                handler(parsed)
         }
 
         /*  handle sink push chunk (on server-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "sink-push-chunk"
             && parsed instanceof SinkPushChunk) {
-            /*  determine information  */
-            const requestId = parsed.id
-            if (topicMatch.name !== parsed.name)
-                throw new Error(`sink name mismatch between topic "${topicMatch.name}" and payload "${parsed.name}"`)
-            const error = parsed.error
-            const final = parsed.final
-            const chunk = parsed.chunk
-
-            /*  handle chunk on push  */
-            const readable = this.pushStreams.get(requestId)
-            if (readable !== undefined) {
-                if (error !== undefined) {
-                    /*  destroy stream on error and cleanup all resources  */
-                    readable.destroy(new Error(error))
-                    const spool = this.pushSpools.get(requestId)
-                    spool?.unroll()
-                }
-                else {
-                    /*  refresh timeout  */
-                    this._refreshPushTimer(requestId)
-
-                    /*  push chunk data  */
-                    if (chunk !== undefined) {
-                        const creditState = this.pushCreditState.get(requestId)
-                        if (creditState)
-                            creditState.chunksReceived++
-                        readable.push(chunk)
-                    }
-
-                    /*  signal end-of-stream on final chunk and cleanup all resources  */
-                    if (final) {
-                        readable.push(null)
-                        const spool = this.pushSpools.get(requestId)
-                        spool?.unroll()
-                    }
-                }
-            }
+            const handler = this.pushChunkCallbacks.get(parsed.id)
+            if (handler !== undefined)
+                handler(parsed, topicMatch.name)
         }
 
-        /*  handle sink push credit (on client-side for push, replenish producer credit)  */
+        /*  handle sink push credit (on client-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "sink-push-credit"
             && parsed instanceof SinkPushCredit) {
-            const requestId = parsed.id
-            const gate = this.pushCreditGates.get(requestId)
-            if (gate !== undefined)
-                gate.replenish(parsed.credit)
-
-            /*  inform about received credit  */
-            const handler = this.pushCallbacks.get(requestId)
-            if (handler?.onCredit)
-                handler.onCredit(parsed.credit)
+            const handler = this.pushCreditCallbacks.get(parsed.id)
+            if (handler !== undefined)
+                handler(parsed)
         }
     }
 }

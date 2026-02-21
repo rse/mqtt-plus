@@ -32,8 +32,8 @@ import { RefCountedSubscription }     from "./mqtt-plus-util"
 import { run, Spool, ensureError }    from "./mqtt-plus-error"
 import { ServiceCallRequest,
     ServiceCallResponse }             from "./mqtt-plus-msg"
-import { APISchema, APIEndpointService,
-    ServiceKeys, Registration }       from "./mqtt-plus-api"
+import { APISchema, ServiceKeys,
+    Registration }                    from "./mqtt-plus-api"
 import type { WithInfo, InfoService } from "./mqtt-plus-info"
 import { EventTrait }                 from "./mqtt-plus-event"
 import type { AuthOption }            from "./mqtt-plus-auth"
@@ -41,14 +41,8 @@ import type { AuthOption }            from "./mqtt-plus-auth"
 /*  Service Call Trait  */
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
     /*  internal state  */
-    private services = new Map<string, {
-        callback: WithInfo<APIEndpointService, InfoService>,
-        auth?:    AuthOption
-    }>()
-    private callCallbacks = new Map<string, {
-        name:     string,
-        callback: (err: any, result: any) => void
-    }>()
+    private services = new Map<string, (parsed: ServiceCallRequest, topicName: string) => void>()
+    private callCallbacks = new Map<string, (parsed: ServiceCallResponse) => void>()
     private callSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
         (topic)          => this._unsubscribeTopic(topic)
@@ -111,7 +105,49 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const topicD = this.options.topicMake(name,   "service-call-request", this.options.id)
 
         /*  remember the registration  */
-        this.services.set(name, { callback, auth })
+        this.services.set(name, (parsed: ServiceCallRequest, topicName: string) => {
+            /*  determine request information  */
+            const requestId = parsed.id
+            const senderId  = parsed.sender
+            if (senderId === undefined || senderId === "")
+                throw new Error("invalid request: missing sender")
+            const params = parsed.params ?? []
+
+            /*  create information object  */
+            const info: InfoService = { sender: senderId }
+            if (parsed.receiver)
+                info.receiver = parsed.receiver
+            if (parsed.meta)
+                info.meta = parsed.meta
+
+            /*  asynchronously execute handler and send response  */
+            Promise.resolve().then(async () => {
+                if (topicName !== name)
+                    throw new Error(`service name mismatch (topic: "${topicName}", payload: "${name}")`)
+                if (auth)
+                    info.authenticated = await this.authenticated(senderId, parsed.auth, auth)
+                if (info.authenticated !== undefined && !info.authenticated)
+                    throw new Error(`service "${name}" failed authentication`)
+                return callback(...params, info)
+            }).then((result: any) => {
+                /*  create success response message  */
+                return this.msg.makeServiceCallResponse(requestId, result,
+                    undefined, this.options.id, senderId)
+            }, (result: unknown) => {
+                /*  create error response message  */
+                const error = ensureError(result)
+                this.error(error, `handler for service "${name}" failed`)
+                return this.msg.makeServiceCallResponse(requestId, undefined,
+                    error.message, this.options.id, senderId)
+            }).then((rpcResponse) => {
+                /*  send response message  */
+                const encoded = this.codec.encode(rpcResponse)
+                const topic = this.options.topicMake(name, "service-call-response", senderId)
+                return this._publishToTopic(topic, encoded, { qos: 2 })
+            }).catch((err: Error) => {
+                this.error(err, `handler for service "${name}" failed`)
+            })
+        })
         spool.roll(() => { this.services.delete(name) })
 
         /*  subscribe to MQTT topics  */
@@ -203,15 +239,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     timer = null
                 }
             })
-            this.callCallbacks.set(requestId, {
-                name,
-                callback: async (err: any, result: Awaited<ReturnType<T[K]>>) => {
-                    await spool.unroll()
-                    if (err)
-                        reject(err)
-                    else
-                        resolve(result)
-                }
+            this.callCallbacks.set(requestId, async (parsed: ServiceCallResponse) => {
+                await spool.unroll()
+                if (parsed.error !== undefined)
+                    reject(new Error(parsed.error))
+                else
+                    resolve(parsed.result)
             })
             spool.roll(() => { this.callCallbacks.delete(requestId) })
         })
@@ -242,51 +275,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         if (topicMatch !== null
             && topicMatch.operation === "service-call-request"
             && parsed instanceof ServiceCallRequest) {
-            /*  determine request information  */
-            const requestId = parsed.id
-            const senderId  = parsed.sender
-            if (senderId === undefined || senderId === "")
-                throw new Error("invalid request: missing sender")
-            const name    = parsed.name
-            const handler = this.services.get(name)
-            const params  = parsed.params ?? []
-
-            /*  create information object  */
-            const info: InfoService = { sender: senderId }
-            if (parsed.receiver)
-                info.receiver = parsed.receiver
-            if (parsed.meta)
-                info.meta = parsed.meta
-            if (handler?.auth)
-                info.authenticated = await this.authenticated(senderId, parsed.auth, handler.auth)
-
-            /*  asynchronously execute handler and send response  */
-            Promise.resolve().then(() => {
-                if (topicMatch.name !== name)
-                    throw new Error(`service name mismatch (topic: "${topicMatch.name}", payload: "${name}")`)
-                if (handler === undefined)
-                    throw new Error(`handler for service "${name}" not found`)
-                if (info.authenticated !== undefined && !info.authenticated)
-                    throw new Error(`service "${name}" failed authentication`)
-                return handler.callback(...params, info)
-            }).then((result: any) => {
-                /*  create success response message  */
-                return this.msg.makeServiceCallResponse(requestId, result,
-                    undefined, this.options.id, senderId)
-            }, (result: unknown) => {
-                /*  create error response message  */
-                const error = ensureError(result)
-                this.error(error, `handler for service "${name}" failed`)
-                return this.msg.makeServiceCallResponse(requestId, undefined,
-                    error.message, this.options.id, senderId)
-            }).then((rpcResponse) => {
-                /*  send response message  */
-                const encoded = this.codec.encode(rpcResponse)
-                const topic = this.options.topicMake(name, "service-call-response", senderId)
-                return this._publishToTopic(topic, encoded, { qos: 2 })
-            }).catch((err: Error) => {
-                this.error(err, `handler for service "${name}" failed`)
-            })
+            const handler = this.services.get(parsed.name)
+            if (handler !== undefined)
+                handler(parsed, topicMatch.name)
         }
 
         /*  on client-side handle service call response  */
@@ -294,16 +285,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             && topicMatch.operation === "service-call-response"
             && topicMatch.peerId === this.options.id
             && parsed instanceof ServiceCallResponse) {
-            /*  determine response information  */
-            const requestId = parsed.id
-            const request = this.callCallbacks.get(requestId)
-            if (request !== undefined) {
-                /*  call response callback function  */
-                if (parsed.error !== undefined)
-                    request.callback(new Error(parsed.error), undefined)
-                else
-                    request.callback(undefined, parsed.result)
-            }
+            const handler = this.callCallbacks.get(parsed.id)
+            if (handler !== undefined)
+                handler(parsed)
         }
     }
 }

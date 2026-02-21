@@ -36,7 +36,7 @@ import { CreditGate, RefCountedSubscription,
 import { run, Spool, ensureError }                                from "./mqtt-plus-error"
 import { SourceFetchRequest, SourceFetchResponse,
     SourceFetchChunk, SourceFetchCredit }                         from "./mqtt-plus-msg"
-import { APISchema, SourceKeys, APIEndpointSource, Registration } from "./mqtt-plus-api"
+import { APISchema, SourceKeys, Registration }                    from "./mqtt-plus-api"
 import type { WithInfo, InfoSource }                              from "./mqtt-plus-info"
 import { ServiceTrait }                                           from "./mqtt-plus-service"
 import type { AuthOption }                                        from "./mqtt-plus-auth"
@@ -44,22 +44,12 @@ import type { AuthOption }                                        from "./mqtt-p
 /*  Source Fetch Trait  */
 export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
     /*  source state  */
-    private sources = new Map<string, {
-        callback: WithInfo<APIEndpointSource, InfoSource>,
-        auth?:    AuthOption
-    }>()
-    private fetchCallbacks = new Map<string, {
-        name:      string,
-        serverId?: string,
-        callback:  (
-            error: Error               | undefined,
-            chunk: Uint8Array          | undefined,
-            meta:  Record<string, any> | undefined,
-            final: boolean             | undefined
-        ) => void
-    }>()
-    private sourceCreditGates  = new Map<string, CreditGate>()
-    private sourceTimers       = new Map<string, ReturnType<typeof setTimeout>>()
+    private sources = new Map<string, (parsed: SourceFetchRequest, topicName: string) => void>()
+    private fetchResponseCallbacks = new Map<string, (parsed: SourceFetchResponse) => void>()
+    private fetchChunkCallbacks    = new Map<string, (parsed: SourceFetchChunk) => void>()
+    private sourceCreditCallbacks  = new Map<string, (parsed: SourceFetchCredit) => void>()
+    private sourceCreditGates      = new Map<string, CreditGate>()
+    private sourceTimers           = new Map<string, ReturnType<typeof setTimeout>>()
     private fetchSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
         (topic)          => this._unsubscribeTopic(topic)
@@ -145,7 +135,107 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const topicCreditD = this.options.topicMake(name,   "source-fetch-credit",  this.options.id)
 
         /*  remember the registration  */
-        this.sources.set(name, { callback, auth })
+        this.sources.set(name, (parsed: SourceFetchRequest, topicName: string) => {
+            if (topicName !== parsed.name)
+                throw new Error(`source name mismatch between topic "${topicName}" and payload "${parsed.name}"`)
+
+            /*  determine information  */
+            const requestId = parsed.id
+            const params    = parsed.params ?? []
+            const sender    = parsed.sender
+            if (sender === undefined || sender === "")
+                throw new Error("invalid request: missing sender")
+            const receiver  = parsed.receiver
+            const info: InfoSource = { sender }
+            if (receiver)
+                info.receiver = receiver
+            if (parsed.meta)
+                info.meta = parsed.meta
+
+            /*  generate corresponding MQTT topics  */
+            const responseTopic = this.options.topicMake(name, "source-fetch-response", sender)
+            const chunkTopic    = this.options.topicMake(name, "source-fetch-chunk", sender)
+
+            /*  callback for sending the ack/nak response  */
+            const sendResponse = async (error?: string) => {
+                const authToken = this.authenticate()
+                const metaStore = this.metaStore(info.meta)
+                const response = this.msg.makeSourceFetchResponse(requestId,
+                    name, error, this.options.id, sender, authToken, metaStore)
+                const message = this.codec.encode(response)
+                await this._publishToTopic(responseTopic, message, { qos: 2 })
+            }
+
+            /*  callback for creating and sending a chunk message  */
+            const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
+                refreshSourceTimeout()
+                const chunkMsg = this.msg.makeSourceFetchChunk(requestId,
+                    name, chunk, error, final, this.options.id, sender)
+                const message = this.codec.encode(chunkMsg)
+                await this._publishToTopic(chunkTopic, message, { qos: 2 })
+            }
+
+            /*  utility functions for timeout management  */
+            const refreshSourceTimeout = () => this._refreshSourceTimer(requestId)
+            const clearSourceTimeout   = () => this._clearSourceTimer(requestId)
+            refreshSourceTimeout()
+
+            /*  handle credit-based flow control (if credit provided in request)  */
+            const initialCredit = parsed.credit
+            const creditGate = (initialCredit !== undefined && initialCredit > 0)
+                ? new CreditGate(initialCredit) : undefined
+            if (creditGate) {
+                this.sourceCreditGates.set(requestId, creditGate)
+                this.sourceCreditCallbacks.set(requestId, (creditParsed: SourceFetchCredit) => {
+                    creditGate.replenish(creditParsed.credit)
+                    this._refreshSourceTimer(requestId)
+                })
+            }
+
+            /*  call the handler callback  */
+            let ackSent = false
+            Promise.resolve().then(async () => {
+                if (auth)
+                    info.authenticated = await this.authenticated(parsed.sender, parsed.auth, auth)
+                if (info.authenticated !== undefined && !info.authenticated)
+                    throw new Error(`source "${name}" failed authentication`)
+                return callback(...params, info)
+            }).then(async () => {
+                /*  check for valid data source  */
+                if (!(info.stream instanceof Readable) && !(info.buffer instanceof Promise))
+                    throw new Error("handler did not provide data via info.stream or info.buffer fields")
+                if (info.stream instanceof Readable && info.buffer instanceof Promise)
+                    throw new Error("handler has set both info.stream and info.buffer fields")
+
+                /*  send ack response  */
+                await sendResponse()
+                ackSent = true
+
+                /*  dispatch according to data type  */
+                if (info.stream instanceof Readable)
+                    /*  handle Readable stream result  */
+                    await sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk, creditGate)
+                else if (info.buffer instanceof Promise)
+                    /*  handle Buffer result  */
+                    await sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk, creditGate)
+            }).catch((err: unknown) => {
+                /*  send error as nak response or as error chunk  */
+                const error = ensureError(err)
+                this.error(error, `handler for source "${name}" failed`)
+                if (ackSent)
+                    return sendChunk(undefined, error.message, true).catch(() => {})
+                else
+                    return sendResponse(error.message).catch(() => {})
+            }).finally(() => {
+                /*  cleanup resources  */
+                clearSourceTimeout()
+                if (creditGate) {
+                    creditGate.abort()
+                    this.sourceCreditGates.delete(requestId)
+                }
+                this.sourceCreditCallbacks.delete(requestId)
+            })
+        })
         spool.roll(() => { this.sources.delete(name) })
 
         /*  subscribe to MQTT topics  */
@@ -247,16 +337,15 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const chunkCredit  = this.options.chunkCredit
         let chunksReceived = 0
         let creditGranted  = chunkCredit
-        const serverPeerId = receiver
+        let serverId:        string | undefined
 
         /*  establish a readable for buffering received chunks  */
         const stream = new Readable({
             highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
             read: (_size) => {
-                if (chunkCredit <= 0 || !this.fetchCallbacks.has(requestId))
+                if (chunkCredit <= 0 || !this.fetchChunkCallbacks.has(requestId))
                     return
-                const handler  = this.fetchCallbacks.get(requestId)
-                const targetId = handler?.serverId ?? serverPeerId
+                const targetId = serverId ?? receiver
                 if (!targetId)
                     return
                 const creditToGrant = Math.max(0, chunksReceived + chunkCredit - creditGranted)
@@ -309,38 +398,43 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         stream.once("close", () => spool.unroll())
         stream.once("error", () => spool.unroll())
 
-        /*  register stream handler to collect chunks  */
-        let firstChunk = true
-        this.fetchCallbacks.set(requestId, {
-            name,
-            callback: (
-                error: Error               | undefined,
-                chunk: Uint8Array          | undefined,
-                meta:  Record<string, any> | undefined,
-                final: boolean             | undefined
-            ) => {
-                if (firstChunk) {
-                    firstChunk = false
-                    metaResolve?.(meta)
+        /*  register response dispatch callback  */
+        this.fetchResponseCallbacks.set(requestId, (parsed: SourceFetchResponse) => {
+            if (parsed.sender)
+                serverId = parsed.sender
+            metaResolve?.(parsed.meta)
+            if (parsed.error) {
+                stream.destroy(new Error(parsed.error))
+                spool.unroll()
+            }
+            else
+                refreshTimeout()
+        })
+
+        /*  register chunk dispatch callback  */
+        this.fetchChunkCallbacks.set(requestId, (parsed: SourceFetchChunk) => {
+            if (parsed.sender)
+                serverId = parsed.sender
+            if (parsed.error) {
+                stream.destroy(new Error(parsed.error))
+                spool.unroll()
+            }
+            else {
+                refreshTimeout()
+                if (parsed.chunk !== undefined) {
+                    chunksReceived++
+                    stream.push(parsed.chunk)
                 }
-                if (error !== undefined) {
-                    stream.destroy(error)
+                if (parsed.final) {
+                    stream.push(null)
                     spool.unroll()
-                }
-                else {
-                    refreshTimeout()
-                    if (chunk !== undefined) {
-                        chunksReceived++
-                        stream.push(chunk)
-                    }
-                    if (final) {
-                        stream.push(null)
-                        spool.unroll()
-                    }
                 }
             }
         })
-        spool.roll(() => { this.fetchCallbacks.delete(requestId) })
+        spool.roll(() => {
+            this.fetchResponseCallbacks.delete(requestId)
+            this.fetchChunkCallbacks.delete(requestId)
+        })
 
         /*  generate encoded message  */
         const auth = this.authenticate()
@@ -371,166 +465,40 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         await super._dispatchMessage(topic, parsed)
         const topicMatch = this.options.topicMatch(topic)
 
-        /*  handle source fetch request (on server-side for fetch)  */
+        /*  handle source fetch request (on server-side)  */
         if (topicMatch !== null
             && topicMatch.operation === "source-fetch-request"
             && parsed instanceof SourceFetchRequest) {
-            const name = parsed.name
-            if (topicMatch.name !== name)
-                throw new Error(`source name mismatch between topic "${topicMatch.name}" and payload "${name}"`)
-            const handler = this.sources.get(name)
-            if (handler === undefined)
-                throw new Error(`handler for source "${name}" not found`)
-            else {
-                /*  determine information  */
-                const requestId = parsed.id
-                const params    = parsed.params ?? []
-                const sender    = parsed.sender
-                if (sender === undefined || sender === "")
-                    throw new Error("invalid request: missing sender")
-                const receiver  = parsed.receiver
-                const info: InfoSource = { sender }
-                if (receiver)
-                    info.receiver = receiver
-                if (parsed.meta)
-                    info.meta = parsed.meta
-                if (handler.auth)
-                    info.authenticated = await this.authenticated(parsed.sender, parsed.auth, handler.auth)
-
-                /*  generate corresponding MQTT topics  */
-                const responseTopic = this.options.topicMake(name, "source-fetch-response", sender)
-                const chunkTopic    = this.options.topicMake(name, "source-fetch-chunk", sender)
-
-                /*  callback for sending the ack/nak response  */
-                const sendResponse = async (error?: string) => {
-                    const auth = this.authenticate()
-                    const metaStore = this.metaStore(info.meta)
-                    const response = this.msg.makeSourceFetchResponse(requestId,
-                        name, error, this.options.id, sender, auth, metaStore)
-                    const message = this.codec.encode(response)
-                    await this._publishToTopic(responseTopic, message, { qos: 2 })
-                }
-
-                /*  callback for creating and sending a chunk message  */
-                const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
-                    refreshSourceTimeout()
-                    const chunkMsg = this.msg.makeSourceFetchChunk(requestId,
-                        name, chunk, error, final, this.options.id, sender)
-                    const message = this.codec.encode(chunkMsg)
-                    await this._publishToTopic(chunkTopic, message, { qos: 2 })
-                }
-
-                /*  utility functions for timeout management  */
-                const refreshSourceTimeout = () => this._refreshSourceTimer(requestId)
-                const clearSourceTimeout   = () => this._clearSourceTimer(requestId)
-                refreshSourceTimeout()
-
-                /*  handle credit-based flow control (if credit provided in request)  */
-                const initialCredit = parsed.credit
-                const creditGate = (initialCredit !== undefined && initialCredit > 0)
-                    ? new CreditGate(initialCredit) : undefined
-                if (creditGate)
-                    this.sourceCreditGates.set(requestId, creditGate)
-
-                /*  call the handler callback  */
-                let ackSent = false
-                Promise.resolve().then(() => {
-                    if (info.authenticated !== undefined && !info.authenticated)
-                        throw new Error(`source "${name}" failed authentication`)
-                    return handler.callback(...params, info)
-                }).then(async () => {
-                    /*  check for valid data source  */
-                    if (!(info.stream instanceof Readable) && !(info.buffer instanceof Promise))
-                        throw new Error("handler did not provide data via info.stream or info.buffer fields")
-                    if (info.stream instanceof Readable && info.buffer instanceof Promise)
-                        throw new Error("handler has set both info.stream and info.buffer fields")
-
-                    /*  send ack response  */
-                    await sendResponse()
-                    ackSent = true
-
-                    /*  dispatch according to data type  */
-                    if (info.stream instanceof Readable)
-                        /*  handle Readable stream result  */
-                        await sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk, creditGate)
-                    else if (info.buffer instanceof Promise)
-                        /*  handle Buffer result  */
-                        await sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk, creditGate)
-                }).catch((err: unknown) => {
-                    /*  send error as nak response or as error chunk  */
-                    const error = ensureError(err)
-                    this.error(error, `handler for source "${name}" failed`)
-                    if (ackSent)
-                        return sendChunk(undefined, error.message, true).catch(() => {})
-                    else
-                        return sendResponse(error.message).catch(() => {})
-                }).finally(() => {
-                    /*  cleanup resources  */
-                    clearSourceTimeout()
-                    if (creditGate) {
-                        creditGate.abort()
-                        this.sourceCreditGates.delete(requestId)
-                    }
-                })
-            }
+            const handler = this.sources.get(parsed.name)
+            if (handler !== undefined)
+                handler(parsed, topicMatch.name)
         }
 
-        /*  handle source fetch response (ack/nak on client-side for fetch)  */
+        /*  handle source fetch response (on client-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "source-fetch-response"
             && parsed instanceof SourceFetchResponse) {
-            /*  determine information  */
-            const requestId = parsed.id
-            if (topicMatch.name !== parsed.name)
-                throw new Error(`source name mismatch between topic "${topicMatch.name}" and payload "${parsed.name}"`)
-            const error = parsed.error
-            const meta  = parsed.meta
-
-            /*  handle response on fetch (ack/nak)  */
-            const handler = this.fetchCallbacks.get(requestId)
-            if (handler !== undefined) {
-                if (parsed.sender)
-                    handler.serverId = parsed.sender
-                if (error)
-                    handler.callback(new Error(error), undefined, meta, true)
-                else
-                    handler.callback(undefined, undefined, meta, false)
-            }
+            const handler = this.fetchResponseCallbacks.get(parsed.id)
+            if (handler !== undefined)
+                handler(parsed)
         }
 
-        /*  handle source fetch chunk (actual data on client-side for fetch)  */
+        /*  handle source fetch chunk (on client-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "source-fetch-chunk"
             && parsed instanceof SourceFetchChunk) {
-            /*  determine information  */
-            const requestId = parsed.id
-            if (topicMatch.name !== parsed.name)
-                throw new Error(`source name mismatch between topic "${topicMatch.name}" and payload "${parsed.name}"`)
-            const error = parsed.error
-            const final = parsed.final
-            const chunk = parsed.chunk
-
-            /*  handle chunk on fetch  */
-            const handler = this.fetchCallbacks.get(requestId)
-            if (handler !== undefined) {
-                if (parsed.sender)
-                    handler.serverId = parsed.sender
-                handler.callback(error ? new Error(error) : undefined, chunk, undefined, final)
-            }
+            const handler = this.fetchChunkCallbacks.get(parsed.id)
+            if (handler !== undefined)
+                handler(parsed)
         }
 
-        /*  handle source fetch credit (on server-side for fetch, replenish producer credit)  */
+        /*  handle source fetch credit (on server-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "source-fetch-credit"
             && parsed instanceof SourceFetchCredit) {
-            const requestId = parsed.id
-            const gate = this.sourceCreditGates.get(requestId)
-            if (gate !== undefined) {
-                gate.replenish(parsed.credit)
-
-                /*  refresh timeout  */
-                this._refreshSourceTimer(requestId)
-            }
+            const handler = this.sourceCreditCallbacks.get(parsed.id)
+            if (handler !== undefined)
+                handler(parsed)
         }
     }
 }
