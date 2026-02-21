@@ -33,7 +33,7 @@ import { nanoid }                                                 from "nanoid"
 import { CreditGate, RefCountedSubscription,
     streamToBuffer, sendBufferAsChunks,
     sendStreamAsChunks, makeMutuallyExclusiveFields }             from "./mqtt-plus-util"
-import { run, Spool, ensureError }                                from "./mqtt-plus-error"
+import { run, Spool }                                             from "./mqtt-plus-error"
 import { SinkPushRequest, SinkPushResponse,
     SinkPushChunk, SinkPushCredit }                               from "./mqtt-plus-msg"
 import { APISchema, SinkKeys, APIEndpointSink, Registration }     from "./mqtt-plus-api"
@@ -49,6 +49,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         auth?:    AuthOption
     }>()
     private pushStreams   = new Map<string, Readable>()
+    private pushSpools    = new Map<string, Spool>()
     private pushTimers    = new Map<string, ReturnType<typeof setTimeout>>()
     private pushCallbacks = new Map<string, {
         name:       string,
@@ -67,6 +68,30 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         (topic, options) => this._subscribeTopic(topic, options),
         (topic)          => this._unsubscribeTopic(topic)
     )
+
+    /*  refresh push timer for a specific request  */
+    private _refreshPushTimer (requestId: string) {
+        const timer = this.pushTimers.get(requestId)
+        if (timer !== undefined)
+            clearTimeout(timer)
+        this.pushTimers.set(requestId, setTimeout(() => {
+            this.pushTimers.delete(requestId)
+            const stream = this.pushStreams.get(requestId)
+            if (stream !== undefined)
+                stream.destroy(new Error("push stream timeout"))
+            const spool = this.pushSpools.get(requestId)
+            spool?.unroll()
+        }, this.options.timeout))
+    }
+
+    /*  clear push timer for a specific request  */
+    private _clearPushTimer (requestId: string) {
+        const timer = this.pushTimers.get(requestId)
+        if (timer !== undefined) {
+            clearTimeout(timer)
+            this.pushTimers.delete(requestId)
+        }
+    }
 
     /*  register a sink  */
     async sink<K extends SinkKeys<T> & string> (
@@ -202,12 +227,17 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             params   = args.slice(1) as Parameters<T[K]>
         }
 
+        /*  create a resource spool  */
+        const spool = new Spool()
+
         /*  generate unique request id  */
         const requestId = nanoid()
 
         /*  subscribe to response topic (for ack/nak)  */
         const responseTopic = this.options.topicMake(name, "sink-push-response", this.options.id)
-        await this.pushSubscriptions.subscribe(responseTopic, { qos: 2 })
+        await run(`subscribe to MQTT topic "${responseTopic}"`, spool, () =>
+            this.pushSubscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
+        spool.roll(() => this.pushSubscriptions.unsubscribe(responseTopic))
 
         /*  define abort controller and signal  */
         const abortController = new AbortController()
@@ -215,29 +245,21 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         /*  define timer  */
         let timer: ReturnType<typeof setTimeout> | null = null
+        spool.roll(() => {
+            if (timer !== null) {
+                clearTimeout(timer)
+                timer = null
+            }
+        })
 
         /*  utility function for timeout refresh  */
         const refreshTimeout = () => {
             if (timer !== null)
                 clearTimeout(timer)
             timer = setTimeout(() => {
-                cleanup()
                 abortController.abort(new Error(`push to sink "${name}" timed out`))
+                spool.unroll()
             }, this.options.timeout)
-        }
-
-        /*  utility function for cleanup  */
-        let cleanedUp = false
-        const cleanup = () => {
-            if (cleanedUp)
-                return
-            cleanedUp = true
-            if (timer !== null) {
-                clearTimeout(timer)
-                timer = null
-            }
-            this.pushSubscriptions.unsubscribe(responseTopic)
-            this.pushCallbacks.delete(requestId)
         }
 
         /*  start timeout handler  */
@@ -251,21 +273,19 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  handle abort signal  */
                 const onAbort = () => { reject(abortSignal.reason) }
                 abortSignal.addEventListener("abort", onAbort, { once: true })
+                spool.roll(() => { abortSignal.removeEventListener("abort", onAbort) })
 
-                /*  register callback for response  */
+                /*  register handlers for initial response  */
                 this.pushCallbacks.set(requestId, {
                     name,
                     onResponse: (response: SinkPushResponse) => {
                         const error = response.error
-                        if (error) {
-                            abortSignal.removeEventListener("abort", onAbort)
+                        if (error)
                             reject(new Error(error))
-                        }
                         else {
                             if (response.sender)
                                 receiver = response.sender
                             initialCredit = response.credit
-                            abortSignal.removeEventListener("abort", onAbort)
                             resolve()
                         }
                     },
@@ -273,6 +293,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         refreshTimeout()
                     }
                 })
+                spool.roll(() => { this.pushCallbacks.delete(requestId) })
 
                 /*  generate and send request message  */
                 const auth      = this.authenticate()
@@ -281,23 +302,23 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     name, params, this.options.id, receiver, auth, metaStore)
                 const message   = this.codec.encode(request)
                 const requestTopic = this.options.topicMake(name, "sink-push-request", receiver)
-                this._publishToTopic(requestTopic, message, { qos: 2, ...options }).catch((err: Error) => {
-                    abortSignal.removeEventListener("abort", onAbort)
+                run(`publish push request as MQTT message to topic "${requestTopic}"`, spool, () =>
+                    this._publishToTopic(requestTopic, message, { qos: 2, ...options })).catch((err: Error) => {
                     reject(err)
                 })
             })
 
-            /*  override response handler to handle mid-stream responses  */
+            /*  override handlers for mid-stream (error) responses  */
             const handler = this.pushCallbacks.get(requestId)
-            if (handler !== undefined) {
-                handler.onResponse = (response: SinkPushResponse) => {
-                    const error = response.error
-                    if (error)
-                        abortController.abort(new Error(error))
-                }
-                handler.onCredit = (_credit: number) => {
-                    refreshTimeout()
-                }
+            if (handler === undefined)
+                throw new Error(`push: handler for request "${requestId}" unexpectedly disappeared`)
+            handler.onResponse = (response: SinkPushResponse) => {
+                const error = response.error
+                if (error)
+                    abortController.abort(new Error(error))
+            }
+            handler.onCredit = (_credit: number) => {
+                refreshTimeout()
             }
 
             /*  create credit gate for flow control (if server granted credit)  */
@@ -305,38 +326,38 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 creditGate = new CreditGate(initialCredit)
 
             /*  subscribe to credit topic if flow control is active  */
-            let creditTopic: string | undefined
             if (creditGate) {
-                creditTopic = this.options.topicMake(name, "sink-push-credit", this.options.id)
-                await this.pushSubscriptions.subscribe(creditTopic, { qos: 2 })
+                const creditTopic = this.options.topicMake(name, "sink-push-credit", this.options.id)
+                await run(`subscribe to MQTT topic "${creditTopic}"`, spool, () =>
+                    this.pushSubscriptions.subscribe(creditTopic, { qos: 2 }))
+                spool.roll(() => this.pushSubscriptions.unsubscribe(creditTopic))
                 this.pushCreditGates.set(requestId, creditGate)
+                const gate = creditGate
+                spool.roll(() => {
+                    gate.abort()
+                    this.pushCreditGates.delete(requestId)
+                })
             }
 
-            try {
-                /*  generate corresponding MQTT topic for chunks  */
-                const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
+            /*  generate corresponding MQTT topic for chunks  */
+            const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
 
-                /*  callback for creating and sending a chunk message  */
-                const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
-                    refreshTimeout()
-                    const chunkMsg = this.msg.makeSinkPushChunk(requestId,
-                        name, chunk, error, final, this.options.id, receiver)
-                    const message = this.codec.encode(chunkMsg)
-                    await this._publishToTopic(chunkTopic, message, { qos: 2, ...options })
-                }
+            /*  callback for creating and sending a chunk message  */
+            const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
+                refreshTimeout()
+                const chunkMsg = this.msg.makeSinkPushChunk(requestId,
+                    name, chunk, error, final, this.options.id, receiver)
+                const message = this.codec.encode(chunkMsg)
+                await this._publishToTopic(chunkTopic, message, { qos: 2, ...options })
+            }
 
-                /*  iterate over all chunks of the buffer  */
-                if (data instanceof Readable)
-                    /*  attach to the readable  */
-                    await sendStreamAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
-                else if (data instanceof Uint8Array)
-                    /*  split buffer into chunks and send them  */
-                    await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
-            }
-            finally {
-                if (creditTopic)
-                    this.pushSubscriptions.unsubscribe(creditTopic)
-            }
+            /*  iterate over all chunks of the buffer  */
+            if (data instanceof Readable)
+                /*  attach to the readable  */
+                await sendStreamAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
+            else if (data instanceof Uint8Array)
+                /*  split buffer into chunks and send them  */
+                await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
         }
         catch (err: unknown) {
             const error = err instanceof Error ? err.message : String(err)
@@ -348,11 +369,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             throw err
         }
         finally {
-            if (creditGate) {
-                creditGate.abort()
-                this.pushCreditGates.delete(requestId)
-            }
-            cleanup()
+            await spool.unroll()
         }
     }
 
@@ -378,7 +395,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  determine information  */
                 const requestId = parsed.id
                 const params    = parsed.params ?? []
-                const sender    = parsed.sender ?? ""
+                const sender    = parsed.sender
+                if (sender === undefined || sender === "")
+                    throw new Error("invalid request: missing sender")
                 const receiver  = parsed.receiver
                 const info: InfoSink = { sender }
                 if (receiver)
@@ -403,24 +422,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     await this._publishToTopic(responseTopic, message, { qos: 2 })
                 }
 
-                /*  utility function for cleanup  */
-                let streamCleanedUp = false
-                const cleanupStream = () => {
-                    if (streamCleanedUp)
-                        return
-                    streamCleanedUp = true
-                    const timer = this.pushTimers.get(requestId)
-                    if (timer !== undefined) {
-                        clearTimeout(timer)
-                        this.pushTimers.delete(requestId)
-                    }
-                    const stream = this.pushStreams.get(requestId)
-                    if (stream !== undefined) {
-                        stream.destroy()
-                        this.pushStreams.delete(requestId)
-                    }
-                    this.pushCreditState.delete(requestId)
-                }
+                /*  create a resource spool for stream cleanup  */
+                const spool = new Spool()
+                this.pushSpools.set(requestId, spool)
+                spool.roll(() => { this.pushSpools.delete(requestId) })
 
                 /*  check authentication and prepare stream  */
                 Promise.resolve().then(async () => {
@@ -436,14 +441,19 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                             sender,
                             name
                         })
+                        spool.roll(() => { this.pushCreditState.delete(requestId) })
                     }
+
+                    /*  utility functions for timeout management  */
+                    const refreshPushTimeout = () => this._refreshPushTimer(requestId)
+                    const clearPushTimeout   = () => this._clearPushTimer(requestId)
 
                     /*  create a readable for buffering received chunks  */
                     const readable = new Readable({
                         highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
                         read: (_size) => {
                             const state = this.pushCreditState.get(requestId)
-                            if (!state || streamCleanedUp)
+                            if (!state || !this.pushSpools.has(requestId))
                                 return
                             const creditToGrant = Math.max(0,
                                 state.chunksReceived + state.chunkCredit - state.creditGranted)
@@ -457,34 +467,18 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                                 this._publishToTopic(creditTopic, encoded, { qos: 2 }).catch((err: Error) => {
                                     this.error(err, `sending credit for push "${state.name}" failed`)
                                 })
-
-                                /*  refresh timeout  */
-                                const timer = this.pushTimers.get(requestId)
-                                if (timer !== undefined) {
-                                    clearTimeout(timer)
-                                    this.pushTimers.set(requestId, setTimeout(() => {
-                                        const stream = this.pushStreams.get(requestId)
-                                        if (stream !== undefined) {
-                                            stream.destroy(new Error("push stream timeout"))
-                                            cleanupStream()
-                                        }
-                                    }, this.options.timeout))
-                                }
+                                refreshPushTimeout()
                             }
                         }
                     })
                     this.pushStreams.set(requestId, readable)
-                    readable.once("close", cleanupStream)
-                    readable.once("error", cleanupStream)
+                    spool.roll(() => { this.pushStreams.delete(requestId) })
+                    readable.once("close", () => spool.unroll())
+                    readable.once("error", () => spool.unroll())
 
                     /*  start timeout for push stream cleanup  */
-                    const timer = setTimeout(() => {
-                        const stream = this.pushStreams.get(requestId)
-                        if (stream !== undefined)
-                            stream.destroy(new Error("push stream timeout"))
-                        cleanupStream()
-                    }, this.options.timeout)
-                    this.pushTimers.set(requestId, timer)
+                    refreshPushTimeout()
+                    spool.roll(() => { clearPushTimeout() })
 
                     /*  prepare info object  */
                     const promise = streamToBuffer(readable)
@@ -499,11 +493,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     return handler.callback(...params, info)
                 }).catch(async (err: Error) => {
                     /*  cleanup resources  */
-                    cleanupStream()
+                    const stream = this.pushStreams.get(requestId)
+                    if (stream !== undefined)
+                        stream.destroy()
+                    spool.unroll()
 
                     /*  send error (nak response)  */
                     this.error(err)
-                    await sendResponse(err.message)
+                    await sendResponse(err.message).catch(() => {})
                 })
             }
         }
@@ -535,44 +532,29 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  handle chunk on push  */
             const readable = this.pushStreams.get(requestId)
             if (readable !== undefined) {
-                const clearPushTimer = () => {
-                    const timer = this.pushTimers.get(requestId)
-                    if (timer !== undefined) {
-                        clearTimeout(timer)
-                        this.pushTimers.delete(requestId)
-                    }
-                }
                 if (error !== undefined) {
-                    clearPushTimer()
+                    /*  destroy stream on error and cleanup all resources  */
                     readable.destroy(new Error(error))
-                    this.pushStreams.delete(requestId)
-                    this.pushCreditState.delete(requestId)
+                    const spool = this.pushSpools.get(requestId)
+                    spool?.unroll()
                 }
                 else {
-                    const timer = this.pushTimers.get(requestId)
-                    if (timer !== undefined) {
-                        clearTimeout(timer)
-                        this.pushTimers.set(requestId, setTimeout(() => {
-                            const stream = this.pushStreams.get(requestId)
-                            if (stream !== undefined) {
-                                stream.destroy(new Error("push stream timeout"))
-                                this.pushStreams.delete(requestId)
-                                this.pushTimers.delete(requestId)
-                                this.pushCreditState.delete(requestId)
-                            }
-                        }, this.options.timeout))
-                    }
+                    /*  refresh timeout  */
+                    this._refreshPushTimer(requestId)
+
+                    /*  push chunk data  */
                     if (chunk !== undefined) {
                         const creditState = this.pushCreditState.get(requestId)
                         if (creditState)
                             creditState.chunksReceived++
                         readable.push(chunk)
                     }
+
+                    /*  signal end-of-stream on final chunk and cleanup all resources  */
                     if (final) {
-                        clearPushTimer()
                         readable.push(null)
-                        this.pushStreams.delete(requestId)
-                        this.pushCreditState.delete(requestId)
+                        const spool = this.pushSpools.get(requestId)
+                        spool?.unroll()
                     }
                 }
             }

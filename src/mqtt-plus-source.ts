@@ -33,6 +33,7 @@ import { nanoid }                                                 from "nanoid"
 import { CreditGate, RefCountedSubscription,
     streamToBuffer, sendBufferAsChunks,
     sendStreamAsChunks, makeMutuallyExclusiveFields }             from "./mqtt-plus-util"
+import { run, Spool }                                             from "./mqtt-plus-error"
 import { SourceFetchRequest, SourceFetchResponse,
     SourceFetchChunk, SourceFetchCredit }                         from "./mqtt-plus-msg"
 import { APISchema, SourceKeys, APIEndpointSource, Registration } from "./mqtt-plus-api"
@@ -57,8 +58,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             final: boolean             | undefined
         ) => void
     }>()
-    private sourceCreditGates = new Map<string, CreditGate>()
-    private sourceTimers      = new Map<string, ReturnType<typeof setTimeout>>()
+    private sourceCreditGates  = new Map<string, CreditGate>()
+    private sourceTimers       = new Map<string, ReturnType<typeof setTimeout>>()
     private fetchSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
         (topic)          => this._unsubscribeTopic(topic)
@@ -130,6 +131,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             callback = args[0]
         }
 
+        /*  create a resource spool  */
+        const spool = new Spool()
+
         /*  sanity check situation  */
         if (this.sources.has(name))
             throw new Error(`source: source "${name}" already established`)
@@ -137,41 +141,34 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
         const topicS       = `$share/${share}/${name}`
         const topicReqB    = this.options.topicMake(topicS, "source-fetch-request")
-        const topicReqD    = this.options.topicMake(name, "source-fetch-request", this.options.id)
-        const topicCreditD = this.options.topicMake(name, "source-fetch-credit",  this.options.id)
+        const topicReqD    = this.options.topicMake(name,   "source-fetch-request", this.options.id)
+        const topicCreditD = this.options.topicMake(name,   "source-fetch-credit",  this.options.id)
 
         /*  remember the registration  */
         this.sources.set(name, { callback, auth })
+        spool.roll(() => { this.sources.delete(name) })
 
         /*  subscribe to MQTT topics  */
-        await Promise.all([
-            this._subscribeTopic(topicReqB,    { qos: 2, ...options }),
-            this._subscribeTopic(topicReqD,    { qos: 2, ...options }),
-            this._subscribeTopic(topicCreditD, { qos: 2, ...options })
-        ]).catch((err: Error) => {
-            this.sources.delete(name)
-            this._unsubscribeTopic(topicReqB).catch(() => {})
-            this._unsubscribeTopic(topicReqD).catch(() => {})
-            this._unsubscribeTopic(topicCreditD).catch(() => {})
-            throw err
-        })
+        await run(`subscribe to MQTT topic "${topicReqB}"`, spool, () =>
+            this._subscribeTopic(topicReqB, { qos: 2, ...options }))
+        spool.roll(() => this._unsubscribeTopic(topicReqB).catch(() => {}))
+        await run(`subscribe to MQTT topic "${topicReqD}"`, spool, () =>
+            this._subscribeTopic(topicReqD, { qos: 2, ...options }))
+        spool.roll(() => this._unsubscribeTopic(topicReqD).catch(() => {}))
+        await run(`subscribe to MQTT topic "${topicCreditD}"`, spool, () =>
+            this._subscribeTopic(topicCreditD, { qos: 2, ...options }))
+        spool.roll(() => this._unsubscribeTopic(topicCreditD).catch(() => {}))
 
         /*  provide a registration for subsequent destruction  */
-        const registration: Registration = {
+        return {
             destroy: async (): Promise<void> => {
                 if (!this.sources.has(name))
                     throw new Error(`destroy: source "${name}" not established`)
-                await Promise.all([
-                    this._unsubscribeTopic(topicReqB),
-                    this._unsubscribeTopic(topicReqD),
-                    this._unsubscribeTopic(topicCreditD)
-                ]).then(() => {}).catch((err: Error) => {
-                    this.error(err, `destroy: failed to unsubscribe from topics for source "${name}"`)
+                await spool.unroll()?.catch((err: Error) => {
+                    this.error(err, `destroy: failed to cleanup: ${err.message}`)
                 })
-                this.sources.delete(name)
             }
         }
-        return registration
     }
 
     /*  fetch source  */
@@ -226,24 +223,25 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         }
         else {
             /*  positional API  */
-            name     = nameOrConfig as K
+            name     = nameOrConfig
             params   = args as Parameters<T[K]>
         }
 
-        /*  generate unique request id for the request  */
+        /*  create a resource spool  */
+        const spool = new Spool()
+
+        /*  generate unique request id  */
         const requestId = nanoid()
 
         /*  subscribe to response topic (for ack/nak) and chunk topic (for data)  */
         const responseTopic = this.options.topicMake(name, "source-fetch-response", this.options.id)
         const chunkTopic    = this.options.topicMake(name, "source-fetch-chunk",    this.options.id)
-        await Promise.all([
-            this.fetchSubscriptions.subscribe(responseTopic, { qos: 2 }),
-            this.fetchSubscriptions.subscribe(chunkTopic,    { qos: 2 })
-        ]).catch((err: Error) => {
-            this.fetchSubscriptions.unsubscribe(responseTopic)
-            this.fetchSubscriptions.unsubscribe(chunkTopic)
-            throw err
-        })
+        await run(`subscribe to MQTT topic "${responseTopic}"`, spool, () =>
+            this.fetchSubscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
+        spool.roll(() => this.fetchSubscriptions.unsubscribe(responseTopic))
+        await run(`subscribe to MQTT topic "${chunkTopic}"`, spool, () =>
+            this.fetchSubscriptions.subscribe(chunkTopic, { qos: options.qos ?? 2 }))
+        spool.roll(() => this.fetchSubscriptions.unsubscribe(chunkTopic))
 
         /*  credit-based flow control state  */
         const chunkCredit  = this.options.chunkCredit
@@ -255,7 +253,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const stream = new Readable({
             highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
             read: (_size) => {
-                if (chunkCredit <= 0 || cleanedUp)
+                if (chunkCredit <= 0 || !this.fetchCallbacks.has(requestId))
                     return
                 const handler  = this.fetchCallbacks.get(requestId)
                 const targetId = handler?.serverId ?? serverPeerId
@@ -283,47 +281,33 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const metaP = new Promise<Record<string, any> | undefined>((resolve) => {
             metaResolve = resolve
         })
+        spool.roll(() => { metaResolve?.(undefined) })
 
         /*  define timer  */
         let timer: ReturnType<typeof setTimeout> | null = null
+        spool.roll(() => {
+            if (timer !== null) {
+                clearTimeout(timer)
+                timer = null
+            }
+        })
 
         /*  utility function for timeout refresh  */
         const refreshTimeout = () => {
             if (timer !== null)
                 clearTimeout(timer)
             timer = setTimeout(() => {
-                cleanup(true)
                 stream.destroy(new Error("communication timeout"))
+                spool.unroll()
             }, this.options.timeout)
-        }
-
-        /*  utility function for cleanup  */
-        let cleanedUp = false
-        const cleanup = (resolveMeta = false) => {
-            if (cleanedUp)
-                return
-            cleanedUp = true
-            if (timer !== null) {
-                clearTimeout(timer)
-                timer = null
-            }
-            this.fetchSubscriptions.unsubscribe(responseTopic)
-            this.fetchSubscriptions.unsubscribe(chunkTopic)
-            this.fetchCallbacks.delete(requestId)
-            if (resolveMeta)
-                metaResolve?.(undefined)
         }
 
         /*  start timeout handler  */
         refreshTimeout()
 
         /*  ensure resources are released if consumer aborts stream early  */
-        stream.once("close", () => {
-            cleanup(true)
-        })
-        stream.once("error", () => {
-            cleanup(true)
-        })
+        stream.once("close", () => { spool.unroll() })
+        stream.once("error", () => { spool.unroll() })
 
         /*  register stream handler to collect chunks  */
         let firstChunk = true
@@ -335,14 +319,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 meta:  Record<string, any> | undefined,
                 final: boolean             | undefined
             ) => {
-                const wasFirstChunk = firstChunk
                 if (firstChunk) {
                     firstChunk = false
                     metaResolve?.(meta)
                 }
                 if (error !== undefined) {
-                    cleanup(!wasFirstChunk)
                     stream.destroy(error)
+                    spool.unroll()
                 }
                 else {
                     refreshTimeout()
@@ -351,12 +334,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         stream.push(chunk)
                     }
                     if (final) {
-                        cleanup()
                         stream.push(null)
+                        spool.unroll()
                     }
                 }
             }
         })
+        spool.roll(() => { this.fetchCallbacks.delete(requestId) })
 
         /*  generate encoded message  */
         const auth = this.authenticate()
@@ -370,10 +354,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const topic = this.options.topicMake(name, "source-fetch-request", receiver)
 
         /*  publish message to MQTT topic  */
-        this._publishToTopic(topic, message, { qos: 2, ...options }).catch((err: unknown) => {
+        run(`publish fetch request as MQTT message to topic "${topic}"`, spool, () =>
+            this._publishToTopic(topic, message, { qos: 2, ...options })).catch((err: unknown) => {
             const error = err instanceof Error ? err : new Error(String(err))
-            cleanup(true)
             stream.destroy(error)
+            spool.unroll()
         })
 
         /*  produce result  */
@@ -401,7 +386,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 /*  determine information  */
                 const requestId = parsed.id
                 const params    = parsed.params ?? []
-                const sender    = parsed.sender ?? ""
+                const sender    = parsed.sender
+                if (sender === undefined || sender === "")
+                    throw new Error("invalid request: missing sender")
                 const receiver  = parsed.receiver
                 const info: InfoSource = { sender }
                 if (receiver)
@@ -448,7 +435,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
                 /*  call the handler callback  */
                 let ackSent = false
-                await Promise.resolve().then(() => {
+                Promise.resolve().then(() => {
                     if (info.authenticated !== undefined && !info.authenticated)
                         throw new Error(`source "${name}" failed authentication`)
                     return handler.callback(...params, info)
@@ -475,9 +462,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     const error = err instanceof Error ? err : new Error(String(err))
                     this.error(error)
                     if (ackSent)
-                        return sendChunk(undefined, error.message, true)
+                        return sendChunk(undefined, error.message, true).catch(() => {})
                     else
-                        return sendResponse(error.message)
+                        return sendResponse(error.message).catch(() => {})
                 }).finally(() => {
                     /*  cleanup resources  */
                     clearSourceTimeout()
