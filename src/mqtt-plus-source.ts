@@ -47,6 +47,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
     /*  source state  */
     private sourceCreditGates = new Map<string, CreditGate>()
 
+    /*  destroy source trait  */
+    override async destroy () {
+        for (const gate of this.sourceCreditGates.values())
+            gate.abort()
+        this.sourceCreditGates.clear()
+        await super.destroy()
+    }
+
     /*  establish a source (for fetch requests)  */
     async source<K extends SourceKeys<T> & string> (
         name:     K,

@@ -48,6 +48,15 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     private pushStreams = new Map<string, Readable>()
     private pushSpools  = new Map<string, Spool>()
 
+    /*  destroy sink trait  */
+    override async destroy () {
+        for (const stream of this.pushStreams.values())
+            stream.destroy()
+        this.pushStreams.clear()
+        this.pushSpools.clear()
+        await super.destroy()
+    }
+
     /*  register a sink  */
     async sink<K extends SinkKeys<T> & string> (
         name:     K,
