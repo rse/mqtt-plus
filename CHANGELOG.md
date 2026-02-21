@@ -18,6 +18,7 @@ ChangeLog
 - CLEANUP: simplify typing and remove unused code
 - CLEANUP: rename variables and align code formatting
 - CLEANUP: various code cleanups
+- CLEANUP: splitted documentation from README.md into doc/*.md
 - UPDATE: upgrade NPM dependencies
 
 1.3.0 (2026-02-07)
