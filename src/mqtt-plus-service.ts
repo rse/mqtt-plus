@@ -111,27 +111,27 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const topicD = this.options.topicMake(name,   "service-call-request", this.options.id)
 
         /*  remember the registration  */
-        this.services.set(name, (response: ServiceCallRequest, topicName: string) => {
+        this.services.set(name, (request: ServiceCallRequest, topicName: string) => {
             /*  determine request information  */
-            const requestId = response.id
-            const senderId  = response.sender
+            const requestId = request.id
+            const senderId  = request.sender
             if (senderId === undefined || senderId === "")
                 throw new Error("invalid request: missing sender")
-            const params = response.params ?? []
+            const params = request.params ?? []
 
             /*  create information object  */
             const info: InfoService = { sender: senderId }
-            if (response.receiver)
-                info.receiver = response.receiver
-            if (response.meta)
-                info.meta = response.meta
+            if (request.receiver)
+                info.receiver = request.receiver
+            if (request.meta)
+                info.meta = request.meta
 
             /*  asynchronously execute handler and send response  */
             Promise.resolve().then(async () => {
                 if (topicName !== name)
                     throw new Error(`service name mismatch (topic: "${topicName}", payload: "${name}")`)
                 if (auth)
-                    info.authenticated = await this.authenticated(senderId, response.auth, auth)
+                    info.authenticated = await this.authenticated(senderId, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`service "${name}" failed authentication`)
                 return callback(...params, info)
@@ -273,27 +273,27 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
     }
 
     /*  dispatch message (Service pattern handling)  */
-    protected override async _dispatchMessage (topic: string, response: any) {
-        await super._dispatchMessage(topic, response)
+    protected override async _dispatchMessage (topic: string, message: any) {
+        await super._dispatchMessage(topic, message)
         const topicMatch = this.options.topicMatch(topic)
 
         /*  on server-side handle service call request  */
         if (topicMatch !== null
             && topicMatch.operation === "service-call-request"
-            && response instanceof ServiceCallRequest) {
-            const handler = this.services.get(response.name)
+            && message instanceof ServiceCallRequest) {
+            const handler = this.services.get(message.name)
             if (handler !== undefined)
-                handler(response, topicMatch.name)
+                handler(message, topicMatch.name)
         }
 
         /*  on client-side handle service call response  */
         else if (topicMatch !== null
             && topicMatch.operation === "service-call-response"
             && topicMatch.peerId === this.options.id
-            && response instanceof ServiceCallResponse) {
-            const handler = this.callCallbacks.get(response.id)
+            && message instanceof ServiceCallResponse) {
+            const handler = this.callCallbacks.get(message.id)
             if (handler !== undefined)
-                handler(response)
+                handler(message)
         }
     }
 }

@@ -141,22 +141,22 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const topicCreditD = this.options.topicMake(name,   "source-fetch-credit",  this.options.id)
 
         /*  remember the registration  */
-        this.sources.set(name, (response: SourceFetchRequest, topicName: string) => {
-            if (topicName !== response.name)
-                throw new Error(`source name mismatch between topic "${topicName}" and payload "${response.name}"`)
+        this.sources.set(name, (request: SourceFetchRequest, topicName: string) => {
+            if (topicName !== request.name)
+                throw new Error(`source name mismatch between topic "${topicName}" and payload "${request.name}"`)
 
             /*  determine information  */
-            const requestId = response.id
-            const params    = response.params ?? []
-            const sender    = response.sender
+            const requestId = request.id
+            const params    = request.params ?? []
+            const sender    = request.sender
             if (sender === undefined || sender === "")
                 throw new Error("invalid request: missing sender")
-            const receiver  = response.receiver
+            const receiver  = request.receiver
             const info: InfoSource = { sender }
             if (receiver)
                 info.receiver = receiver
-            if (response.meta)
-                info.meta = response.meta
+            if (request.meta)
+                info.meta = request.meta
 
             /*  generate corresponding MQTT topics  */
             const responseTopic = this.options.topicMake(name, "source-fetch-response", sender)
@@ -187,7 +187,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             }
 
             /*  handle credit-based flow control (if credit provided in request)  */
-            const initialCredit = response.credit
+            const initialCredit = request.credit
             const creditGate = (initialCredit !== undefined && initialCredit > 0)
                 ? new CreditGate(initialCredit) : undefined
             if (creditGate) {
@@ -202,7 +202,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             let ackSent = false
             Promise.resolve().then(async () => {
                 if (auth)
-                    info.authenticated = await this.authenticated(response.sender, response.auth, auth)
+                    info.authenticated = await this.authenticated(request.sender, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`source "${name}" failed authentication`)
                 return callback(...params, info)
@@ -467,44 +467,44 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
     }
 
     /*  dispatch message (Source Fetch pattern handling)  */
-    protected override async _dispatchMessage (topic: string, response: any) {
-        await super._dispatchMessage(topic, response)
+    protected override async _dispatchMessage (topic: string, message: any) {
+        await super._dispatchMessage(topic, message)
         const topicMatch = this.options.topicMatch(topic)
 
         /*  handle source fetch request (on server-side)  */
         if (topicMatch !== null
             && topicMatch.operation === "source-fetch-request"
-            && response instanceof SourceFetchRequest) {
-            const handler = this.sources.get(response.name)
+            && message instanceof SourceFetchRequest) {
+            const handler = this.sources.get(message.name)
             if (handler !== undefined)
-                handler(response, topicMatch.name)
+                handler(message, topicMatch.name)
         }
 
         /*  handle source fetch response (on client-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "source-fetch-response"
-            && response instanceof SourceFetchResponse) {
-            const handler = this.fetchResponseCallbacks.get(response.id)
+            && message instanceof SourceFetchResponse) {
+            const handler = this.fetchResponseCallbacks.get(message.id)
             if (handler !== undefined)
-                handler(response)
+                handler(message)
         }
 
         /*  handle source fetch chunk (on client-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "source-fetch-chunk"
-            && response instanceof SourceFetchChunk) {
-            const handler = this.fetchChunkCallbacks.get(response.id)
+            && message instanceof SourceFetchChunk) {
+            const handler = this.fetchChunkCallbacks.get(message.id)
             if (handler !== undefined)
-                handler(response)
+                handler(message)
         }
 
         /*  handle source fetch credit (on server-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "source-fetch-credit"
-            && response instanceof SourceFetchCredit) {
-            const handler = this.sourceCreditCallbacks.get(response.id)
+            && message instanceof SourceFetchCredit) {
+            const handler = this.sourceCreditCallbacks.get(message.id)
             if (handler !== undefined)
-                handler(response)
+                handler(message)
         }
     }
 }

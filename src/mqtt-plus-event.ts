@@ -97,24 +97,24 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         const topicD = this.options.topicMake(name, "event-emission", this.options.id)
 
         /*  remember the registration  */
-        this.events.set(name, (response: EventEmission, topicName: string) => {
+        this.events.set(name, (request: EventEmission, topicName: string) => {
             /*  determine event information  */
-            const senderId = response.sender
-            const params   = response.params ?? []
+            const senderId = request.sender
+            const params   = request.params ?? []
 
             /*  create information object  */
             const info: InfoEvent = { sender: senderId ?? "" }
-            if (response.receiver)
-                info.receiver = response.receiver
-            if (response.meta)
-                info.meta = response.meta
+            if (request.receiver)
+                info.receiver = request.receiver
+            if (request.meta)
+                info.meta = request.meta
 
             /*  asynchronously execute handler  */
             Promise.resolve().then(async () => {
                 if (topicName !== name)
                     throw new Error(`event name mismatch (topic: "${topicName}", payload: "${name}")`)
                 if (auth)
-                    info.authenticated = await this.authenticated(response.sender, response.auth, auth)
+                    info.authenticated = await this.authenticated(request.sender, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`authentication on event "${name}" failed`)
                 return callback(...params, info)
@@ -226,17 +226,17 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
     }
 
     /*  dispatch message (Event pattern handling)  */
-    protected override async _dispatchMessage (topic: string, response: any) {
-        await super._dispatchMessage(topic, response)
+    protected override async _dispatchMessage (topic: string, message: any) {
+        await super._dispatchMessage(topic, message)
         const topicMatch = this.options.topicMatch(topic)
 
         /*  on server-side handle event emission request  */
         if (topicMatch !== null
             && topicMatch.operation === "event-emission"
-            && response instanceof EventEmission) {
-            const handler = this.events.get(response.name)
+            && message instanceof EventEmission) {
+            const handler = this.events.get(message.name)
             if (handler !== undefined)
-                handler(response, topicMatch.name)
+                handler(message, topicMatch.name)
         }
     }
 }
