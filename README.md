@@ -132,6 +132,13 @@ Notice
 ------
 
 > [!Note]
+> **MQTT+** and its peer dependency **MQTT** are powerful, but not
+> small. **MQTT+** is 3.500 LoC and 75 KB in size (ESM and CJS format).
+> When bundled with all its dependencies, it is 220 KB in size (UMD
+> format). Its peer dependency **MQTT.js** is 370 KB (ESM and CJS
+> format) and 860 KB (UMD format) in size.
+
+> [!Note]
 > **MQTT+** is still somewhat similar to and originally derived from the weaker
 > [MQTT-JSON-RPC](https://github.com/rse/mqtt-json-rpc) library of the same
 > author. But instead of just JSON, MQTT+ encodes packets as JSON
