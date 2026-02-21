@@ -143,9 +143,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  remember the registration  */
         this.sources.set(name, (request: SourceFetchRequest, topicName: string) => {
-            if (topicName !== request.name)
-                throw new Error(`source name mismatch between topic "${topicName}" and payload "${request.name}"`)
-
             /*  determine information  */
             const requestId = request.id
             const params    = request.params ?? []
@@ -202,6 +199,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             /*  call the handler callback  */
             let ackSent = false
             Promise.resolve().then(async () => {
+                if (topicName !== request.name)
+                    throw new Error(`source name mismatch between topic "${topicName}" and payload "${request.name}"`)
                 if (auth)
                     info.authenticated = await this.authenticated(request.sender, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)

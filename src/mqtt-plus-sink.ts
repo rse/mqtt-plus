@@ -146,9 +146,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         /*  remember the registration  */
         this.sinks.set(name, (request: SinkPushRequest, topicName: string) => {
-            if (topicName !== request.name)
-                throw new Error(`sink name mismatch between topic "${topicName}" and payload "${request.name}"`)
-
             /*  determine information  */
             const requestId = request.id
             const params    = request.params ?? []
@@ -184,6 +181,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  check authentication and prepare stream  */
             Promise.resolve().then(async () => {
+                if (topicName !== request.name)
+                    throw new Error(`sink name mismatch between topic "${topicName}" and payload "${request.name}"`)
                 if (auth)
                     info.authenticated = await this.authenticated(request.sender, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
