@@ -565,6 +565,52 @@ describe("MQTT+ Library", function () {
         await sinking.destroy()
     })
 
+    /*  test case: Sink Push (Meta Information)  */
+    it("MQTT+ Sink Push (Meta Information)", async function () {
+        this.timeout(2000)
+        const spy = sinon.spy()
+
+        /*  set instance-level meta on client  */
+        apiC.meta("client-version", "2.0")
+
+        /*  generate random data  */
+        const data = Buffer.from(crypto.randomBytes(8 * 1024))
+
+        /*  establish sink that checks metadata  */
+        const sinking = await apiS.sink("example/server/upload", (name: string, info) => {
+            spy("sink")
+            expect(name).to.be.equal("foo")
+            expect(info.meta).to.be.an("object")
+            expect(info.meta!.push_tag).to.be.equal("my-push-tag")
+            expect(info.meta!["client-version"]).to.be.equal("2.0")
+
+            /*  consume via buffer  */
+            info.buffer!.then((buf: Uint8Array) => {
+                spy("buffer")
+                expect(Buffer.from(buf)).to.deep.equal(data)
+            })
+        })
+
+        /*  push with metadata  */
+        await apiC.push({
+            name:   "example/server/upload",
+            data:   new Uint8Array(data),
+            params: [ "foo" ],
+            meta:   { push_tag: "my-push-tag" }
+        }).then(() => {
+            spy("push-success")
+        }).catch((err: Error) => {
+            spy("push-error")
+        })
+        await new Promise((resolve) => { setTimeout(resolve, 1000) })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.same.deep.members([ "sink", "push-success", "buffer" ])
+
+        /*  cleanup  */
+        apiC.meta("client-version", null)
+        await sinking.destroy()
+    })
+
     /*  test case: Source Fetch (Buffer)  */
     it("MQTT+ Source Fetch (Buffer)", async function () {
         this.timeout(3000)
