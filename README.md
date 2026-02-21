@@ -109,6 +109,7 @@ mqtt.on("connect", async () => {
     const pushInput = mqttp.str2buf("uploaded content")
     await mqttp.push("example/upload", pushInput, "myfile.txt")
 
+    mqttp.destroy()
     mqtt.end()
 })
 ```
