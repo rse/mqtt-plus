@@ -2,6 +2,12 @@
 ChangeLog
 =========
 
+1.4.3 (2026-02-21)
+------------------
+
+- IMPROVEMENT: allow JWT expirations
+- DOCUMENTATION: document more internals
+
 1.4.2 (2026-02-21)
 ------------------
 
