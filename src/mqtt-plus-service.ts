@@ -32,7 +32,7 @@ import { RefCountedSubscription }     from "./mqtt-plus-util"
 import { run, Spool, ensureError }    from "./mqtt-plus-error"
 import { ServiceCallRequest,
     ServiceCallResponse }             from "./mqtt-plus-msg"
-import { APISchema, ServiceKeys,
+import type { APISchema, ServiceKeys,
     Registration }                    from "./mqtt-plus-api"
 import type { WithInfo, InfoService } from "./mqtt-plus-info"
 import { EventTrait }                 from "./mqtt-plus-event"

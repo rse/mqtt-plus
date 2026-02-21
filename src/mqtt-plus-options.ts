@@ -26,7 +26,7 @@
 import { nanoid }      from "nanoid"
 
 /*  internal requirements  */
-import { APISchema }   from "./mqtt-plus-api"
+import type { APISchema }   from "./mqtt-plus-api"
 
 /*  MQTT topic matching  */
 type TopicMatching        = { name: string, operation: string, peerId?: string }

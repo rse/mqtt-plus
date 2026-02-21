@@ -26,7 +26,7 @@
 import * as v                             from "valibot"
 
 /*  internal requirements  */
-import { APISchema }                      from "./mqtt-plus-api"
+import type { APISchema }                      from "./mqtt-plus-api"
 import { EncodeTrait }                    from "./mqtt-plus-encode"
 import { version, VERSION, versionToNum } from "./mqtt-plus-version"
 

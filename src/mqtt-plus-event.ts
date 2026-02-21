@@ -29,7 +29,7 @@ import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
 import { EventEmission }              from "./mqtt-plus-msg"
-import { APISchema, EventKeys,
+import type { APISchema, EventKeys,
     Registration }                    from "./mqtt-plus-api"
 import type { WithInfo, InfoEvent }   from "./mqtt-plus-info"
 import { AuthTrait, type AuthOption } from "./mqtt-plus-auth"

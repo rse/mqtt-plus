@@ -29,7 +29,7 @@ import * as pbkdf2   from "@stablelib/pbkdf2"
 import * as sha256   from "@stablelib/sha256"
 
 /*  internal requirements  */
-import { APISchema }  from "./mqtt-plus-api"
+import type { APISchema }  from "./mqtt-plus-api"
 import { MetaTrait }  from "./mqtt-plus-meta"
 
 /*  type of the "auth" options  */

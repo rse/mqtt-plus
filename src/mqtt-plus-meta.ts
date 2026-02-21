@@ -23,7 +23,7 @@
 */
 
 /*  internal requirements  */
-import { APISchema } from "./mqtt-plus-api"
+import type { APISchema } from "./mqtt-plus-api"
 import { BaseTrait } from "./mqtt-plus-base"
 
 /*  Meta trait with meta information management  */

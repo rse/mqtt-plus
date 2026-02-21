@@ -36,7 +36,7 @@ import { CreditGate, RefCountedSubscription,
 import { run, Spool, ensureError }                                from "./mqtt-plus-error"
 import { SourceFetchRequest, SourceFetchResponse,
     SourceFetchChunk, SourceFetchCredit }                         from "./mqtt-plus-msg"
-import { APISchema, SourceKeys, Registration }                    from "./mqtt-plus-api"
+import type { APISchema, SourceKeys, Registration }                    from "./mqtt-plus-api"
 import type { WithInfo, InfoSource }                              from "./mqtt-plus-info"
 import { ServiceTrait }                                           from "./mqtt-plus-service"
 import type { AuthOption }                                        from "./mqtt-plus-auth"

@@ -26,7 +26,7 @@
 import { EventEmitter }  from "node:events"
 
 /*  internal requirements  */
-import { APISchema }     from "./mqtt-plus-api"
+import type { APISchema }     from "./mqtt-plus-api"
 import { MsgTrait }      from "./mqtt-plus-msg"
 import { JSONX }         from "./mqtt-plus-codec"
 

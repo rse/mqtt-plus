@@ -27,8 +27,8 @@ import { Buffer }                    from "node:buffer"
 import * as CBOR                     from "cbor2"
 
 /*  internal requirements  */
-import { APISchema }                 from "./mqtt-plus-api"
-import { APIOptions, OptionsTrait }  from "./mqtt-plus-options"
+import type { APISchema }                 from "./mqtt-plus-api"
+import { type APIOptions, OptionsTrait }  from "./mqtt-plus-options"
 
 /*  JSON encode/decode with Uint8Array support  */
 export class JSONX {

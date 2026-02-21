@@ -36,7 +36,7 @@ import { CreditGate, RefCountedSubscription,
 import { run, Spool }                                             from "./mqtt-plus-error"
 import { SinkPushRequest, SinkPushResponse,
     SinkPushChunk, SinkPushCredit }                               from "./mqtt-plus-msg"
-import { APISchema, SinkKeys, Registration }                      from "./mqtt-plus-api"
+import type { APISchema, SinkKeys, Registration }                      from "./mqtt-plus-api"
 import type { WithInfo, InfoSink }                                from "./mqtt-plus-info"
 import { SourceTrait }                                            from "./mqtt-plus-source"
 import type { AuthOption }                                        from "./mqtt-plus-auth"
