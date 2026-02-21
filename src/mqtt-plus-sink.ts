@@ -44,14 +44,14 @@ import type { AuthOption }                                        from "./mqtt-p
 /*  Sink Push Trait  */
 export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     /*  sink state  */
-    private sinks = new Map<string, (response: SinkPushRequest, topicName: string) => void>()
-    private pushStreams            = new Map<string, Readable>()
+    private sinks                 = new Map<string, (response: SinkPushRequest, topicName: string) => void>()
+    private pushStreams           = new Map<string, Readable>()
     private pushSpools            = new Map<string, Spool>()
     private pushTimers            = new Map<string, ReturnType<typeof setTimeout>>()
     private pushChunkCallbacks    = new Map<string, (response: SinkPushChunk, topicName: string) => void>()
     private pushResponseCallbacks = new Map<string, (response: SinkPushResponse) => void>()
     private pushCreditCallbacks   = new Map<string, (response: SinkPushCredit) => void>()
-    private pushSubscriptions = new RefCountedSubscription(
+    private pushSubscriptions     = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
         (topic)          => this._unsubscribeTopic(topic)
     )

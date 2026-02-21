@@ -44,13 +44,13 @@ import type { AuthOption }                                        from "./mqtt-p
 /*  Source Fetch Trait  */
 export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
     /*  source state  */
-    private sources = new Map<string, (response: SourceFetchRequest, topicName: string) => void>()
+    private sources                = new Map<string, (response: SourceFetchRequest, topicName: string) => void>()
     private fetchResponseCallbacks = new Map<string, (response: SourceFetchResponse) => void>()
     private fetchChunkCallbacks    = new Map<string, (response: SourceFetchChunk) => void>()
     private sourceCreditCallbacks  = new Map<string, (response: SourceFetchCredit) => void>()
     private sourceCreditGates      = new Map<string, CreditGate>()
     private sourceTimers           = new Map<string, ReturnType<typeof setTimeout>>()
-    private fetchSubscriptions = new RefCountedSubscription(
+    private fetchSubscriptions     = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
         (topic)          => this._unsubscribeTopic(topic)
     )
