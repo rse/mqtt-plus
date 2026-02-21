@@ -100,7 +100,7 @@ describe("MQTT+ API", function () {
 
         /*  trigger some log activity by emitting an event  */
         apiTmp.emit("example/server/sample", "test", 1)
-        await new Promise((resolve) => { setTimeout(resolve, 100) })
+        await new Promise((resolve) => { setTimeout(resolve, 10) })
 
         /*  verify log entries were captured  */
         expect(logEntries.length).to.be.greaterThan(0)
