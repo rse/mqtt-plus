@@ -8,6 +8,7 @@ ChangeLog
 - IMPROVEMENT: add a "npm start publish" target for convenient publishing
 - CLEANUP: factor out registration code into base trait
 - CLEANUP: rename internal symbols
+- CLEANUP: avoid a race condition in topic unsubscription handling
 
 1.4.4 (2026-02-21)
 ------------------
