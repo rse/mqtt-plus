@@ -22,7 +22,7 @@
         }
     },
     "include": [
-        "../tst/**/*.spec.ts"
+        "*.ts"
     ],
     "exclude": [
         "../node_modules"
