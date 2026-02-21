@@ -107,26 +107,36 @@ Each trait lives in its own file: `src/mqtt-plus-<trait>.ts`.
 
 ### Documentation
 
-The `doc/` directory contains D2 diagram sources and generated SVG files
-illustrating the four communication patterns:
+The `doc/` directory contains Markdown documentation, D2 diagram sources,
+and generated SVG files:
 
-- `doc/mqtt-plus-comm-event-emission.{d2,svg}`
-- `doc/mqtt-plus-comm-service-call.{d2,svg}`
-- `doc/mqtt-plus-comm-sink-push.{d2,svg}`
-- `doc/mqtt-plus-comm-source-fetch.{d2,svg}`
-- `doc/theme.d2` — shared D2 theme
+- `doc/mqtt-plus-api.md` — public API reference
+- `doc/mqtt-plus-architecture.{d2,svg,md}` — architecture overview (diagram + docs)
+- `doc/mqtt-plus-broker-setup.md` — MQTT broker setup guide
+- `doc/mqtt-plus-comm.md` — communication patterns overview
+- `doc/mqtt-plus-comm-event-emission.{d2,svg}` — Event Emission pattern diagram
+- `doc/mqtt-plus-comm-service-call.{d2,svg}` — Service Call pattern diagram
+- `doc/mqtt-plus-comm-sink-push.{d2,svg}` — Sink Push pattern diagram
+- `doc/mqtt-plus-comm-source-fetch.{d2,svg}` — Source Fetch pattern diagram
+- `doc/mqtt-plus-internals.md` — internal implementation details
 
-Regenerate with `npm start build-doc` (requires the `etc/d2.mts` helper script).
+Regenerate diagrams with `npm start build-doc` (requires the `etc/d2.mts` helper script).
 
 ### Tests
 
 Test files live in `tst/`:
 
-| File                          | Role |
-|-------------------------------|------|
-| `tst/mqtt-plus.spec.ts`      | Main Mocha test suite covering all four communication patterns |
-| `tst/mqtt-plus-mosquitto.ts`  | Helper for starting/stopping the Mosquitto MQTT broker |
-| `tst/tsc.json`               | TypeScript configuration for the test directory |
+| File                              | Role |
+|-----------------------------------|------|
+| `tst/mqtt-plus-0-fixture.ts`      | Shared test fixture setup (broker, MQTTp instances, etc.) |
+| `tst/mqtt-plus-0-mosquitto.ts`    | Helper for starting/stopping the Mosquitto MQTT broker |
+| `tst/mqtt-plus-1-api.spec.ts`     | API type and endpoint definition tests |
+| `tst/mqtt-plus-2-event.spec.ts`   | Event Emission pattern tests |
+| `tst/mqtt-plus-3-service.spec.ts` | Service Call / RPC pattern tests |
+| `tst/mqtt-plus-4-sink.spec.ts`    | Sink Push pattern tests |
+| `tst/mqtt-plus-5-source.spec.ts`  | Source Fetch pattern tests |
+| `tst/mqtt-plus-6-misc.spec.ts`    | Miscellaneous / edge-case tests |
+| `tst/tsc.json`                    | TypeScript configuration for the test directory |
 
 ### Type System
 
