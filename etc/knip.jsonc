@@ -27,8 +27,14 @@
     "entry": [
         "src/mqtt-plus.ts",
         "etc/eslint.mts",
-        "tst/mqtt-plus.spec.ts",
-        "tst/mqtt-plus-mosquitto.ts",
+        "tst/mqtt-plus-0-mosquitto.ts",
+        "tst/mqtt-plus-0-fixtures.ts",
+        "tst/mqtt-plus-1-api.spec.ts",
+        "tst/mqtt-plus-2-event.spec.ts",
+        "tst/mqtt-plus-3-service.spec.ts",
+        "tst/mqtt-plus-4-sink.spec.ts",
+        "tst/mqtt-plus-5-source.spec.ts",
+        "tst/mqtt-plus-6-misc.spec.ts",
         "etc/vite.mts",
         "etc/d2.mts"
     ],
