@@ -196,12 +196,13 @@ The **MQTT+** API provides the following functionalities:
       >>(
           mqtt: MqttClient | null,
           options?: {
-              id:         string
-              codec:      "cbor" | "json"
-              timeout:    number
-              chunkSize:  number
-              topicMake:  (name: string, operation: string, peerId?: string) => string
-              topicMatch: (topic: string) => { name: string, operation: string, peerId?: string } | null
+              id:          string
+              codec:       "cbor" | "json"
+              timeout:     number
+              chunkSize:   number
+              chunkCredit: number
+              topicMake:   (name: string, operation: string, peerId?: string) => string
+              topicMatch:  (topic: string) => { name: string, operation: string, peerId?: string } | null
           }
       )
 
@@ -218,12 +219,16 @@ The **MQTT+** API provides the following functionalities:
     - `codec`: Encoding format, either `cbor` or `json` (default: `cbor`).
     - `timeout`: Communication timeout in milliseconds (default: `10000`).
     - `chunkSize`: Chunk size in bytes for source/sink transfers (default: `16384`).
+    - `chunkCredit`: Number of credit units for flow control in source/sink
+      chunked transfers (default: `4`). Controls how many chunks can be
+      in-flight before the receiver must grant additional credit.
     - `topicMake`: Custom topic generation function.
       The `operation` parameter is one of: `event-emission`,
       `service-call-request`, `service-call-response`,
       `source-fetch-request`, `source-fetch-response`,
-      `source-fetch-chunk`, `sink-push-request`, `sink-push-response`,
-      `sink-push-chunk`. (default: `` (name, operation, peerId) =>
+      `source-fetch-chunk`, `source-fetch-credit`,
+      `sink-push-request`, `sink-push-response`,
+      `sink-push-chunk`, `sink-push-credit`. (default: `` (name, operation, peerId) =>
       `${name}/${operation}/${peerId ?? "any"}` ``)
     - `topicMatch`: Custom topic matching function.
       Returns `{ name: string, operation: string, peerId?: string }` or `null` if no match.
@@ -656,7 +661,7 @@ The **MQTT+** API provides the following functionalities:
     (`topic`, `payload`, `options`) instead of actually publishing to the MQTT broker.
     This is useful for generating MQTT "last will" messages (see example below).
 
-  - The remote `subscribe()` `callback` is called with `params` and its
+  - The remote `event()` `callback` is called with `params` and its
     return value is silently ignored.
 
   - Internally, publishes to the MQTT topic by `topicMake(event, "event-emission", peerId)`
@@ -1109,3 +1114,4 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
 CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
