@@ -119,6 +119,7 @@ Documentation
 
 - [**Communication Patterns**](doc/mqtt-plus-comm.md)
 - [**Application Programming Interface (API)**](doc/mqtt-plus-api.md)
+- [**Architecture Overview**](doc/mqtt-plus-architecture.md)
 - [Extra: Internals](doc/mqtt-plus-internals.md)
 - [Extra: Broker Setup](doc/mqtt-plus-broker-setup.md)
 
