@@ -16,16 +16,22 @@ About
 -----
 
 **MQTT+** is a companion add-on API for the TypeScript/JavaScript
-API [MQTT.js](https://www.npmjs.com/package/mqtt), providing
-additional communication patterns with full type safety for
-[MQTT](http://mqtt.org/). Four essential
-[communication patterns](doc/mqtt-plus-comm.md) are provided:
-fire-and-forget *Event Emission*, RPC-style *Service Call*, stream-based *Sink Push*, and stream-based *Source Fetch*.
-This allows the implementation of complex and bi-directional
-client/server and server/server communications over the robust but
-uni-directional [MQTT](http://mqtt.org/) protocol. This is key for
-applications based on a [*Hub & Spoke*](https://en.wikipedia.org/wiki/Spoke%E2%80%93hub_distribution_paradigm)
-communication architecture.
+API [MQTT.js](https://www.npmjs.com/package/mqtt), designed to
+extend [MQTT](http://mqtt.org/) with higher-level
+[communication patterns](doc/mqtt-plus-comm.md) while preserving full type-safety.
+It provides four core communication patterns: fire-and-forget *Event
+Emission*, RPC-style *Service Call*, stream-based *Sink Push*, and
+stream-based *Source Fetch*.
+These patterns enable structured,
+bi-directional client/server and server/server communication
+on top of [MQTT](http://mqtt.org/)’s inherently uni-directional publish/subscribe model.
+The result is a more expressive and maintainable messaging layer
+without sacrificing [MQTT](http://mqtt.org/)’s excellent robustness and
+scalability.
+**MQTT+** is particularly well suited for systems built around a
+[*Hub & Spoke*](https://en.wikipedia.org/wiki/Spoke%E2%80%93hub_distribution_paradigm)
+communication architecture, where typed API contracts and controlled interaction flows are
+critical for reliability and long-term maintainability.
 
 Installation
 ------------
