@@ -125,8 +125,8 @@ export class SubscriptionTrait<T extends APISchema = APISchema> extends BaseTrai
     )
 
     /*  destroy topic trait  */
-    override destroy () {
-        this.subscriptions.flush()
+    override async destroy () {
+        await this.subscriptions.flush()
         super.destroy()
     }
 }
