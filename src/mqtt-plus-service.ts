@@ -23,7 +23,7 @@
 */
 
 /*  external requirements  */
-import { IClientPublishOptions,
+import type { IClientPublishOptions,
     IClientSubscribeOptions }         from "mqtt"
 import { nanoid }                     from "nanoid"
 

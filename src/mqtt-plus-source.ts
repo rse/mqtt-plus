@@ -26,7 +26,8 @@
 import { Readable }                                       from "node:stream"
 
 /*  external requirements  */
-import { IClientPublishOptions, IClientSubscribeOptions } from "mqtt"
+import type { IClientPublishOptions,
+    IClientSubscribeOptions }                             from "mqtt"
 import { nanoid }                                         from "nanoid"
 
 /*  internal requirements  */

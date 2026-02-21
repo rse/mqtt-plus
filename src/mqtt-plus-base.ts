@@ -26,9 +26,9 @@
 import PLazy                 from "p-lazy"
 import { MqttClient,
     type OnMessageCallback,
-    IClientSubscribeOptions,
-    IClientPublishOptions,
-    IPublishPacket }         from "mqtt"
+    type IClientSubscribeOptions,
+    type IClientPublishOptions,
+    type IPublishPacket }    from "mqtt"
 
 /*  internal requirements  */
 import type { APISchema }    from "./mqtt-plus-api"

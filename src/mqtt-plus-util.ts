@@ -23,12 +23,12 @@
 */
 
 /*  built-in requirements  */
-import { Buffer }                  from "node:buffer"
-import { Readable }                from "node:stream"
+import { Buffer }                       from "node:buffer"
+import { Readable }                     from "node:stream"
 
 /*  external requirements  */
-import PLazy                       from "p-lazy"
-import { IClientSubscribeOptions } from "mqtt"
+import PLazy                            from "p-lazy"
+import type { IClientSubscribeOptions } from "mqtt"
 
 /*  reference-counted subscription helper  */
 export class RefCountedSubscription {
