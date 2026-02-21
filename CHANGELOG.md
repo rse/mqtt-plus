@@ -5,7 +5,8 @@ ChangeLog
 1.4.1 (2026-02-21)
 ------------------
 
-- CLEANUP: cleanup test code
+- BUGFIX: fix file references and TypeScript configuration in test directory
+- CLEANUP: cleanup code and tests
 
 1.4.0 (2026-02-21)
 ------------------
