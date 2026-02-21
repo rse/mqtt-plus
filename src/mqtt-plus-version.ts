@@ -33,13 +33,6 @@ export const versionToNum = (str: string) => {
     return parseInt(m[1], 10) + minor / 100
 }
 
-/*  convert version number to string  */
-export const versionToStr = (num: number) => {
-    const intPart = Math.floor(num)
-    const decPart = Math.round((num - intPart) * 100)
-    return `${intPart.toFixed(0)}.${decPart.toFixed(0).padStart(2, "0")}`
-}
-
 /*  package version (string format, injected)  */
 declare const __VERSION__: string
 export const VERSION = __VERSION__
