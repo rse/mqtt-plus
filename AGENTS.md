@@ -63,45 +63,47 @@ each extending the previous. The final exported class `MQTTp` sits at
 the bottom of this chain:
 
 ```
-    OptionsTrait   — configuration (id, codec, timeout, chunkSize, chunkCredit, topicMake/topicMatch)
-  ↓ CodecTrait     — CBOR/JSON codec handling
-  ↓ EncodeTrait    — message encoding/validation (valibot schemas)
-  ↓ MsgTrait       — message class definitions and parsing
-  ↓ TraceTrait     — EventEmitter + structured logging
-  ↓ BaseTrait      — MQTT client hookup, subscription management, message routing
-  ↓ MetaTrait      — instance/per-request metadata
-  ↓ AuthTrait      — JWT authentication (jose), role-based access
-  ↓ EventTrait     — Event Emission pattern (event/emit)
-  ↓ ServiceTrait   — Service Call / RPC pattern (service/call)
-  ↓ SourceTrait    — Source Fetch pattern (source/fetch)
-  ↓ SinkTrait      — Sink Push pattern (sink/push)
-  ↓ MQTTp          — final exported class
+    OptionsTrait        — configuration (id, codec, timeout, chunkSize, chunkCredit, topicMake/topicMatch)
+  ↓ CodecTrait          — CBOR/JSON codec handling
+  ↓ EncodeTrait         — message encoding/validation (valibot schemas)
+  ↓ MsgTrait            — message class definitions and parsing
+  ↓ TraceTrait          — EventEmitter + structured logging
+  ↓ BaseTrait           — MQTT client hookup, subscription management, message routing
+  ↓ SubscriptionTrait   — ref-counted MQTT topic subscription management
+  ↓ MetaTrait           — instance/per-request metadata
+  ↓ AuthTrait           — JWT authentication (jose), role-based access
+  ↓ EventTrait          — Event Emission pattern (event/emit)
+  ↓ ServiceTrait        — Service Call / RPC pattern (service/call)
+  ↓ SourceTrait         — Source Fetch pattern (source/fetch)
+  ↓ SinkTrait           — Sink Push pattern (sink/push)
+  ↓ MQTTp               — final exported class
 ```
 
 Each trait lives in its own file: `src/mqtt-plus-<trait>.ts`.
 
 ### Key Source Files
 
-| File                       | Role |
-|----------------------------|------|
-| `src/mqtt-plus.ts`         | Main entry point, re-exports public API types and the final MQTTp class |
-| `src/mqtt-plus-api.ts`     | Branded endpoint type definitions (Event, Service, Source, Sink) and APISchema generic |
-| `src/mqtt-plus-info.ts`    | Info/context object types passed to pattern callbacks (sender metadata, etc.) |
-| `src/mqtt-plus-error.ts`   | Spool (resource cleanup) and run (error handling) utilities |
-| `src/mqtt-plus-util.ts`    | Stream/buffer conversion, RefCountedSubscription, and CreditGate flow control |
-| `src/mqtt-plus-version.ts` | Version utility for converting version strings to numeric format |
-| `src/mqtt-plus-options.ts` | OptionsTrait — configuration (id, codec, timeout, chunkSize, chunkCredit, topicMake/topicMatch) |
-| `src/mqtt-plus-codec.ts`   | CodecTrait — CBOR and JSON codec encoding/decoding |
-| `src/mqtt-plus-encode.ts`  | EncodeTrait — message validation and encoding via valibot schemas |
-| `src/mqtt-plus-msg.ts`     | MsgTrait — message class definitions and parsing logic |
-| `src/mqtt-plus-trace.ts`   | TraceTrait — EventEmitter and structured logging |
-| `src/mqtt-plus-base.ts`    | BaseTrait — MQTT client connection, subscription management, message routing |
-| `src/mqtt-plus-meta.ts`    | MetaTrait — instance and per-request metadata management |
-| `src/mqtt-plus-auth.ts`    | AuthTrait — JWT authentication (jose) and role-based access control |
-| `src/mqtt-plus-event.ts`   | EventTrait — Event Emission communication pattern (event/emit) |
-| `src/mqtt-plus-service.ts` | ServiceTrait — Service Call / RPC communication pattern (service/call) |
-| `src/mqtt-plus-source.ts`  | SourceTrait — Source Fetch communication pattern (source/fetch) |
-| `src/mqtt-plus-sink.ts`    | SinkTrait — Sink Push communication pattern (sink/push) |
+| File                            | Role |
+|---------------------------------|------|
+| `src/mqtt-plus.ts`              | Main entry point, re-exports public API types and the final MQTTp class |
+| `src/mqtt-plus-api.ts`          | Branded endpoint type definitions (Event, Service, Source, Sink) and APISchema generic |
+| `src/mqtt-plus-info.ts`         | Info/context object types passed to pattern callbacks (sender metadata, etc.) |
+| `src/mqtt-plus-error.ts`        | Spool (resource cleanup) and run (error handling) utilities |
+| `src/mqtt-plus-util.ts`         | Stream/buffer conversion, RefCountedSubscription, and CreditGate flow control |
+| `src/mqtt-plus-version.ts`      | Version utility for converting version strings to numeric format |
+| `src/mqtt-plus-options.ts`      | OptionsTrait — configuration (id, codec, timeout, chunkSize, chunkCredit, topicMake/topicMatch) |
+| `src/mqtt-plus-codec.ts`        | CodecTrait — CBOR and JSON codec encoding/decoding |
+| `src/mqtt-plus-encode.ts`       | EncodeTrait — message validation and encoding via valibot schemas |
+| `src/mqtt-plus-msg.ts`          | MsgTrait — message class definitions and parsing logic |
+| `src/mqtt-plus-trace.ts`        | TraceTrait — EventEmitter and structured logging |
+| `src/mqtt-plus-base.ts`         | BaseTrait — MQTT client connection, subscription management, message routing |
+| `src/mqtt-plus-subscription.ts` | SubscriptionTrait — ref-counted MQTT topic subscription management |
+| `src/mqtt-plus-meta.ts`         | MetaTrait — instance and per-request metadata management |
+| `src/mqtt-plus-auth.ts`         | AuthTrait — JWT authentication (jose) and role-based access control |
+| `src/mqtt-plus-event.ts`        | EventTrait — Event Emission communication pattern (event/emit) |
+| `src/mqtt-plus-service.ts`      | ServiceTrait — Service Call / RPC communication pattern (service/call) |
+| `src/mqtt-plus-source.ts`       | SourceTrait — Source Fetch communication pattern (source/fetch) |
+| `src/mqtt-plus-sink.ts`         | SinkTrait — Sink Push communication pattern (sink/push) |
 
 ### Documentation
 
