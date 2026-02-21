@@ -35,7 +35,7 @@ import { CreditGate,
     streamToBuffer, sendBufferAsChunks,
     sendStreamAsChunks, makeMutuallyExclusiveFields }     from "./mqtt-plus-util"
 import { run, Spool }                                     from "./mqtt-plus-error"
-import { SinkPushRequest, SinkPushResponse,
+import type { SinkPushRequest, SinkPushResponse,
     SinkPushChunk, SinkPushCredit }                       from "./mqtt-plus-msg"
 import type { APISchema, SinkKeys, Registration }         from "./mqtt-plus-api"
 import type { WithInfo, InfoSink }                        from "./mqtt-plus-info"
@@ -257,15 +257,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         spool.roll(() => this._unsubscribeTopic(topicChunkD).catch(() => {}))
 
         /*  provide a registration for subsequent destruction  */
-        return {
-            destroy: async (): Promise<void> => {
-                if (!this.onRequest.has(`sink-push-request:${name}`))
-                    throw new Error(`destroy: sink "${name}" not established`)
-                await spool.unroll(false)?.catch((err: Error) => {
-                    this.error(err, `destroy: failed to cleanup: ${err.message}`)
-                })
-            }
-        }
+        return this.makeRegistration(spool, "sink", name, `sink-push-request:${name}`)
     }
 
     /*  push to sink ("chunked content")  */

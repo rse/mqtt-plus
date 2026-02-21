@@ -28,7 +28,7 @@ import type { IClientPublishOptions,
 import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
-import { EventEmission }              from "./mqtt-plus-msg"
+import type { EventEmission }         from "./mqtt-plus-msg"
 import type { APISchema, EventKeys,
     Registration }                    from "./mqtt-plus-api"
 import type { WithInfo, InfoEvent }   from "./mqtt-plus-info"
@@ -131,15 +131,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         spool.roll(() => this._unsubscribeTopic(topicD).catch(() => {}))
 
         /*  provide a registration for subsequent destruction  */
-        return {
-            destroy: async (): Promise<void> => {
-                if (!this.onRequest.has(`event-emission:${name}`))
-                    throw new Error(`destroy: event "${name}" not registered`)
-                await spool.unroll(false)?.catch((err: Error) => {
-                    this.error(err, `destroy: failed to cleanup: ${err.message}`)
-                })
-            }
-        }
+        return this.makeRegistration(spool, "event", name, `event-emission:${name}`)
     }
 
     /*  emit event ("fire and forget")  */

@@ -35,7 +35,7 @@ import { CreditGate,
     streamToBuffer, sendBufferAsChunks,
     sendStreamAsChunks, makeMutuallyExclusiveFields }     from "./mqtt-plus-util"
 import { run, Spool, ensureError }                        from "./mqtt-plus-error"
-import { SourceFetchRequest, SourceFetchResponse,
+import type { SourceFetchRequest, SourceFetchResponse,
     SourceFetchChunk, SourceFetchCredit }                 from "./mqtt-plus-msg"
 import type { APISchema, SourceKeys, Registration }       from "./mqtt-plus-api"
 import type { WithInfo, InfoSource }                      from "./mqtt-plus-info"
@@ -227,15 +227,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         spool.roll(() => this._unsubscribeTopic(topicCreditD).catch(() => {}))
 
         /*  provide a registration for subsequent destruction  */
-        return {
-            destroy: async (): Promise<void> => {
-                if (!this.onRequest.has(`source-fetch-request:${name}`))
-                    throw new Error(`destroy: source "${name}" not established`)
-                await spool.unroll(false)?.catch((err: Error) => {
-                    this.error(err, `destroy: failed to cleanup: ${err.message}`)
-                })
-            }
-        }
+        return this.makeRegistration(spool, "source", name, `source-fetch-request:${name}`)
     }
 
     /*  fetch source  */

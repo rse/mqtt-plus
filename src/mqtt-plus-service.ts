@@ -29,7 +29,7 @@ import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
 import { run, Spool, ensureError }    from "./mqtt-plus-error"
-import { ServiceCallRequest,
+import type { ServiceCallRequest,
     ServiceCallResponse }             from "./mqtt-plus-msg"
 import type { APISchema, ServiceKeys,
     Registration }                    from "./mqtt-plus-api"
@@ -151,15 +151,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         spool.roll(() => this._unsubscribeTopic(topicD).catch(() => {}))
 
         /*  provide a registration for subsequent destruction  */
-        return {
-            destroy: async (): Promise<void> => {
-                if (!this.onRequest.has(`service-call-request:${name}`))
-                    throw new Error(`destroy: service "${name}" not registered`)
-                await spool.unroll(false)?.catch((err: Error) => {
-                    this.error(err, `destroy: failed to cleanup: ${err.message}`)
-                })
-            }
-        }
+        return this.makeRegistration(spool, "service", name, `service-call-request:${name}`)
     }
 
     /*  call service ("request and response")  */

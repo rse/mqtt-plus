@@ -23,18 +23,19 @@
 */
 
 /*  external requirements  */
-import PLazy                 from "p-lazy"
+import PLazy                            from "p-lazy"
 import { MqttClient,
     type OnMessageCallback,
     type IClientSubscribeOptions,
     type IClientPublishOptions,
-    type IPublishPacket }    from "mqtt"
+    type IPublishPacket }               from "mqtt"
 
 /*  internal requirements  */
-import type { APISchema }    from "./mqtt-plus-api"
-import type { APIOptions }   from "./mqtt-plus-options"
-import { TraceTrait }        from "./mqtt-plus-trace"
-import { ensureError }       from "./mqtt-plus-error"
+import type { APISchema, Registration } from "./mqtt-plus-api"
+import type { APIOptions }              from "./mqtt-plus-options"
+import { TraceTrait }                   from "./mqtt-plus-trace"
+import type { Spool }                   from "./mqtt-plus-error"
+import { ensureError }                  from "./mqtt-plus-error"
 
 /*  MQTTp Base class with shared infrastructure  */
 export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
@@ -94,6 +95,19 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
             this._onMessage(topic, input, packet)
         }
         this.mqtt.on("message", this._messageHandler)
+    }
+
+    /*  create a registration for subsequent destruction  */
+    protected makeRegistration (spool: Spool, kind: string, name: string, key: string): Registration {
+        return {
+            destroy: async (): Promise<void> => {
+                if (!this.onRequest.has(key))
+                    throw new Error(`destroy: ${kind} "${name}" not registered`)
+                await spool.unroll(false)?.catch((err: Error) => {
+                    this.error(err, `destroy: failed to cleanup: ${err.message}`)
+                })
+            }
+        }
     }
 
     /*  destroy API class  */
