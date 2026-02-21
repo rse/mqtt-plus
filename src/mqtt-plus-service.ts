@@ -89,7 +89,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
         /*  sanity check situation  */
         if (this.onRequest.has(`service-call-request:${name}`))
-            throw new Error(`register: service "${name}" already registered`)
+            throw new Error(`service: service "${name}" already registered`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
         const topicS = `$share/${share}/${name}`
@@ -154,7 +154,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         return {
             destroy: async (): Promise<void> => {
                 if (!this.onRequest.has(`service-call-request:${name}`))
-                    throw new Error(`destroy: service "${name}" no longer registered`)
+                    throw new Error(`destroy: service "${name}" not registered`)
                 await spool.unroll(false)?.catch((err: Error) => {
                     this.error(err, `destroy: failed to cleanup: ${err.message}`)
                 })
