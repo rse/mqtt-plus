@@ -38,7 +38,7 @@ import { run, Spool, ensureError }    from "./mqtt-plus-error"
 /*  Event Emission Trait  */
 export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
     /*  internal state  */
-    private events = new Map<string, (parsed: EventEmission, topicName: string) => void>()
+    private events = new Map<string, (response: EventEmission, topicName: string) => void>()
 
     /*  register an event handler  */
     async event<K extends EventKeys<T> & string> (
@@ -97,24 +97,24 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         const topicD = this.options.topicMake(name, "event-emission", this.options.id)
 
         /*  remember the registration  */
-        this.events.set(name, (parsed: EventEmission, topicName: string) => {
+        this.events.set(name, (response: EventEmission, topicName: string) => {
             /*  determine event information  */
-            const senderId = parsed.sender
-            const params   = parsed.params ?? []
+            const senderId = response.sender
+            const params   = response.params ?? []
 
             /*  create information object  */
             const info: InfoEvent = { sender: senderId ?? "" }
-            if (parsed.receiver)
-                info.receiver = parsed.receiver
-            if (parsed.meta)
-                info.meta = parsed.meta
+            if (response.receiver)
+                info.receiver = response.receiver
+            if (response.meta)
+                info.meta = response.meta
 
             /*  asynchronously execute handler  */
             Promise.resolve().then(async () => {
                 if (topicName !== name)
                     throw new Error(`event name mismatch (topic: "${topicName}", payload: "${name}")`)
                 if (auth)
-                    info.authenticated = await this.authenticated(parsed.sender, parsed.auth, auth)
+                    info.authenticated = await this.authenticated(response.sender, response.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`authentication on event "${name}" failed`)
                 return callback(...params, info)
@@ -226,17 +226,17 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
     }
 
     /*  dispatch message (Event pattern handling)  */
-    protected async _dispatchMessage (topic: string, parsed: any) {
-        await super._dispatchMessage(topic, parsed)
+    protected async _dispatchMessage (topic: string, response: any) {
+        await super._dispatchMessage(topic, response)
         const topicMatch = this.options.topicMatch(topic)
 
         /*  on server-side handle event emission request  */
         if (topicMatch !== null
             && topicMatch.operation === "event-emission"
-            && parsed instanceof EventEmission) {
-            const handler = this.events.get(parsed.name)
+            && response instanceof EventEmission) {
+            const handler = this.events.get(response.name)
             if (handler !== undefined)
-                handler(parsed, topicMatch.name)
+                handler(response, topicMatch.name)
         }
     }
 }

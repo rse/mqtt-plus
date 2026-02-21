@@ -41,8 +41,8 @@ import type { AuthOption }            from "./mqtt-plus-auth"
 /*  Service Call Trait  */
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
     /*  internal state  */
-    private services = new Map<string, (parsed: ServiceCallRequest, topicName: string) => void>()
-    private callCallbacks = new Map<string, (parsed: ServiceCallResponse) => void>()
+    private services = new Map<string, (response: ServiceCallRequest, topicName: string) => void>()
+    private callCallbacks = new Map<string, (response: ServiceCallResponse) => void>()
     private callSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),
         (topic)          => this._unsubscribeTopic(topic)
@@ -105,27 +105,27 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const topicD = this.options.topicMake(name,   "service-call-request", this.options.id)
 
         /*  remember the registration  */
-        this.services.set(name, (parsed: ServiceCallRequest, topicName: string) => {
+        this.services.set(name, (response: ServiceCallRequest, topicName: string) => {
             /*  determine request information  */
-            const requestId = parsed.id
-            const senderId  = parsed.sender
+            const requestId = response.id
+            const senderId  = response.sender
             if (senderId === undefined || senderId === "")
                 throw new Error("invalid request: missing sender")
-            const params = parsed.params ?? []
+            const params = response.params ?? []
 
             /*  create information object  */
             const info: InfoService = { sender: senderId }
-            if (parsed.receiver)
-                info.receiver = parsed.receiver
-            if (parsed.meta)
-                info.meta = parsed.meta
+            if (response.receiver)
+                info.receiver = response.receiver
+            if (response.meta)
+                info.meta = response.meta
 
             /*  asynchronously execute handler and send response  */
             Promise.resolve().then(async () => {
                 if (topicName !== name)
                     throw new Error(`service name mismatch (topic: "${topicName}", payload: "${name}")`)
                 if (auth)
-                    info.authenticated = await this.authenticated(senderId, parsed.auth, auth)
+                    info.authenticated = await this.authenticated(senderId, response.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`service "${name}" failed authentication`)
                 return callback(...params, info)
@@ -239,12 +239,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     timer = null
                 }
             })
-            this.callCallbacks.set(requestId, async (parsed: ServiceCallResponse) => {
+            this.callCallbacks.set(requestId, async (response: ServiceCallResponse) => {
                 await spool.unroll()
-                if (parsed.error !== undefined)
-                    reject(new Error(parsed.error))
+                if (response.error !== undefined)
+                    reject(new Error(response.error))
                 else
-                    resolve(parsed.result)
+                    resolve(response.result)
             })
             spool.roll(() => { this.callCallbacks.delete(requestId) })
         })
@@ -267,27 +267,27 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
     }
 
     /*  dispatch message (Service pattern handling)  */
-    protected async _dispatchMessage (topic: string, parsed: any) {
-        await super._dispatchMessage(topic, parsed)
+    protected async _dispatchMessage (topic: string, response: any) {
+        await super._dispatchMessage(topic, response)
         const topicMatch = this.options.topicMatch(topic)
 
         /*  on server-side handle service call request  */
         if (topicMatch !== null
             && topicMatch.operation === "service-call-request"
-            && parsed instanceof ServiceCallRequest) {
-            const handler = this.services.get(parsed.name)
+            && response instanceof ServiceCallRequest) {
+            const handler = this.services.get(response.name)
             if (handler !== undefined)
-                handler(parsed, topicMatch.name)
+                handler(response, topicMatch.name)
         }
 
         /*  on client-side handle service call response  */
         else if (topicMatch !== null
             && topicMatch.operation === "service-call-response"
             && topicMatch.peerId === this.options.id
-            && parsed instanceof ServiceCallResponse) {
-            const handler = this.callCallbacks.get(parsed.id)
+            && response instanceof ServiceCallResponse) {
+            const handler = this.callCallbacks.get(response.id)
             if (handler !== undefined)
-                handler(parsed)
+                handler(response)
         }
     }
 }

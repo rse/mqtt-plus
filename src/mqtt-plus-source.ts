@@ -44,10 +44,10 @@ import type { AuthOption }                                        from "./mqtt-p
 /*  Source Fetch Trait  */
 export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
     /*  source state  */
-    private sources = new Map<string, (parsed: SourceFetchRequest, topicName: string) => void>()
-    private fetchResponseCallbacks = new Map<string, (parsed: SourceFetchResponse) => void>()
-    private fetchChunkCallbacks    = new Map<string, (parsed: SourceFetchChunk) => void>()
-    private sourceCreditCallbacks  = new Map<string, (parsed: SourceFetchCredit) => void>()
+    private sources = new Map<string, (response: SourceFetchRequest, topicName: string) => void>()
+    private fetchResponseCallbacks = new Map<string, (response: SourceFetchResponse) => void>()
+    private fetchChunkCallbacks    = new Map<string, (response: SourceFetchChunk) => void>()
+    private sourceCreditCallbacks  = new Map<string, (response: SourceFetchCredit) => void>()
     private sourceCreditGates      = new Map<string, CreditGate>()
     private sourceTimers           = new Map<string, ReturnType<typeof setTimeout>>()
     private fetchSubscriptions = new RefCountedSubscription(
@@ -135,22 +135,22 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const topicCreditD = this.options.topicMake(name,   "source-fetch-credit",  this.options.id)
 
         /*  remember the registration  */
-        this.sources.set(name, (parsed: SourceFetchRequest, topicName: string) => {
-            if (topicName !== parsed.name)
-                throw new Error(`source name mismatch between topic "${topicName}" and payload "${parsed.name}"`)
+        this.sources.set(name, (response: SourceFetchRequest, topicName: string) => {
+            if (topicName !== response.name)
+                throw new Error(`source name mismatch between topic "${topicName}" and payload "${response.name}"`)
 
             /*  determine information  */
-            const requestId = parsed.id
-            const params    = parsed.params ?? []
-            const sender    = parsed.sender
+            const requestId = response.id
+            const params    = response.params ?? []
+            const sender    = response.sender
             if (sender === undefined || sender === "")
                 throw new Error("invalid request: missing sender")
-            const receiver  = parsed.receiver
+            const receiver  = response.receiver
             const info: InfoSource = { sender }
             if (receiver)
                 info.receiver = receiver
-            if (parsed.meta)
-                info.meta = parsed.meta
+            if (response.meta)
+                info.meta = response.meta
 
             /*  generate corresponding MQTT topics  */
             const responseTopic = this.options.topicMake(name, "source-fetch-response", sender)
@@ -181,7 +181,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             refreshSourceTimeout()
 
             /*  handle credit-based flow control (if credit provided in request)  */
-            const initialCredit = parsed.credit
+            const initialCredit = response.credit
             const creditGate = (initialCredit !== undefined && initialCredit > 0)
                 ? new CreditGate(initialCredit) : undefined
             if (creditGate) {
@@ -196,7 +196,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             let ackSent = false
             Promise.resolve().then(async () => {
                 if (auth)
-                    info.authenticated = await this.authenticated(parsed.sender, parsed.auth, auth)
+                    info.authenticated = await this.authenticated(response.sender, response.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`source "${name}" failed authentication`)
                 return callback(...params, info)
@@ -399,12 +399,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         stream.once("error", () => spool.unroll())
 
         /*  register response dispatch callback  */
-        this.fetchResponseCallbacks.set(requestId, (parsed: SourceFetchResponse) => {
-            if (parsed.sender)
-                serverId = parsed.sender
-            metaResolve?.(parsed.meta)
-            if (parsed.error) {
-                stream.destroy(new Error(parsed.error))
+        this.fetchResponseCallbacks.set(requestId, (response: SourceFetchResponse) => {
+            if (response.sender)
+                serverId = response.sender
+            metaResolve?.(response.meta)
+            if (response.error) {
+                stream.destroy(new Error(response.error))
                 spool.unroll()
             }
             else
@@ -412,20 +412,20 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         })
 
         /*  register chunk dispatch callback  */
-        this.fetchChunkCallbacks.set(requestId, (parsed: SourceFetchChunk) => {
-            if (parsed.sender)
-                serverId = parsed.sender
-            if (parsed.error) {
-                stream.destroy(new Error(parsed.error))
+        this.fetchChunkCallbacks.set(requestId, (response: SourceFetchChunk) => {
+            if (response.sender)
+                serverId = response.sender
+            if (response.error) {
+                stream.destroy(new Error(response.error))
                 spool.unroll()
             }
             else {
                 refreshTimeout()
-                if (parsed.chunk !== undefined) {
+                if (response.chunk !== undefined) {
                     chunksReceived++
-                    stream.push(parsed.chunk)
+                    stream.push(response.chunk)
                 }
-                if (parsed.final) {
+                if (response.final) {
                     stream.push(null)
                     spool.unroll()
                 }
@@ -461,44 +461,44 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
     }
 
     /*  dispatch message (Source Fetch pattern handling)  */
-    protected async _dispatchMessage (topic: string, parsed: any) {
-        await super._dispatchMessage(topic, parsed)
+    protected async _dispatchMessage (topic: string, response: any) {
+        await super._dispatchMessage(topic, response)
         const topicMatch = this.options.topicMatch(topic)
 
         /*  handle source fetch request (on server-side)  */
         if (topicMatch !== null
             && topicMatch.operation === "source-fetch-request"
-            && parsed instanceof SourceFetchRequest) {
-            const handler = this.sources.get(parsed.name)
+            && response instanceof SourceFetchRequest) {
+            const handler = this.sources.get(response.name)
             if (handler !== undefined)
-                handler(parsed, topicMatch.name)
+                handler(response, topicMatch.name)
         }
 
         /*  handle source fetch response (on client-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "source-fetch-response"
-            && parsed instanceof SourceFetchResponse) {
-            const handler = this.fetchResponseCallbacks.get(parsed.id)
+            && response instanceof SourceFetchResponse) {
+            const handler = this.fetchResponseCallbacks.get(response.id)
             if (handler !== undefined)
-                handler(parsed)
+                handler(response)
         }
 
         /*  handle source fetch chunk (on client-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "source-fetch-chunk"
-            && parsed instanceof SourceFetchChunk) {
-            const handler = this.fetchChunkCallbacks.get(parsed.id)
+            && response instanceof SourceFetchChunk) {
+            const handler = this.fetchChunkCallbacks.get(response.id)
             if (handler !== undefined)
-                handler(parsed)
+                handler(response)
         }
 
         /*  handle source fetch credit (on server-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "source-fetch-credit"
-            && parsed instanceof SourceFetchCredit) {
-            const handler = this.sourceCreditCallbacks.get(parsed.id)
+            && response instanceof SourceFetchCredit) {
+            const handler = this.sourceCreditCallbacks.get(response.id)
             if (handler !== undefined)
-                handler(parsed)
+                handler(response)
         }
     }
 }
