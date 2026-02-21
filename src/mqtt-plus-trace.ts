@@ -108,13 +108,13 @@ export class TraceTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
     }
 
     /*  log an event  */
-    log (level: string, msg: string | Promise<string>, data?: Record<string, Promise<any> | any>): void {
+    protected log (level: string, msg: string | Promise<string>, data?: Record<string, Promise<any> | any>): void {
         const event = new LogEvent(Date.now(), level, msg, data)
         this.emitEvent("log", event)
     }
 
     /*  raise an error event  */
-    error (error: Error, msg?: string): void {
+    protected error (error: Error, msg?: string): void {
         let err = error
         if (msg !== undefined)
             err = new Error(`${msg}: ${error.message}`, { cause: error })
