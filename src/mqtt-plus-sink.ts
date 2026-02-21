@@ -490,7 +490,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     }
 
     /*  dispatch incoming MQTT message  */
-    protected async _dispatchMessage (topic: string, response: any) {
+    protected override async _dispatchMessage (topic: string, response: any) {
         /*  forward dispatching to other traits  */
         await super._dispatchMessage(topic, response)
 

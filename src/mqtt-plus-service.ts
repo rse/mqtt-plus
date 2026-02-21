@@ -273,7 +273,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
     }
 
     /*  dispatch message (Service pattern handling)  */
-    protected async _dispatchMessage (topic: string, response: any) {
+    protected override async _dispatchMessage (topic: string, response: any) {
         await super._dispatchMessage(topic, response)
         const topicMatch = this.options.topicMatch(topic)
 
