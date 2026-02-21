@@ -18,7 +18,7 @@ About
 **MQTT+** is a companion add-on API for the TypeScript/JavaScript
 API [MQTT.js](https://www.npmjs.com/package/mqtt), designed to
 extend [MQTT](http://mqtt.org/) with higher-level
-[communication patterns](doc/mqtt-plus-comm.md) while preserving full type-safety.
+[communication patterns](doc/mqtt-plus-comm.md) while preserving full type safety.
 It provides four core communication patterns: fire-and-forget *Event
 Emission*, RPC-style *Service Call*, stream-based *Sink Push*, and
 stream-based *Source Fetch*.
@@ -31,7 +31,7 @@ or [JSON](https://ecma-international.org/publications-and-standards/standards/ec
 The result is a more expressive and maintainable messaging layer
 without sacrificing [MQTT](http://mqtt.org/)’s excellent robustness and
 scalability.
-**MQTT+** is particularly well suited for systems built around a
+**MQTT+** is particularly well-suited for systems built around a
 [*Hub & Spoke*](https://en.wikipedia.org/wiki/Spoke%E2%80%93hub_distribution_paradigm)
 communication architecture, where typed API contracts and controlled interaction flows are
 critical for reliability and long-term maintainability.
@@ -48,7 +48,7 @@ Usage
 
 The following is a simple but self-contained example usage of
 **MQTT+** based on a common API, a server part, a client part,
-and a MQTT infrastructure. It can be found in the file
+and an MQTT infrastructure. It can be found in the file
 [sample.ts](sample/sample.ts) and can be executed from the **MQTT+**
 source tree via `npm start sample` (assuming the prerequisite *Docker* is
 available for the underlying *Mosquitto* broker based infrastructure):
