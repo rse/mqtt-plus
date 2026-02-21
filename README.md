@@ -25,6 +25,8 @@ stream-based *Source Fetch*.
 These patterns enable structured,
 bi-directional client/server and server/server communication
 on top of [MQTT](http://mqtt.org/)’s inherently uni-directional publish/subscribe model.
+Internally, the communication is based on the exchange of typed [CBOR](https://www.rfc-editor.org/rfc/rfc8949.html)
+or [JSON](https://ecma-international.org/publications-and-standards/standards/ecma-404/) messages.
 
 The result is a more expressive and maintainable messaging layer
 without sacrificing [MQTT](http://mqtt.org/)’s excellent robustness and
