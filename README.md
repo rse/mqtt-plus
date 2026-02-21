@@ -24,7 +24,8 @@ additional communication patterns with full type safety for
 supported. This allows you to implement complex and bi-directional
 client/server and server/server communications over the robust but
 uni-directional [MQTT](http://mqtt.org/) protocol. This is key in
-applications based on the *Hub & Spoke* architecture pattern.
+applications based on the [*Hub & Spoke*](https://en.wikipedia.org/wiki/Spoke%E2%80%93hub_distribution_paradigm)
+communication architecture pattern.
 
 Installation
 ------------
