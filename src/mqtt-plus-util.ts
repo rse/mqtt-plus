@@ -166,7 +166,7 @@ export class CreditGate {
     }
 }
 
-/*  concatenate elements of an Uint8Array array  */
+/*  concatenate elements of a Uint8Array array  */
 function uint8ArrayConcat (arrays: Uint8Array[]) {
     const totalLength = arrays.reduce((acc, value) => acc + value.byteLength, 0)
     const result = new Uint8Array(totalLength)
