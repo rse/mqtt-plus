@@ -39,6 +39,8 @@ class RefCountedSubscription {
         private unsubscribeFn: (topic: string) => Promise<void>,
         private lingerMs:      number = 30 * 1000
     ) {}
+
+    /*  subscribe to a topic (reference-counted)  */
     async subscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
         /*  increment count first to reserve our interest  */
         const count = this.counts.get(topic) ?? 0
@@ -77,6 +79,8 @@ class RefCountedSubscription {
                 return pending
         }
     }
+
+    /*  unsubscribe from a topic (reference-counted)  */
     async unsubscribe (topic: string): Promise<void> {
         const count = this.counts.get(topic)
         if (count) {
@@ -97,6 +101,8 @@ class RefCountedSubscription {
                 this.counts.set(topic, count - 1)
         }
     }
+
+    /*  flush all pending linger timers and unsubscribe  */
     async flush (): Promise<void> {
         /*  flush all pending linger timers and unsubscribe immediately  */
         const topics = [ ...this.lingers.keys() ]
