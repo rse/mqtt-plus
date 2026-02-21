@@ -198,7 +198,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         }
         else {
             /*  positional API  */
-            event    = eventOrConfig as K
+            event    = eventOrConfig
             params   = args as Parameters<T[K]>
         }
 
