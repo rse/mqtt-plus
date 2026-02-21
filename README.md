@@ -60,7 +60,9 @@ import Mosquitto                             from "mosquitto"
 import MQTT                                  from "mqtt"
 import MQTTp                                 from "mqtt-plus"
 import type { Event, Service, Source, Sink } from "mqtt-plus"
+```
 
+```ts
 /*  ==== SAMPLE COMMON API ====  */
 type API = {
     "example/sample":   Event<(a1: string, a2: number) => void>
@@ -68,7 +70,9 @@ type API = {
     "example/download": Source<(filename: string) => void>
     "example/upload":   Sink<(filename: string) => void>
 }
+```
 
+```ts
 /*  ==== SAMPLE SERVER ====  */
 const Server = async (api: MQTTp<API>, log: (msg: string, ...args: any[]) => void) => {
     await api.event("example/sample", (a1, a2) => {
@@ -94,7 +98,9 @@ const Server = async (api: MQTTp<API>, log: (msg: string, ...args: any[]) => voi
         log("received", total, "bytes")
     })
 }
+```
 
+```ts
 /*  ==== SAMPLE CLIENT ====  */
 const Client = async (api: MQTTp<API>, log: (msg: string, ...args: any[]) => void) => {
     api.emit("example/sample", "world", 42)
@@ -114,7 +120,9 @@ const Client = async (api: MQTTp<API>, log: (msg: string, ...args: any[]) => voi
     input.push(null)
     await api.push("example/upload", input, "myfile.txt")
 }
+```
 
+```ts
 /*  ==== SAMPLE INFRASTRUCTURE ====  */
 process.on("uncaughtException", (err: Error): void => {
     console.error(chalk.red(`ERROR: ${err.stack ?? err.message}`))
@@ -143,8 +151,6 @@ mqtt.on("connect", async () => {
     await mqtt.endAsync()
     await mosquitto.stop()
 })
-
-
 ```
 
 Documentation
