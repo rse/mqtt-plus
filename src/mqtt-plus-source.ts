@@ -45,7 +45,7 @@ import type { AuthOption }                                from "./mqtt-plus-auth
 /*  Source Fetch Trait  */
 export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
     /*  source state  */
-    private sources                = new Map<string, (response: SourceFetchRequest, topicName: string) => void>()
+    private sources                = new Map<string, (request: SourceFetchRequest, topicName: string) => void>()
     private fetchResponseCallbacks = new Map<string, (response: SourceFetchResponse) => void>()
     private fetchChunkCallbacks    = new Map<string, (response: SourceFetchChunk) => void>()
     private sourceCreditCallbacks  = new Map<string, (response: SourceFetchCredit) => void>()

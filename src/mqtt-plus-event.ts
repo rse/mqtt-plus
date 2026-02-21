@@ -38,7 +38,7 @@ import { run, Spool, ensureError }    from "./mqtt-plus-error"
 /*  Event Emission Trait  */
 export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
     /*  internal state  */
-    private events = new Map<string, (response: EventEmission, topicName: string) => void>()
+    private events = new Map<string, (request: EventEmission, topicName: string) => void>()
 
     /*  register an event handler  */
     async event<K extends EventKeys<T> & string> (

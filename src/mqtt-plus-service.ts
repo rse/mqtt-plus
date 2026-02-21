@@ -41,7 +41,7 @@ import type { AuthOption }            from "./mqtt-plus-auth"
 /*  Service Call Trait  */
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
     /*  internal state  */
-    private services          = new Map<string, (response: ServiceCallRequest, topicName: string) => void>()
+    private services          = new Map<string, (request: ServiceCallRequest, topicName: string) => void>()
     private callCallbacks     = new Map<string, (response: ServiceCallResponse) => void>()
     private callSubscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),

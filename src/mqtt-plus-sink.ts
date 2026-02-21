@@ -45,7 +45,7 @@ import type { AuthOption }                                from "./mqtt-plus-auth
 /*  Sink Push Trait  */
 export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     /*  sink state  */
-    private sinks                 = new Map<string, (response: SinkPushRequest, topicName: string) => void>()
+    private sinks                 = new Map<string, (request: SinkPushRequest, topicName: string) => void>()
     private pushStreams           = new Map<string, Readable>()
     private pushSpools            = new Map<string, Spool>()
     private pushTimers            = new Map<string, ReturnType<typeof setTimeout>>()
