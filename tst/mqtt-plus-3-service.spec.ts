@@ -41,7 +41,6 @@ describe("MQTT+ Service Call", function () {
     /*  test case: Service Call  */
     it("MQTT+ Service Call", async function () {
         /*  setup  */
-        this.timeout(1000)
         const spy = sinon.spy()
 
         /*  provide service  */
@@ -82,7 +81,6 @@ describe("MQTT+ Service Call", function () {
     /*  test case: Service Call (Object API)  */
     it("MQTT+ Service Call (Object API)", async function () {
         /*  setup  */
-        this.timeout(1000)
         const spy = sinon.spy()
 
         /*  provide service  */
@@ -111,7 +109,6 @@ describe("MQTT+ Service Call", function () {
     /*  test case: Service Call (Meta Information)  */
     it("MQTT+ Service Call (Meta Information)", async function () {
         /*  setup  */
-        this.timeout(1000)
         const spy = sinon.spy()
 
         /*  provide service that checks metadata  */
@@ -142,7 +139,8 @@ describe("MQTT+ Service Call", function () {
 
     /*  test case: Service Call (Timeout)  */
     it("MQTT+ Service Call (Timeout)", async function () {
-        /*  setup (higher timeout for this test)  */
+        /*  setup (higher timeout for this particular test)  */
+        this.slow(2000)
         this.timeout(2000)
         const spy = sinon.spy()
 
@@ -160,7 +158,6 @@ describe("MQTT+ Service Call", function () {
     /*  test case: Service Call (Direct Receiver)  */
     it("MQTT+ Service Call (Direct Receiver)", async function () {
         /*  setup  */
-        this.timeout(1000)
         const spy = sinon.spy()
 
         /*  provide service on server  */
@@ -188,13 +185,12 @@ describe("MQTT+ Service Call", function () {
     /*  test case: Service Call (Async Handler)  */
     it("MQTT+ Service Call (Async Handler)", async function () {
         /*  setup  */
-        this.timeout(1000)
         const spy = sinon.spy()
 
         /*  provide async service  */
         const registration = await ctx.apiS.service("example/server/login", async (password: string) => {
             spy("service")
-            await new Promise((resolve) => { setTimeout(resolve, 50) })
+            await new Promise((resolve) => { setTimeout(resolve, 0) })
             if (password !== "secret")
                 throw new Error("invalid password")
             return "token-abc"

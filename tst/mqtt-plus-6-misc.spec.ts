@@ -48,7 +48,9 @@ const { expect } = chai
 describe("MQTT+ Miscellaneous", function () {
     /*  test case: Dry-Run & Last-Will  */
     it("MQTT+ Dry-Run & MQTT Last-Will", async function () {
-        this.timeout(3000)
+        /*  setup  */
+        this.slow(2000)
+        this.timeout(2000)
 
         /*  generate connection close event  */
         const mqttpDry = new MQTTp<API>(null, { id: "my-client" })
@@ -63,7 +65,7 @@ describe("MQTT+ Miscellaneous", function () {
             mqttServer.once("connect", ()           => { resolve() })
             mqttServer.once("error",   (err: Error) => { reject(err) })
         })
-        const apiServer = new MQTTp<API>(mqttServer, { timeout: 1000 })
+        const apiServer = new MQTTp<API>(mqttServer, { timeout: 100 })
 
         /*  observe connection events  */
         const spy = sinon.spy()
@@ -84,7 +86,7 @@ describe("MQTT+ Miscellaneous", function () {
             mqttClient.once("connect", ()           => { resolve() })
             mqttClient.once("error",   (err: Error) => { reject(err) })
         })
-        const apiClient = new MQTTp<API>(mqttClient, { timeout: 1000 })
+        const apiClient = new MQTTp<API>(mqttClient, { timeout: 100 })
 
         /*  send connection open event  */
         await apiClient.emit("example/server/connection", "open")
@@ -93,7 +95,7 @@ describe("MQTT+ Miscellaneous", function () {
         /*  perform unexpected destruction of client  */
         apiClient.destroy()
         mqttClient.end(true)
-        await new Promise((resolve) => { setTimeout(resolve, 1000) })
+        await new Promise((resolve) => { setTimeout(resolve, 100) })
 
         /*  perform regular destruction of client  */
         await eventReg.destroy()
@@ -108,7 +110,8 @@ describe("MQTT+ Miscellaneous", function () {
     /*  test case: Authentication  */
     it("MQTT+ Authentication", async function () {
         /*  setup  */
-        this.timeout(3000)
+        this.slow(1000)
+        this.timeout(1000)
         const spy = sinon.spy()
 
         /*  credentials  */

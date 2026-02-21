@@ -45,7 +45,9 @@ const { expect } = chai
 describe("MQTT+ Sink Push", function () {
     /*  test case: Sink Push (Buffer)  */
     it("MQTT+ Sink Push (Buffer)", async function () {
-        this.timeout(2000)
+        /*  setup  */
+        this.slow(1000)
+        this.timeout(1000)
         const spy = sinon.spy()
 
         /*  generate random data  */
@@ -70,7 +72,7 @@ describe("MQTT+ Sink Push", function () {
         }).catch((err: Error) => {
             spy("push-error")
         })
-        await new Promise((resolve) => { setTimeout(resolve, 1000) })
+        await new Promise((resolve) => { setTimeout(resolve, 100) })
         expect(spy.getCalls().map((call) => call.firstArg))
             .to.be.same.deep.members([ "sink", "push-success", "buffer" ])
 
@@ -81,7 +83,8 @@ describe("MQTT+ Sink Push", function () {
     /*  test case: Sink Push (Stream)  */
     it("MQTT+ Sink Push (Stream)", async function () {
         /*  setup  */
-        this.timeout(2000)
+        this.slow(1000)
+        this.timeout(1000)
         const spy = sinon.spy()
 
         /*  generate random data  */
@@ -117,7 +120,7 @@ describe("MQTT+ Sink Push", function () {
         }).catch((err: Error) => {
             spy("transfer-error")
         })
-        await new Promise((resolve) => { setTimeout(resolve, 1000) })
+        await new Promise((resolve) => { setTimeout(resolve, 100) })
         expect(spy.getCalls().map((call) => call.firstArg))
             .to.be.same.deep.members([ "sink", "transfer-success", "end" ])
 
@@ -127,7 +130,9 @@ describe("MQTT+ Sink Push", function () {
 
     /*  test case: Sink Push (Meta Information)  */
     it("MQTT+ Sink Push (Meta Information)", async function () {
-        this.timeout(2000)
+        /*  setup  */
+        this.slow(1000)
+        this.timeout(1000)
         const spy = sinon.spy()
 
         /*  set instance-level meta on client  */
@@ -162,7 +167,7 @@ describe("MQTT+ Sink Push", function () {
         }).catch((err: Error) => {
             spy("push-error")
         })
-        await new Promise((resolve) => { setTimeout(resolve, 1000) })
+        await new Promise((resolve) => { setTimeout(resolve, 100) })
         expect(spy.getCalls().map((call) => call.firstArg))
             .to.be.same.deep.members([ "sink", "push-success", "buffer" ])
 

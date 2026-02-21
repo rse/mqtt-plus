@@ -68,7 +68,7 @@ export const mochaHooks = {
         /*  connect with MQTT as client  */
         ctx.mqttC = MQTT.connect("mqtt://127.0.0.1:1883",
             { clientId: "client" })
-        ctx.apiC = new MQTTp<API>(ctx.mqttC, { id: "client", timeout: 1000 })
+        ctx.apiC = new MQTTp<API>(ctx.mqttC, { id: "client", timeout: 500 })
         await new Promise<void>((resolve, reject) => {
             ctx.mqttC.once("connect", ()           => { resolve() })
             ctx.mqttC.once("error",   (err: Error) => { reject(err) })
@@ -81,7 +81,7 @@ export const mochaHooks = {
         /*  connect with MQTT as server  */
         ctx.mqttS = MQTT.connect("mqtt://127.0.0.1:1883",
             { clientId: "server", username: "example", password: "example" })
-        ctx.apiS = new MQTTp<API>(ctx.mqttS, { id: "server", timeout: 1000 })
+        ctx.apiS = new MQTTp<API>(ctx.mqttS, { id: "server", timeout: 500 })
         await new Promise<void>((resolve, reject) => {
             ctx.mqttS.once("connect", ()           => { resolve() })
             ctx.mqttS.once("error",   (err: Error) => { reject(err) })

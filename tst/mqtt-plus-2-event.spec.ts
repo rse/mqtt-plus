@@ -41,7 +41,6 @@ describe("MQTT+ Event Emission", function () {
     /*  test case: Event Emission  */
     it("MQTT+ Event Emission", async function () {
         /*  setup  */
-        this.timeout(1000)
         const spy = sinon.spy()
 
         /*  register to event  */
@@ -64,7 +63,6 @@ describe("MQTT+ Event Emission", function () {
     /*  test case: Event Emission (Object API)  */
     it("MQTT+ Event Emission (Object API)", async function () {
         /*  setup  */
-        this.timeout(1000)
         const spy = sinon.spy()
 
         /*  register event  */
@@ -93,7 +91,6 @@ describe("MQTT+ Event Emission", function () {
     /*  test case: Event Emission with Meta Information  */
     it("MQTT+ Event Emission (Meta Information)", async function () {
         /*  setup  */
-        this.timeout(1000)
         const spy = sinon.spy()
 
         /*  register event  */
@@ -122,9 +119,6 @@ describe("MQTT+ Event Emission", function () {
 
     /*  test case: Event Emission (Duplicate Registration)  */
     it("MQTT+ Event Emission (Duplicate Registration)", async function () {
-        /*  setup  */
-        this.timeout(1000)
-
         /*  register event  */
         const reg = await ctx.apiS.event("example/server/sample", () => {})
 

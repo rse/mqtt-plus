@@ -41,7 +41,9 @@ const { expect } = chai
 describe("MQTT+ Source Fetch", function () {
     /*  test case: Source Fetch (Buffer)  */
     it("MQTT+ Source Fetch (Buffer)", async function () {
-        this.timeout(3000)
+        /*  setup  */
+        this.slow(2000)
+        this.timeout(2000)
 
         /*  establish source  */
         const sourcing = await ctx.apiS.source("example/server/download", async (filename, info) => {
@@ -76,7 +78,9 @@ describe("MQTT+ Source Fetch", function () {
 
     /*  test case: Source Fetch (Stream)  */
     it("MQTT+ Source Fetch (Stream)", async function () {
-        this.timeout(3000)
+        /*  setup  */
+        this.slow(1000)
+        this.timeout(1000)
 
         /*  establish source providing data via stream  */
         const sourcing = await ctx.apiS.source("example/server/download", async (filename, info) => {
@@ -104,6 +108,8 @@ describe("MQTT+ Source Fetch", function () {
 
     /*  test case: Source Fetch (Meta Information)  */
     it("MQTT+ Source Fetch (Meta Information)", async function () {
+        /*  setup  */
+        this.slow(1000)
         this.timeout(1000)
 
         /*  set instance-level meta on server  */
