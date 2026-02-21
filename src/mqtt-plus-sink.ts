@@ -141,7 +141,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const response = this.msg.makeSinkPushResponse(requestId,
                     name, error, this.options.id, sender, authToken, metaStore, credit)
                 const message = this.codec.encode(response)
-                await this._publishToTopic(responseTopic, message, { qos: 2 })
+                await this.publishToTopic(responseTopic, message, { qos: 2 })
             }
 
             /*  create a resource spool for stream cleanup  */
@@ -189,7 +189,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                             const encoded = this.codec.encode(creditMsg)
                             const creditTopic = this.options.topicMake(
                                 name, "sink-push-credit", sender)
-                            this._publishToTopic(creditTopic, encoded, { qos: 2 }).catch((err: Error) => {
+                            this.publishToTopic(creditTopic, encoded, { qos: 2 }).catch((err: Error) => {
                                 this.error(err, `sending credit for push "${name}" failed`)
                             })
                             refreshPushTimeout()
@@ -256,14 +256,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         /*  subscribe to MQTT topics  */
         await run(`subscribe to MQTT topic "${topicReqB}"`, spool, () =>
-            this._subscribeTopic(topicReqB, { qos: 2, ...options }))
-        spool.roll(() => this._unsubscribeTopic(topicReqB).catch(() => {}))
+            this.subscribeTopic(topicReqB, { qos: 2, ...options }))
+        spool.roll(() => this.unsubscribeTopic(topicReqB).catch(() => {}))
         await run(`subscribe to MQTT topic "${topicReqD}"`, spool, () =>
-            this._subscribeTopic(topicReqD, { qos: 2, ...options }))
-        spool.roll(() => this._unsubscribeTopic(topicReqD).catch(() => {}))
+            this.subscribeTopic(topicReqD, { qos: 2, ...options }))
+        spool.roll(() => this.unsubscribeTopic(topicReqD).catch(() => {}))
         await run(`subscribe to MQTT topic "${topicChunkD}"`, spool, () =>
-            this._subscribeTopic(topicChunkD, { qos: 2, ...options }))
-        spool.roll(() => this._unsubscribeTopic(topicChunkD).catch(() => {}))
+            this.subscribeTopic(topicChunkD, { qos: 2, ...options }))
+        spool.roll(() => this.unsubscribeTopic(topicChunkD).catch(() => {}))
 
         /*  provide a registration for subsequent destruction  */
         return this.makeRegistration(spool, "sink", name, `sink-push-request:${name}`)
@@ -392,7 +392,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const message   = this.codec.encode(request)
                 const requestTopic = this.options.topicMake(name, "sink-push-request", receiver)
                 run(`publish push request as MQTT message to topic "${requestTopic}"`, spool, () =>
-                    this._publishToTopic(requestTopic, message, { qos: 2, ...options })).catch((err: Error) => {
+                    this.publishToTopic(requestTopic, message, { qos: 2, ...options })).catch((err: Error) => {
                     reject(err)
                 })
             })
@@ -436,7 +436,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const chunkMsg = this.msg.makeSinkPushChunk(requestId,
                     name, chunk, error, final, this.options.id, receiver)
                 const message = this.codec.encode(chunkMsg)
-                await this._publishToTopic(chunkTopic, message, { qos: 2, ...options })
+                await this.publishToTopic(chunkTopic, message, { qos: 2, ...options })
             }
 
             /*  iterate over all chunks of the buffer  */
@@ -453,7 +453,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             const chunkMsg = this.msg.makeSinkPushChunk(requestId,
                 name, undefined, error, true, this.options.id, receiver)
             const message = this.codec.encode(chunkMsg)
-            await this._publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
+            await this.publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
             throw err
         }
         finally {

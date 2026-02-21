@@ -138,7 +138,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const response = this.msg.makeSourceFetchResponse(requestId,
                     name, error, this.options.id, sender, authToken, metaStore)
                 const message = this.codec.encode(response)
-                await this._publishToTopic(responseTopic, message, { qos: 2 })
+                await this.publishToTopic(responseTopic, message, { qos: 2 })
             }
 
             /*  utility functions for timeout management  */
@@ -160,7 +160,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const chunkMsg = this.msg.makeSourceFetchChunk(requestId,
                     name, chunk, error, final, this.options.id, sender)
                 const message = this.codec.encode(chunkMsg)
-                await this._publishToTopic(chunkTopic, message, { qos: 2 })
+                await this.publishToTopic(chunkTopic, message, { qos: 2 })
             }
 
             /*  handle credit-based flow control (if credit provided in request)  */
@@ -225,14 +225,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  subscribe to MQTT topics  */
         await run(`subscribe to MQTT topic "${topicReqB}"`, spool, () =>
-            this._subscribeTopic(topicReqB, { qos: 2, ...options }))
-        spool.roll(() => this._unsubscribeTopic(topicReqB).catch(() => {}))
+            this.subscribeTopic(topicReqB, { qos: 2, ...options }))
+        spool.roll(() => this.unsubscribeTopic(topicReqB).catch(() => {}))
         await run(`subscribe to MQTT topic "${topicReqD}"`, spool, () =>
-            this._subscribeTopic(topicReqD, { qos: 2, ...options }))
-        spool.roll(() => this._unsubscribeTopic(topicReqD).catch(() => {}))
+            this.subscribeTopic(topicReqD, { qos: 2, ...options }))
+        spool.roll(() => this.unsubscribeTopic(topicReqD).catch(() => {}))
         await run(`subscribe to MQTT topic "${topicCreditD}"`, spool, () =>
-            this._subscribeTopic(topicCreditD, { qos: 2, ...options }))
-        spool.roll(() => this._unsubscribeTopic(topicCreditD).catch(() => {}))
+            this.subscribeTopic(topicCreditD, { qos: 2, ...options }))
+        spool.roll(() => this.unsubscribeTopic(topicCreditD).catch(() => {}))
 
         /*  provide a registration for subsequent destruction  */
         return this.makeRegistration(spool, "source", name, `source-fetch-request:${name}`)
@@ -332,7 +332,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         name, creditToGrant, this.options.id, targetId)
                     const encoded = this.codec.encode(creditMsg)
                     const creditTopic = this.options.topicMake(name, "source-fetch-credit", targetId)
-                    this._publishToTopic(creditTopic, encoded, { qos: 2 }).catch((err: Error) => {
+                    this.publishToTopic(creditTopic, encoded, { qos: 2 }).catch((err: Error) => {
                         this.error(err, `sending credit for fetch "${name}" failed`)
                     })
                 }
@@ -426,7 +426,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  publish message to MQTT topic  */
         run(`publish fetch request as MQTT message to topic "${topic}"`, spool, () =>
-            this._publishToTopic(topic, message, { qos: 2, ...options })).catch((err: unknown) => {
+            this.publishToTopic(topic, message, { qos: 2, ...options })).catch((err: unknown) => {
             stream.destroy(ensureError(err))
             spool.unroll()
         })

@@ -124,11 +124,11 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
 
         /*  subscribe to MQTT topics  */
         await run(`subscribe to MQTT topic "${topicB}"`, spool, () =>
-            this._subscribeTopic(topicB, { qos: 2, ...options }))
-        spool.roll(() => this._unsubscribeTopic(topicB).catch(() => {}))
+            this.subscribeTopic(topicB, { qos: 2, ...options }))
+        spool.roll(() => this.unsubscribeTopic(topicB).catch(() => {}))
         await run(`subscribe to MQTT topic "${topicD}"`, spool, () =>
-            this._subscribeTopic(topicD, { qos: 2, ...options }))
-        spool.roll(() => this._unsubscribeTopic(topicD).catch(() => {}))
+            this.subscribeTopic(topicD, { qos: 2, ...options }))
+        spool.roll(() => this.unsubscribeTopic(topicD).catch(() => {}))
 
         /*  provide a registration for subsequent destruction  */
         return this.makeRegistration(spool, "event", name, `event-emission:${name}`)
@@ -210,7 +210,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             return { topic, payload: message, options: { qos: 0, ...options } }
         else
             /*  publish message to MQTT topic  */
-            this._publishToTopic(topic, message, { qos: 0, ...options }).catch((err: Error) => {
+            this.publishToTopic(topic, message, { qos: 0, ...options }).catch((err: Error) => {
                 this.error(err, `emitting event "${event}" failed`)
             })
     }

@@ -39,8 +39,8 @@ import { ensureError }                  from "./mqtt-plus-error"
 
 /*  MQTTp Base class with shared infrastructure  */
 export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
-    protected mqtt: MqttClient
-    private _messageHandler: OnMessageCallback
+    private mqtt: MqttClient
+    private messageHandler: OnMessageCallback
 
     /*  central message callback registries  */
     protected onRequest  = new Map<string, (message: any, topicName: string) => void>()
@@ -78,7 +78,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
 
         /*  hook into the MQTT message processing  */
         this.log("info", "hooking into MQTT client")
-        this._messageHandler = (topic, message, packet) => {
+        this.messageHandler = (topic, message, packet) => {
             /*  convert message to codec-specific input format
                 (NOTICE: MQTT.js uses Buffer in its handler signature only,
                 but internally supports string or Buffer, while we are
@@ -94,7 +94,13 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
                 throw new Error("invalid codec configured")
             this._onMessage(topic, input, packet)
         }
-        this.mqtt.on("message", this._messageHandler)
+        this.mqtt.on("message", this.messageHandler)
+    }
+
+    /*  destroy API class  */
+    async destroy () {
+        this.log("info", "un-hooking from MQTT client")
+        this.mqtt.off("message", this.messageHandler)
     }
 
     /*  create a registration for subsequent destruction  */
@@ -110,14 +116,8 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
         }
     }
 
-    /*  destroy API class  */
-    async destroy () {
-        this.log("info", "un-hooking from MQTT client")
-        this.mqtt.off("message", this._messageHandler)
-    }
-
     /*  subscribe to an MQTT topic (Promise-based)  */
-    protected async _subscribeTopic (topic: string, options: Partial<IClientSubscribeOptions> = {}) {
+    protected async subscribeTopic (topic: string, options: Partial<IClientSubscribeOptions> = {}) {
         this.log("info", `subscribing to MQTT topic "${topic}"`)
         return new Promise<void>((resolve, reject) => {
             this.mqtt.subscribe(topic, { qos: 2, ...options }, (err: Error | null, _granted: any) => {
@@ -132,7 +132,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     }
 
     /*  unsubscribe from an MQTT topic (Promise-based)  */
-    protected async _unsubscribeTopic (topic: string) {
+    protected async unsubscribeTopic (topic: string) {
         this.log("info", `unsubscribing from MQTT topic "${topic}"`)
         return new Promise<void>((resolve, reject) => {
             this.mqtt.unsubscribe(topic, (err?: Error, _packet?: any) => {
@@ -147,7 +147,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     }
 
     /*  publish to an MQTT topic (Promise-based)  */
-    protected async _publishToTopic (
+    protected async publishToTopic (
         topic:   string,
         message: string | Uint8Array,
         options: IClientPublishOptions = {}

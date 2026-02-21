@@ -135,7 +135,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 /*  send response message  */
                 const encoded = this.codec.encode(rpcResponse)
                 const topic = this.options.topicMake(name, "service-call-response", senderId)
-                return this._publishToTopic(topic, encoded, { qos: 2 })
+                return this.publishToTopic(topic, encoded, { qos: 2 })
             }).catch((err: Error) => {
                 this.error(err, `handler for service "${name}" failed`)
             })
@@ -144,11 +144,11 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
         /*  subscribe to MQTT topics  */
         await run(`subscribe to MQTT topic "${topicB}"`, spool, () =>
-            this._subscribeTopic(topicB, { qos: 2, ...options }))
-        spool.roll(() => this._unsubscribeTopic(topicB).catch(() => {}))
+            this.subscribeTopic(topicB, { qos: 2, ...options }))
+        spool.roll(() => this.unsubscribeTopic(topicB).catch(() => {}))
         await run(`subscribe to MQTT topic "${topicD}"`, spool, () =>
-            this._subscribeTopic(topicD, { qos: 2, ...options }))
-        spool.roll(() => this._unsubscribeTopic(topicD).catch(() => {}))
+            this.subscribeTopic(topicD, { qos: 2, ...options }))
+        spool.roll(() => this.unsubscribeTopic(topicD).catch(() => {}))
 
         /*  provide a registration for subsequent destruction  */
         return this.makeRegistration(spool, "service", name, `service-call-request:${name}`)
@@ -245,7 +245,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
         /*  publish message to MQTT topic  */
         await run(`publish service request as MQTT message to topic "${topic}"`, spool, () =>
-            this._publishToTopic(topic, message, { qos: 2, ...options }))
+            this.publishToTopic(topic, message, { qos: 2, ...options }))
 
         return promise
     }
