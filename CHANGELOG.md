@@ -2,6 +2,13 @@
 ChangeLog
 =========
 
+1.4.6 (2026-02-22)
+------------------
+
+- IMPROVEMENT: improve rendering of about information and add chalk for sample code
+- DOCUMENTATION: update sample code
+- DOCUMENTATION: adjust about description
+
 1.4.5 (2026-02-21)
 ------------------
 
