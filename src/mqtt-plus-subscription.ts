@@ -31,9 +31,10 @@ import { BaseTrait }                    from "./mqtt-plus-base"
 
 /*  reference-counted subscription helper  */
 class RefCountedSubscription {
-    private counts  = new Map<string, number>()
-    private pending = new Map<string, Promise<void>>()
-    private lingers = new Map<string, ReturnType<typeof setTimeout>>()
+    private counts    = new Map<string, number>()
+    private pending   = new Map<string, Promise<void>>()
+    private lingers   = new Map<string, ReturnType<typeof setTimeout>>()
+    private unsubbing = new Map<string, Promise<void>>()
     constructor (
         private subscribeFn:   (topic: string, options: IClientSubscribeOptions) => Promise<void>,
         private unsubscribeFn: (topic: string) => Promise<void>,
@@ -57,6 +58,11 @@ class RefCountedSubscription {
 
         /*  if we are the first, we must perform the actual subscription  */
         if (count === 0) {
+            /*  await any in-flight linger unsubscription to avoid a race
+                where the broker processes UNSUBSCRIBE after our SUBSCRIBE  */
+            const inflight = this.unsubbing.get(topic)
+            if (inflight)
+                await inflight
             const promise = this.subscribeFn(topic, options).finally(() => {
                 this.pending.delete(topic)
             }).catch((err: Error) => {
@@ -99,7 +105,10 @@ class RefCountedSubscription {
                     /*  defer the actual broker unsubscription  */
                     const timer = setTimeout(() => {
                         this.lingers.delete(topic)
-                        this.unsubscribeFn(topic).catch(() => {})
+                        const promise = this.unsubscribeFn(topic).catch(() => {}).finally(() => {
+                            this.unsubbing.delete(topic)
+                        })
+                        this.unsubbing.set(topic, promise)
                     }, this.lingerMs)
                     this.lingers.set(topic, timer)
                 }
