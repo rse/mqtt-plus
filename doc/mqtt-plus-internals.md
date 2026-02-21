@@ -57,7 +57,7 @@ message to the temporary (client-specific) MQTT topic
     "type":     "service-call-response",
     "id":       "vwLzfQDu2uEeOdOfIlT42",
     "result":   "world:42",
-    "sender":   "2IBMSk0NPnrz1AeTERoea",
+    "sender":   "7kPQm3xRtYnJw8FvUqE5b",
     "receiver": "2IBMSk0NPnrz1AeTERoea"
 }
 ```
