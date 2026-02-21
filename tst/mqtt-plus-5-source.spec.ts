@@ -121,7 +121,7 @@ describe("MQTT+ Source Fetch", function () {
         expect(meta!["server-version"]).to.be.equal("1.0")
 
         /*  cleanup  */
-        ctx.apiS.meta("server-version", undefined)
+        ctx.apiS.meta("server-version", null)
         await sourcing.destroy()
     })
 })

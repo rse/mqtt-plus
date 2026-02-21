@@ -142,13 +142,12 @@ describe("MQTT+ Miscellaneous", function () {
         })
 
         /*  call service (without token)  */
-        await ctx.apiC.call("example/server/hello", "world", 42).then(async (result) => {
+        await ctx.apiC.call("example/server/hello", "world", 42).then(async (_result) => {
             spy("call1-success")
-        }).catch((err: Error) => {
+        }).catch((_err: Error) => {
             spy("call1-error")
         })
-        expect(spy.getCalls()
-            .map((call) => call.firstArg))
+        expect(spy.getCalls().map((call) => call.firstArg))
             .to.be.deep.equal([ "call1-error" ])
         spy.resetHistory()
 
@@ -156,35 +155,32 @@ describe("MQTT+ Miscellaneous", function () {
         await ctx.apiC.call("example/server/login", userCred).then(async (token) => {
             spy("login-success")
             expect(token).to.be.equal(userToken)
-        }).catch((err: Error) => {
+        }).catch((_err: Error) => {
             spy("login-error")
         })
-        expect(spy.getCalls()
-            .map((call) => call.firstArg))
+        expect(spy.getCalls().map((call) => call.firstArg))
             .to.be.deep.equal([ "login", "login-success" ])
         spy.resetHistory()
 
         /*  call service (with wrong token)  */
         await ctx.apiC.authenticate("wrong")
-        await ctx.apiC.call("example/server/hello", "world", 42).then(async (result) => {
+        await ctx.apiC.call("example/server/hello", "world", 42).then(async (_result) => {
             spy("call2-success")
-        }).catch((err: Error) => {
+        }).catch((_err: Error) => {
             spy("call2-error")
         })
-        expect(spy.getCalls()
-            .map((call) => call.firstArg))
+        expect(spy.getCalls().map((call) => call.firstArg))
             .to.be.deep.equal([ "call2-error" ])
         spy.resetHistory()
 
         /*  call service (with correct token)  */
         await ctx.apiC.authenticate(userToken)
-        await ctx.apiC.call("example/server/hello", "world", 42).then(async (result) => {
+        await ctx.apiC.call("example/server/hello", "world", 42).then(async (_result) => {
             spy("call3-success")
-        }).catch((err: Error) => {
+        }).catch((_err: Error) => {
             spy("call3-error")
         })
-        expect(spy.getCalls()
-            .map((call) => call.firstArg))
+        expect(spy.getCalls().map((call) => call.firstArg))
             .to.be.deep.equal([ "hello", "call3-success" ])
 
         /*  destroy service  */
