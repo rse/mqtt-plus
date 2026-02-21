@@ -25,6 +25,7 @@ stream-based *Source Fetch*.
 These patterns enable structured,
 bi-directional client/server and server/server communication
 on top of [MQTT](http://mqtt.org/)’s inherently uni-directional publish/subscribe model.
+
 The result is a more expressive and maintainable messaging layer
 without sacrificing [MQTT](http://mqtt.org/)’s excellent robustness and
 scalability.
