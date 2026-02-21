@@ -6,9 +6,13 @@ ChangeLog
 ------------------
 
 - IMPROVEMENT: add a "npm start publish" target for convenient publishing
+- IMPROVEMENT: allow QoS to be overridden and change default to level 2
+- BUGFIX: properly destroy resources on cleanup
 - CLEANUP: factor out registration code into base trait
-- CLEANUP: rename internal symbols
+- CLEANUP: use ensureError utility function for consistent error handling
+- CLEANUP: rename and protect internal symbols and reduce unnecessary typing
 - CLEANUP: avoid a race condition in topic unsubscription handling
+- CLEANUP: improve about information
 
 1.4.4 (2026-02-21)
 ------------------
