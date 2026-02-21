@@ -166,6 +166,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 await this._publishToTopic(responseTopic, message, { qos: 2 })
             }
 
+            /*  utility functions for timeout management  */
+            const refreshSourceTimeout = () => this._refreshSourceTimer(requestId)
+            const clearSourceTimeout   = () => this._clearSourceTimer(requestId)
+            refreshSourceTimeout()
+
             /*  callback for creating and sending a chunk message  */
             const sendChunk = async (chunk: Uint8Array | undefined, error: string | undefined, final: boolean): Promise<void> => {
                 refreshSourceTimeout()
@@ -174,11 +179,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const message = this.codec.encode(chunkMsg)
                 await this._publishToTopic(chunkTopic, message, { qos: 2 })
             }
-
-            /*  utility functions for timeout management  */
-            const refreshSourceTimeout = () => this._refreshSourceTimer(requestId)
-            const clearSourceTimeout   = () => this._clearSourceTimer(requestId)
-            refreshSourceTimeout()
 
             /*  handle credit-based flow control (if credit provided in request)  */
             const initialCredit = response.credit
