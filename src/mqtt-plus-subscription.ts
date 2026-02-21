@@ -108,7 +108,7 @@ class RefCountedSubscription {
     }
 }
 
-/*  Topic trait with shared subscription management  */
+/*  Subscription trait with shared MQTT subscription management  */
 export class SubscriptionTrait<T extends APISchema = APISchema> extends BaseTrait<T> {
     protected subscriptions = new RefCountedSubscription(
         (topic, options) => this._subscribeTopic(topic, options),

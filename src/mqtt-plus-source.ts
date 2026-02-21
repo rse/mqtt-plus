@@ -45,8 +45,8 @@ import type { AuthOption }                                from "./mqtt-plus-auth
 /*  Source Fetch Trait  */
 export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
     /*  source state  */
-    private sourceCreditGates      = new Map<string, CreditGate>()
-    private sourceTimers           = new Map<string, ReturnType<typeof setTimeout>>()
+    private sourceCreditGates = new Map<string, CreditGate>()
+    private sourceTimers      = new Map<string, ReturnType<typeof setTimeout>>()
 
     /*  refresh source timer for a specific request  */
     private _refreshSourceTimer (requestId: string) {
