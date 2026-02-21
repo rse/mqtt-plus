@@ -5,6 +5,7 @@ ChangeLog
 1.4.2 (2026-02-21)
 ------------------
 
+- DOCUMENTATION: add architecture overview
 - CLEANUP: cleanup documentation
 - CLEANUP: simplify internal message handling
 - CLEANUP: simplify internal MQTT topic subscription handling
