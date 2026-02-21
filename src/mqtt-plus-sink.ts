@@ -34,7 +34,7 @@ import { nanoid }                                         from "nanoid"
 import { CreditGate,
     streamToBuffer, sendBufferAsChunks,
     sendStreamAsChunks, makeMutuallyExclusiveFields }     from "./mqtt-plus-util"
-import { run, Spool }                                     from "./mqtt-plus-error"
+import { run, Spool, ensureError }                        from "./mqtt-plus-error"
 import type { SinkPushRequest, SinkPushResponse,
     SinkPushChunk, SinkPushCredit }                       from "./mqtt-plus-msg"
 import type { APISchema, SinkKeys, Registration }         from "./mqtt-plus-api"
@@ -448,7 +448,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
         }
         catch (err: unknown) {
-            const error = err instanceof Error ? err.message : String(err)
+            const error = ensureError(err).message
             const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
             const chunkMsg = this.msg.makeSinkPushChunk(requestId,
                 name, undefined, error, true, this.options.id, receiver)
