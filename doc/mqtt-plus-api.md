@@ -1,8 +1,6 @@
 
-Application Programming Interface
-=================================
-
-The **MQTT+** API provides the following functionalities:
+MQTT+ Application Programming Interface
+=======================================
 
 Construction
 ------------
