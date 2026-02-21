@@ -119,6 +119,82 @@ describe("MQTT+ Library", function () {
         expect(apiC).to.respondTo("push")
     })
 
+    /*  test case: Encoding Utilities  */
+    it("MQTT+ Encoding Utilities", async function () {
+        /*  str2buf / buf2str  */
+        const str = "hello world \u00e4\u00f6\u00fc"
+        const buf = apiC.str2buf(str)
+        expect(buf).to.be.instanceOf(Uint8Array)
+        expect(apiC.buf2str(buf)).to.be.equal(str)
+
+        /*  arr2buf / buf2arr  */
+        const u8 = new Uint8Array([ 4, 5, 6 ])
+        expect(apiC.arr2buf(u8)).to.be.equal(u8)
+        const u8src = new Uint8Array([ 7, 8, 9 ])
+        const u8Result = apiC.buf2arr(u8src, Uint8Array)
+        expect(u8Result).to.be.equal(u8src)
+    })
+
+    /*  test case: Log and Error Events  */
+    it("MQTT+ Logging Events", async function () {
+        this.timeout(1000)
+        const logEntries: string[] = []
+        const errors:     Error[]  = []
+
+        /*  create a temporary instance  */
+        const mqttTmp = MQTT.connect("mqtt://127.0.0.1:1883",
+            { clientId: "log-test" })
+        await new Promise<void>((resolve, reject) => {
+            mqttTmp.once("connect", ()           => { resolve() })
+            mqttTmp.once("error",   (err: Error) => { reject(err) })
+        })
+        const apiTmp = new MQTTp<API>(mqttTmp, { id: "log-test", timeout: 1000 })
+
+        /*  register log listener  */
+        const logCb = (entry: any) => { logEntries.push(entry.level) }
+        apiTmp.on("log", logCb)
+
+        /*  register error listener  */
+        const errCb = (err: Error) => { errors.push(err) }
+        apiTmp.on("error", errCb)
+
+        /*  trigger some log activity by emitting an event  */
+        apiTmp.emit("example/server/sample", "test", 1)
+        await new Promise((resolve) => { setTimeout(resolve, 100) })
+
+        /*  verify log entries were captured  */
+        expect(logEntries.length).to.be.greaterThan(0)
+
+        /*  remove listeners  */
+        apiTmp.off("log",   logCb)
+        apiTmp.off("error", errCb)
+
+        /*  cleanup  */
+        apiTmp.destroy()
+        await mqttTmp.endAsync()
+    })
+
+    /*  test case: Meta Information  */
+    it("MQTT+ Meta Information", async function () {
+        /*  initially empty  */
+        expect(apiC.meta("foo")).to.be.equal(undefined)
+
+        /*  set and retrieve  */
+        apiC.meta("foo", "bar")
+        expect(apiC.meta("foo")).to.be.equal("bar")
+        apiC.meta("baz", 42)
+        expect(apiC.meta("baz")).to.be.equal(42)
+
+        /*  overwrite  */
+        apiC.meta("foo", "quux")
+        expect(apiC.meta("foo")).to.be.equal("quux")
+
+        /*  delete  */
+        apiC.meta("foo", null)
+        expect(apiC.meta("foo")).to.be.equal(undefined)
+        expect(apiC.meta("baz")).to.be.equal(42)
+    })
+
     /*  test case: Event Emission  */
     it("MQTT+ Event Emission", async function () {
         /*  setup  */
@@ -126,8 +202,10 @@ describe("MQTT+ Library", function () {
         const spy = sinon.spy()
 
         /*  register to event  */
-        const registration = await apiS.event("example/server/sample", (str: string, num: number) => {
+        const registration = await apiS.event("example/server/sample", (str: string, num: number, info) => {
             spy("event")
+            expect(info).to.be.an("object")
+            expect(info.sender).to.be.a("string")
         })
 
         /*  emit event  */
@@ -138,6 +216,90 @@ describe("MQTT+ Library", function () {
 
         /*  destroy registration  */
         await registration.destroy()
+    })
+
+    /*  test case: Event Emission (Object API)  */
+    it("MQTT+ Event Emission (Object API)", async function () {
+        /*  setup  */
+        this.timeout(1000)
+        const spy = sinon.spy()
+
+        /*  register event  */
+        const registration = await apiS.event({
+            name: "example/server/sample",
+            callback: (str: string, num: number, info) => {
+                spy("event")
+                expect(info).to.be.an("object")
+                expect(info.sender).to.be.a("string")
+            }
+        })
+
+        /*  emit event  */
+        apiC.emit({
+            event:  "example/server/sample",
+            params: [ "world", 42 ]
+        })
+        await new Promise((resolve) => { setTimeout(resolve, 10) })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.deep.equal([ "event" ])
+
+        /*  destroy registration  */
+        await registration.destroy()
+    })
+
+    /*  test case: Event Emission with Meta Information  */
+    it("MQTT+ Event Emission (Meta Information)", async function () {
+        /*  setup  */
+        this.timeout(1000)
+        const spy = sinon.spy()
+
+        /*  register event  */
+        const registration = await apiS.event({
+            name: "example/server/sample",
+            callback: (str: string, num: number, info) => {
+                spy("event")
+                expect(info.meta).to.be.an("object")
+                expect(info.meta!.tag).to.be.equal("test-meta")
+            }
+        })
+
+        /*  emit event with metadata  */
+        apiC.emit({
+            event:  "example/server/sample",
+            params: [ "world", 42 ],
+            meta:   { tag: "test-meta" }
+        })
+        await new Promise((resolve) => { setTimeout(resolve, 10) })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.deep.equal([ "event" ])
+
+        /*  destroy registration  */
+        await registration.destroy()
+    })
+
+    /*  test case: Event Emission (Duplicate Registration)  */
+    it("MQTT+ Event Emission (Duplicate Registration)", async function () {
+        /*  setup  */
+        this.timeout(1000)
+
+        /*  register event  */
+        const reg = await apiS.event("example/server/sample", () => {})
+
+        /*  attempt duplicate registration  */
+        try {
+            await apiS.event("example/server/sample", () => {})
+            expect.fail("should have thrown")
+        }
+        catch (err: any) {
+            expect(err.message).to.match(/already registered/)
+        }
+
+        /*  cleanup  */
+        await reg.destroy()
+
+        /*  verify re-registration after destroy works  */
+        const reg2 = await apiS.event("example/server/sample", () => {})
+        await reg2.destroy()
     })
 
     /*  test case: Service Call  */
@@ -181,8 +343,183 @@ describe("MQTT+ Library", function () {
         await registration.destroy()
     })
 
-    /*  test case: Sink Push  */
-    it("MQTT+ Sink Push", async function () {
+    /*  test case: Service Call (Object API)  */
+    it("MQTT+ Service Call (Object API)", async function () {
+        /*  setup  */
+        this.timeout(1000)
+        const spy = sinon.spy()
+
+        /*  provide service  */
+        const registration = await apiS.service({
+            name: "example/server/hello",
+            callback: (str: string, num: number) => {
+                spy("service")
+                return `${str}:${num}`
+            }
+        })
+
+        /*  call service  */
+        const result = await apiC.call({
+            name:   "example/server/hello",
+            params: [ "world", 42 ]
+        })
+        spy("call-success")
+        expect(result).to.be.equal("world:42")
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.deep.equal([ "service", "call-success" ])
+
+        /*  destroy service  */
+        await registration.destroy()
+    })
+
+    /*  test case: Service Call (Meta Information)  */
+    it("MQTT+ Service Call (Meta Information)", async function () {
+        /*  setup  */
+        this.timeout(1000)
+        const spy = sinon.spy()
+
+        /*  provide service that checks metadata  */
+        const registration = await apiS.service({
+            name: "example/server/hello",
+            callback: (str: string, num: number, info) => {
+                spy("service")
+                expect(info.meta).to.be.an("object")
+                expect(info.meta!.request_tag).to.be.equal("my-tag")
+                return `${str}:${num}`
+            }
+        })
+
+        /*  call service with metadata  */
+        const result = await apiC.call({
+            name:   "example/server/hello",
+            params: [ "world", 42 ],
+            meta:   { request_tag: "my-tag" }
+        })
+        spy("call-success")
+        expect(result).to.be.equal("world:42")
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.deep.equal([ "service", "call-success" ])
+
+        /*  destroy service  */
+        await registration.destroy()
+    })
+
+    /*  test case: Service Call (Timeout)  */
+    it("MQTT+ Service Call (Timeout)", async function () {
+        /*  setup (higher timeout for this test)  */
+        this.timeout(2000)
+        const spy = sinon.spy()
+
+        /*  call non-existing service (should timeout)  */
+        await apiC.call("example/server/hello", "world", 42).then(async (result) => {
+            spy("call-success")
+        }).catch((err: Error) => {
+            spy("call-timeout")
+            expect(err.message).to.be.equal("communication timeout")
+        })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.deep.equal([ "call-timeout" ])
+    })
+
+    /*  test case: Service Call (Direct Receiver)  */
+    it("MQTT+ Service Call (Direct Receiver)", async function () {
+        /*  setup  */
+        this.timeout(1000)
+        const spy = sinon.spy()
+
+        /*  provide service on server  */
+        const registration = await apiS.service("example/server/hello", (str: string, num: number, info) => {
+            spy("service")
+            expect(info.receiver).to.be.equal("server")
+            return `${str}:${num}`
+        })
+
+        /*  call service targeting specific receiver  */
+        const result = await apiC.call({
+            name:     "example/server/hello",
+            params:   [ "world", 42 ],
+            receiver: "server"
+        })
+        spy("call-success")
+        expect(result).to.be.equal("world:42")
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.deep.equal([ "service", "call-success" ])
+
+        /*  destroy service  */
+        await registration.destroy()
+    })
+
+    /*  test case: Service Call (Async Handler)  */
+    it("MQTT+ Service Call (Async Handler)", async function () {
+        /*  setup  */
+        this.timeout(1000)
+        const spy = sinon.spy()
+
+        /*  provide async service  */
+        const registration = await apiS.service("example/server/login", async (password: string) => {
+            spy("service")
+            await new Promise((resolve) => { setTimeout(resolve, 50) })
+            if (password !== "secret")
+                throw new Error("invalid password")
+            return "token-abc"
+        })
+
+        /*  call service successfully  */
+        const token = await apiC.call("example/server/login", "secret")
+        spy("call-success")
+        expect(token).to.be.equal("token-abc")
+
+        /*  call service with error  */
+        await apiC.call("example/server/login", "wrong").then(() => {
+            spy("call2-success")
+        }).catch((err: Error) => {
+            spy("call2-error")
+            expect(err.message).to.be.equal("invalid password")
+        })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.deep.equal([ "service", "call-success", "service", "call2-error" ])
+
+        /*  destroy service  */
+        await registration.destroy()
+    })
+
+    /*  test case: Sink Push (Buffer)  */
+    it("MQTT+ Sink Push (Buffer)", async function () {
+        this.timeout(2000)
+        const spy = sinon.spy()
+
+        /*  generate random data  */
+        const data = Buffer.from(crypto.randomBytes(8 * 1024))
+
+        /*  establish sink consuming via buffer  */
+        const sinking = await apiS.sink("example/server/upload", (name: string, info) => {
+            spy("sink")
+            expect(name).to.be.equal("foo")
+            expect(info).to.be.an("object")
+
+            /*  consume via buffer (instead of stream)  */
+            info.buffer!.then((buf: Uint8Array) => {
+                spy("buffer")
+                expect(Buffer.from(buf)).to.deep.equal(data)
+            })
+        })
+
+        /*  push a buffer (instead of a stream)  */
+        await apiC.push("example/server/upload", new Uint8Array(data), "foo").then(() => {
+            spy("push-success")
+        }).catch((err: Error) => {
+            spy("push-error")
+        })
+        await new Promise((resolve) => { setTimeout(resolve, 1000) })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.same.deep.members([ "sink", "push-success", "buffer" ])
+
+        /*  destroy sink  */
+        await sinking.destroy()
+    })
+
+    /*  test case: Sink Push (Stream)  */
+    it("MQTT+ Sink Push (Stream)", async function () {
         /*  setup  */
         this.timeout(2000)
         const spy = sinon.spy()
@@ -228,8 +565,8 @@ describe("MQTT+ Library", function () {
         await sinking.destroy()
     })
 
-    /*  test case: Source Fetch  */
-    it("MQTT+ Source Fetch", async function () {
+    /*  test case: Source Fetch (Buffer)  */
+    it("MQTT+ Source Fetch (Buffer)", async function () {
         this.timeout(3000)
 
         /*  establish source  */
@@ -262,6 +599,58 @@ describe("MQTT+ Library", function () {
 
         await sourcing.destroy()
     })
+
+    /*  test case: Source Fetch (Stream)  */
+    it("MQTT+ Source Fetch (Stream)", async function () {
+        this.timeout(3000)
+
+        /*  establish source providing data via stream  */
+        const sourcing = await apiS.source("example/server/download", async (filename, info) => {
+            if (filename === "streamed") {
+                const readable = new stream.Readable({ read () {} })
+                readable.push(Buffer.from("chunk1-"))
+                readable.push(Buffer.from("chunk2"))
+                readable.push(null)
+                info.stream = readable
+            }
+            else
+                throw new Error("invalid source")
+        })
+
+        /*  fetch source and consume via stream  */
+        const result = await apiC.fetch("example/server/download", "streamed")
+        const chunks: Buffer[] = []
+        result.stream.on("data", (chunk: Buffer) => { chunks.push(chunk) })
+        await new Promise<void>((resolve) => { result.stream.on("end", resolve) })
+        const combined = Buffer.concat(chunks).toString()
+        expect(combined).to.be.equal("chunk1-chunk2")
+
+        await sourcing.destroy()
+    })
+
+    /*  test case: Source Fetch (Meta Information)  */
+    it("MQTT+ Source Fetch (Meta Information)", async function () {
+        this.timeout(1000)
+
+        /*  set instance-level meta on server  */
+        apiS.meta("server-version", "1.0")
+
+        /*  establish source  */
+        const sourcing = await apiS.source("example/server/download", async (filename, info) => {
+            info.buffer = Promise.resolve(Buffer.from("data"))
+        })
+
+        /*  fetch and check meta  */
+        const result = await apiC.fetch("example/server/download", "foo")
+        const meta = await result.meta
+        expect(meta).to.be.an("object")
+        expect(meta!["server-version"]).to.be.equal("1.0")
+
+        /*  cleanup  */
+        apiS.meta("server-version", undefined)
+        await sourcing.destroy()
+    })
+
 
     /*  test case: Dry-Run & Last-Will */
     it("MQTT+ Dry-Run & MQTT Last-Will", async function () {
