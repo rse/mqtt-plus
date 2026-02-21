@@ -23,14 +23,14 @@
 */
 
 /*  external requirements  */
-import { SignJWT }   from "jose/jwt/sign"
-import { jwtVerify } from "jose/jwt/verify"
-import * as pbkdf2   from "@stablelib/pbkdf2"
-import * as sha256   from "@stablelib/sha256"
+import { SignJWT }         from "jose/jwt/sign"
+import { jwtVerify }       from "jose/jwt/verify"
+import * as pbkdf2         from "@stablelib/pbkdf2"
+import * as sha256         from "@stablelib/sha256"
 
 /*  internal requirements  */
 import type { APISchema }  from "./mqtt-plus-api"
-import { MetaTrait }  from "./mqtt-plus-meta"
+import { MetaTrait }       from "./mqtt-plus-meta"
 
 /*  type of the "auth" options  */
 export type AuthMode   = "require" | "optional"

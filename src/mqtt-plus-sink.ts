@@ -23,23 +23,23 @@
 */
 
 /*  built-in requirements  */
-import { Readable }                                               from "node:stream"
+import { Readable }                                       from "node:stream"
 
 /*  external requirements  */
-import { IClientPublishOptions, IClientSubscribeOptions }         from "mqtt"
-import { nanoid }                                                 from "nanoid"
+import { IClientPublishOptions, IClientSubscribeOptions } from "mqtt"
+import { nanoid }                                         from "nanoid"
 
 /*  internal requirements  */
 import { CreditGate, RefCountedSubscription,
     streamToBuffer, sendBufferAsChunks,
-    sendStreamAsChunks, makeMutuallyExclusiveFields }             from "./mqtt-plus-util"
-import { run, Spool }                                             from "./mqtt-plus-error"
+    sendStreamAsChunks, makeMutuallyExclusiveFields }     from "./mqtt-plus-util"
+import { run, Spool }                                     from "./mqtt-plus-error"
 import { SinkPushRequest, SinkPushResponse,
-    SinkPushChunk, SinkPushCredit }                               from "./mqtt-plus-msg"
-import type { APISchema, SinkKeys, Registration }                      from "./mqtt-plus-api"
-import type { WithInfo, InfoSink }                                from "./mqtt-plus-info"
-import { SourceTrait }                                            from "./mqtt-plus-source"
-import type { AuthOption }                                        from "./mqtt-plus-auth"
+    SinkPushChunk, SinkPushCredit }                       from "./mqtt-plus-msg"
+import type { APISchema, SinkKeys, Registration }         from "./mqtt-plus-api"
+import type { WithInfo, InfoSink }                        from "./mqtt-plus-info"
+import { SourceTrait }                                    from "./mqtt-plus-source"
+import type { AuthOption }                                from "./mqtt-plus-auth"
 
 /*  Sink Push Trait  */
 export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {

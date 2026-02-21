@@ -23,12 +23,12 @@
 */
 
 /*  built-in requirements  */
-import { EventEmitter }  from "node:events"
+import { EventEmitter }   from "node:events"
 
 /*  internal requirements  */
-import type { APISchema }     from "./mqtt-plus-api"
-import { MsgTrait }      from "./mqtt-plus-msg"
-import { JSONX }         from "./mqtt-plus-codec"
+import type { APISchema } from "./mqtt-plus-api"
+import { MsgTrait }       from "./mqtt-plus-msg"
+import { JSONX }          from "./mqtt-plus-codec"
 
 /*  type of log events  */
 class LogEvent {

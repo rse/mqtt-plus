@@ -23,17 +23,17 @@
 */
 
 /*  external requirements  */
-import PLazy                                 from "p-lazy"
+import PLazy                 from "p-lazy"
 import { MqttClient,
     type OnMessageCallback,
     IClientSubscribeOptions,
     IClientPublishOptions,
-    IPublishPacket }                         from "mqtt"
+    IPublishPacket }         from "mqtt"
 
 /*  internal requirements  */
-import type { APISchema }                         from "./mqtt-plus-api"
-import type { APIOptions }                        from "./mqtt-plus-options"
-import { TraceTrait }                        from "./mqtt-plus-trace"
+import type { APISchema }    from "./mqtt-plus-api"
+import type { APIOptions }   from "./mqtt-plus-options"
+import { TraceTrait }        from "./mqtt-plus-trace"
 
 /*  MQTTp Base class with shared infrastructure  */
 export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {

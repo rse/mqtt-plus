@@ -23,8 +23,8 @@
 */
 
 /*  external requirements  */
-import { Buffer }                    from "node:buffer"
-import * as CBOR                     from "cbor2"
+import { Buffer }                         from "node:buffer"
+import * as CBOR                          from "cbor2"
 
 /*  internal requirements  */
 import type { APISchema }                 from "./mqtt-plus-api"

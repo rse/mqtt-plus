@@ -23,7 +23,7 @@
 */
 
 /*  external requirements  */
-import { nanoid }      from "nanoid"
+import { nanoid }           from "nanoid"
 
 /*  internal requirements  */
 import type { APISchema }   from "./mqtt-plus-api"

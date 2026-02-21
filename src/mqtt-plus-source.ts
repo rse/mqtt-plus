@@ -23,23 +23,23 @@
 */
 
 /*  built-in requirements  */
-import { Readable }                                               from "node:stream"
+import { Readable }                                       from "node:stream"
 
 /*  external requirements  */
-import { IClientPublishOptions, IClientSubscribeOptions }         from "mqtt"
-import { nanoid }                                                 from "nanoid"
+import { IClientPublishOptions, IClientSubscribeOptions } from "mqtt"
+import { nanoid }                                         from "nanoid"
 
 /*  internal requirements  */
 import { CreditGate, RefCountedSubscription,
     streamToBuffer, sendBufferAsChunks,
-    sendStreamAsChunks, makeMutuallyExclusiveFields }             from "./mqtt-plus-util"
-import { run, Spool, ensureError }                                from "./mqtt-plus-error"
+    sendStreamAsChunks, makeMutuallyExclusiveFields }     from "./mqtt-plus-util"
+import { run, Spool, ensureError }                        from "./mqtt-plus-error"
 import { SourceFetchRequest, SourceFetchResponse,
-    SourceFetchChunk, SourceFetchCredit }                         from "./mqtt-plus-msg"
-import type { APISchema, SourceKeys, Registration }                    from "./mqtt-plus-api"
-import type { WithInfo, InfoSource }                              from "./mqtt-plus-info"
-import { ServiceTrait }                                           from "./mqtt-plus-service"
-import type { AuthOption }                                        from "./mqtt-plus-auth"
+    SourceFetchChunk, SourceFetchCredit }                 from "./mqtt-plus-msg"
+import type { APISchema, SourceKeys, Registration }       from "./mqtt-plus-api"
+import type { WithInfo, InfoSource }                      from "./mqtt-plus-info"
+import { ServiceTrait }                                   from "./mqtt-plus-service"
+import type { AuthOption }                                from "./mqtt-plus-auth"
 
 /*  Source Fetch Trait  */
 export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
