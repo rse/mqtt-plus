@@ -69,8 +69,8 @@ mqtt.on("connect", async () => {
 
     /*  streaming (sink push)  */
     const sink = await mqttp.sink("example/upload", (name, info) => {
-        if (!info.stream || !info.buffer)
-            throw new Error("only sink push supported")
+        if (!info.stream)
+            throw new Error("stream not available")
         console.log("example/upload: received:", name, "from:", info.sender)
         const x = fs.createWriteStream("x.txt")
         info.stream.pipe(x)
