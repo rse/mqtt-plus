@@ -1,0 +1,139 @@
+
+classes: {
+    entry: {
+        style: {
+            fill:       "#333333"
+            stroke:     "#111111"
+            font-color: "#ffffff"
+            bold:       true
+        }
+    }
+    api: {
+        style: {
+            fill:       "#ffe0c9"
+            stroke:     "#cfb098"
+        }
+    }
+    infra: {
+        style: {
+            fill:       "#d0e0ef"
+            stroke:     "#99ccff"
+        }
+    }
+    base: {
+        style: {
+            fill:       "#f0f0f0"
+            stroke:     "#c0c0c0"
+        }
+    }
+}
+
+#   main entry point
+main:      "mqtt-plus"              { class: entry }
+
+#   authentication & API traits
+auth:      "mqtt-plus-auth"         { class: api }
+event:     "mqtt-plus-event"        { class: api }
+service:   "mqtt-plus-service"      { class: api }
+source:    "mqtt-plus-source"       { class: api }
+sink:      "mqtt-plus-sink"         { class: api }
+
+#   configuration & encoding layer
+options:   "mqtt-plus-options"      { class: infra }
+codec:     "mqtt-plus-codec"        { class: infra }
+encode:    "mqtt-plus-encode"       { class: infra }
+msg:       "mqtt-plus-msg"          { class: infra }
+trace:     "mqtt-plus-trace"        { class: infra }
+base:      "mqtt-plus-base"         { class: infra }
+sub:       "mqtt-plus-subscription" { class: infra }
+timer:     "mqtt-plus-timer"        { class: infra }
+meta:      "mqtt-plus-meta"         { class: infra }
+
+#   base/utility layer (no local imports)
+api:       "mqtt-plus-api"          { class: base }
+error:     "mqtt-plus-error"        { class: base }
+info:      "mqtt-plus-info"         { class: base }
+util:      "mqtt-plus-util"         { class: base }
+version:   "mqtt-plus-version"      { class: base }
+
+#   options depends on
+options    -> api
+
+#   codec depends on
+codec      -> api
+codec      -> options
+
+#   encode depends on
+encode     -> api
+encode     -> codec
+
+#   msg depends on
+msg        -> api
+msg        -> encode
+msg        -> version
+
+#   trace depends on
+trace      -> api
+trace      -> msg
+trace      -> codec
+
+#   base depends on
+base       -> api
+base       -> options
+base       -> trace
+base       -> error
+
+#   subscription depends on
+sub        -> api
+sub        -> base
+
+#   timer depends on
+timer      -> api
+timer      -> sub
+
+#   meta depends on
+meta       -> api
+meta       -> timer
+
+#   auth depends on
+auth       -> api
+auth       -> meta
+
+#   event depends on
+event      -> api
+event      -> info
+event      -> msg
+event      -> auth
+event      -> error
+
+#   service depends on
+service    -> api
+service    -> info
+service    -> msg
+service    -> event
+service    -> auth
+service    -> error
+
+#   source depends on
+source     -> api
+source     -> info
+source     -> msg
+source     -> service
+source     -> auth
+source     -> util
+source     -> error
+
+#   sink depends on
+sink       -> api
+sink       -> info
+sink       -> msg
+sink       -> source
+sink       -> auth
+sink       -> util
+sink       -> error
+
+#   main entry point depends on
+main       -> api
+main       -> info
+main       -> version
+main       -> sink
