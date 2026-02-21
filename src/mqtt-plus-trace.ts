@@ -84,7 +84,7 @@ class LogEvent {
 /*  Trace trait with event emitter and logging functionality  */
 export class TraceTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
     /*  internal state  */
-    private _events: EventEmitter = new EventEmitter()
+    private _events = new EventEmitter()
 
     /*  inline base event EventEmitter functionality
         (NOTICE: we cannot inherit from EventEmitter as its

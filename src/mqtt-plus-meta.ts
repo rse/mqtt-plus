@@ -29,7 +29,7 @@ import { TimerTrait }         from "./mqtt-plus-timer"
 /*  Meta trait with meta information management  */
 export class MetaTrait<T extends APISchema = APISchema> extends TimerTrait<T> {
     /*  internal state  */
-    private _meta: Map<string, any> = new Map()
+    private _meta = new Map<string, any>()
 
     /*  set/delete/retrieve meta information  */
     meta (): Record<string, any>
