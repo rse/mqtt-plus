@@ -56,6 +56,7 @@ const ACL = textframe(`
     topic   write     example/server/+/source-fetch-request/+
     pattern read      example/server/+/source-fetch-response/%c
     pattern read      example/server/+/source-fetch-chunk/%c
+    topic   write     example/server/+/source-fetch-credit/+
 
     topic   read      example/client/+/source-fetch-request/any
     pattern read      example/client/+/source-fetch-request/%c
@@ -72,6 +73,7 @@ const ACL = textframe(`
     pattern read      example/client/+/sink-push-request/%c
     pattern write     example/client/+/sink-push-response/%c
     pattern read      example/client/+/sink-push-chunk/%c
+    pattern read      example/client/+/sink-push-credit/%c
 
     #   ==== server/authenticated ACL ====
 
@@ -105,6 +107,8 @@ const ACL = textframe(`
     pattern read      $share/server/example/server/+/source-fetch-request/%c
     topic   write     example/server/+/source-fetch-response/+
     topic   write     example/server/+/source-fetch-chunk/+
+    pattern read      example/server/+/source-fetch-credit/%c
+    pattern read      $share/server/example/server/+/source-fetch-credit/%c
 
     topic   write     example/client/+/source-fetch-request/+
     pattern read      example/client/+/source-fetch-response/%c
@@ -119,6 +123,7 @@ const ACL = textframe(`
     topic   write     example/server/+/sink-push-response/+
     pattern read      example/server/+/sink-push-chunk/%c
     pattern read      $share/default/example/server/+/sink-push-chunk/%c
+    topic   write     example/client/+/sink-push-credit/+
 
     topic   write     example/client/+/sink-push-request/+
     pattern read      example/client/+/sink-push-response/%c
