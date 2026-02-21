@@ -76,7 +76,16 @@ class RefCountedSubscription {
             /*  perhaps still need to wait for a pending subscription  */
             const pending = this.pending.get(topic)
             if (pending)
-                return pending
+                return pending.catch((err: Error) => {
+                    const count = this.counts.get(topic)
+                    if (count) {
+                        if (count <= 1)
+                            this.counts.delete(topic)
+                        else
+                            this.counts.set(topic, count - 1)
+                    }
+                    throw err
+                })
         }
     }
 
