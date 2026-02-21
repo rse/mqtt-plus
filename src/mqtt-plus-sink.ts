@@ -144,22 +144,22 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const topicChunkD = this.options.topicMake(name,   "sink-push-chunk",   this.options.id)
 
         /*  remember the registration  */
-        this.sinks.set(name, (response: SinkPushRequest, topicName: string) => {
-            if (topicName !== response.name)
-                throw new Error(`sink name mismatch between topic "${topicName}" and payload "${response.name}"`)
+        this.sinks.set(name, (request: SinkPushRequest, topicName: string) => {
+            if (topicName !== request.name)
+                throw new Error(`sink name mismatch between topic "${topicName}" and payload "${request.name}"`)
 
             /*  determine information  */
-            const requestId = response.id
-            const params    = response.params ?? []
-            const sender    = response.sender
+            const requestId = request.id
+            const params    = request.params ?? []
+            const sender    = request.sender
             if (sender === undefined || sender === "")
                 throw new Error("invalid request: missing sender")
-            const receiver  = response.receiver
+            const receiver  = request.receiver
             const info: InfoSink = { sender }
             if (receiver)
                 info.receiver = receiver
-            if (response.meta)
-                info.meta = response.meta
+            if (request.meta)
+                info.meta = request.meta
 
             /*  generate corresponding MQTT topic for response  */
             const responseTopic = this.options.topicMake(name, "sink-push-response", sender)
@@ -184,7 +184,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  check authentication and prepare stream  */
             Promise.resolve().then(async () => {
                 if (auth)
-                    info.authenticated = await this.authenticated(response.sender, response.auth, auth)
+                    info.authenticated = await this.authenticated(request.sender, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`sink "${name}" failed authentication`)
 
@@ -490,9 +490,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     }
 
     /*  dispatch incoming MQTT message  */
-    protected override async _dispatchMessage (topic: string, response: any) {
+    protected override async _dispatchMessage (topic: string, message: any) {
         /*  forward dispatching to other traits  */
-        await super._dispatchMessage(topic, response)
+        await super._dispatchMessage(topic, message)
 
         /*  match the MQTT topic  */
         const topicMatch = this.options.topicMatch(topic)
@@ -500,37 +500,37 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  handle sink push request (on server-side)  */
         if (topicMatch !== null
             && topicMatch.operation === "sink-push-request"
-            && response instanceof SinkPushRequest) {
-            const handler = this.sinks.get(response.name)
+            && message instanceof SinkPushRequest) {
+            const handler = this.sinks.get(message.name)
             if (handler !== undefined)
-                handler(response, topicMatch.name)
+                handler(message, topicMatch.name)
         }
 
         /*  handle sink push response (on client-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "sink-push-response"
-            && response instanceof SinkPushResponse) {
-            const handler = this.pushResponseCallbacks.get(response.id)
+            && message instanceof SinkPushResponse) {
+            const handler = this.pushResponseCallbacks.get(message.id)
             if (handler !== undefined)
-                handler(response)
+                handler(message)
         }
 
         /*  handle sink push chunk (on server-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "sink-push-chunk"
-            && response instanceof SinkPushChunk) {
-            const handler = this.pushChunkCallbacks.get(response.id)
+            && message instanceof SinkPushChunk) {
+            const handler = this.pushChunkCallbacks.get(message.id)
             if (handler !== undefined)
-                handler(response, topicMatch.name)
+                handler(message, topicMatch.name)
         }
 
         /*  handle sink push credit (on client-side)  */
         else if (topicMatch !== null
             && topicMatch.operation === "sink-push-credit"
-            && response instanceof SinkPushCredit) {
-            const handler = this.pushCreditCallbacks.get(response.id)
+            && message instanceof SinkPushCredit) {
+            const handler = this.pushCreditCallbacks.get(message.id)
             if (handler !== undefined)
-                handler(response)
+                handler(message)
         }
     }
 }
