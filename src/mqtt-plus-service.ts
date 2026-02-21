@@ -48,6 +48,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         (topic)          => this._unsubscribeTopic(topic)
     )
 
+    /*  destroy service trait  */
+    override destroy () {
+        super.destroy()
+        this.callSubscriptions.flush()
+    }
+
     /*  register a service call handler  */
     async service<K extends ServiceKeys<T> & string> (
         name:     K,

@@ -77,6 +77,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         }
     }
 
+    /*  destroy source trait  */
+    override destroy () {
+        super.destroy()
+        this.fetchSubscriptions.flush()
+    }
+
     /*  establish a source (for fetch requests)  */
     async source<K extends SourceKeys<T> & string> (
         name:     K,

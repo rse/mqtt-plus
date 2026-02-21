@@ -56,6 +56,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         (topic)          => this._unsubscribeTopic(topic)
     )
 
+    /*  destroy sink trait  */
+    override destroy () {
+        super.destroy()
+        this.pushSubscriptions.flush()
+    }
+
     /*  refresh push timer for a specific request  */
     private _refreshPushTimer (requestId: string) {
         const timer = this.pushTimers.get(requestId)
