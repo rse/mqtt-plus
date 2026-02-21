@@ -20,10 +20,10 @@ API [MQTT.js](https://www.npmjs.com/package/mqtt), providing
 additional communication patterns with full type safety for
 [MQTT](http://mqtt.org/). Currently, the essential
 [communication patterns](doc/mqtt-plus-comm.md)
-*Event Emission*, *Service Call*, *Sink Push* and *Source Fetch* are
+fire-and-forget *Event Emission*, RPC-style *Service Call*, stream-based *Sink Push* and stream-based *Source Fetch* are
 supported. This allows you to implement complex and bi-directional
 client/server and server/server communications over the robust but
-uni-directional [MQTT](http://mqtt.org/) protocol. This is key in
+uni-directional [MQTT](http://mqtt.org/) protocol. This is intended for
 applications based on the [*Hub & Spoke*](https://en.wikipedia.org/wiki/Spoke%E2%80%93hub_distribution_paradigm)
 communication architecture pattern.
 
