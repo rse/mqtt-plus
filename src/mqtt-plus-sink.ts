@@ -342,24 +342,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const abortController = new AbortController()
         const abortSignal     = abortController.signal
 
-        /*  define timer  */
-        let timer: ReturnType<typeof setTimeout> | null = null
-        spool.roll(() => {
-            if (timer !== null) {
-                clearTimeout(timer)
-                timer = null
-            }
-        })
-
         /*  utility function for timeout refresh  */
-        const refreshTimeout = () => {
-            if (timer !== null)
-                clearTimeout(timer)
-            timer = setTimeout(() => {
-                abortController.abort(new Error(`push to sink "${name}" timed out`))
-                spool.unroll()
-            }, this.options.timeout)
-        }
+        const refreshTimeout = () => this.timerRefresh(requestId, () => {
+            abortController.abort(new Error(`push to sink "${name}" timed out`))
+            spool.unroll()
+        })
+        spool.roll(() => { this.timerClear(requestId) })
 
         /*  start timeout handler  */
         refreshTimeout()
