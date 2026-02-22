@@ -349,23 +349,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         spool.roll(() => { metaResolve?.(undefined) })
 
         /*  define timer  */
-        let timer: ReturnType<typeof setTimeout> | null = null
-        spool.roll(() => {
-            if (timer !== null) {
-                clearTimeout(timer)
-                timer = null
-            }
-        })
-
-        /*  utility function for timeout refresh  */
+        const timerId = `source-fetch:${requestId}`
         const refreshTimeout = () => {
-            if (timer !== null)
-                clearTimeout(timer)
-            timer = setTimeout(() => {
+            this.timerRefresh(timerId, () => {
                 stream.destroy(new Error("communication timeout"))
                 spool.unroll()
-            }, this.options.timeout)
+            })
         }
+        spool.roll(() => { this.timerClear(timerId) })
 
         /*  start timeout handler  */
         refreshTimeout()

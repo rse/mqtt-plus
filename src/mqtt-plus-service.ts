@@ -211,18 +211,13 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         spool.roll(() => this.subscriptions.unsubscribe(responseTopic))
 
         /*  create promise for MQTT response handling  */
+        const timerId = `service-call:${requestId}`
         const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {
-            let timer: ReturnType<typeof setTimeout> | null = setTimeout(async () => {
-                timer = null
+            this.timerRefresh(timerId, async () => {
                 await spool.unroll()
                 reject(new Error("communication timeout"))
-            }, this.options.timeout)
-            spool.roll(() => {
-                if (timer !== null) {
-                    clearTimeout(timer)
-                    timer = null
-                }
             })
+            spool.roll(() => { this.timerClear(timerId) })
             this.onResponse.set(`service-call-response:${requestId}`, async (response: ServiceCallResponse) => {
                 await spool.unroll()
                 if (response.error !== undefined)
