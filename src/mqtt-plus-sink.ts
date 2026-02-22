@@ -247,7 +247,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  cleanup resources  */
                 const stream = this.pushStreams.get(requestId)
                 if (stream !== undefined)
-                    stream.destroy()
+                    stream.destroy(err)
                 reqSpool.unroll()
 
                 /*  send error (nak response)  */
@@ -321,6 +321,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             data     = args[0]
             params   = args.slice(1) as Parameters<T[K]>
         }
+
+        /*  sanity check data type  */
+        if (!(data instanceof Readable) && !(data instanceof Uint8Array))
+            throw new Error("invalid data type: expected Readable or Uint8Array")
 
         /*  create a resource spool  */
         const spool = new Spool()
@@ -449,8 +453,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             else if (data instanceof Uint8Array)
                 /*  split buffer into chunks and send them  */
                 await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
-            else
-                throw new Error("invalid data type: expected Readable or Uint8Array")
         }
         catch (err: unknown) {
             const error = ensureError(err).message
