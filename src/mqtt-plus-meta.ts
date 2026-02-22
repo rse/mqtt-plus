@@ -35,15 +35,16 @@ export class MetaTrait<T extends APISchema = APISchema> extends TimerTrait<T> {
     meta (): Record<string, any>
     meta (key: string): any
     meta (key: string, value: any): void
-    meta (key?: string, value?: any): Record<string, any> | any | void {
-        if (key === undefined)
+    meta (...args: [ key?: string, value?: any ]): Record<string, any> | any | void {
+        const [key, value] = args
+        if (args.length === 0)
             return Object.fromEntries(this._meta)
-        else if (arguments.length === 1)
-            return this._meta.get(key)
+        else if (args.length === 1)
+            return this._meta.get(key!)
         else if (value === undefined || value === null)
-            this._meta.delete(key)
+            this._meta.delete(key!)
         else
-            this._meta.set(key, value)
+            this._meta.set(key!, value)
     }
 
     /*  determine meta store  */
