@@ -97,10 +97,12 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         this.onRequest.set(`event-emission:${name}`, async (request: EventEmission, topicName: string) => {
             /*  determine event information  */
             const senderId = request.sender
+            if (senderId === undefined || senderId === "")
+                throw new Error("invalid request: missing sender")
             const params   = request.params ?? []
 
             /*  create information object  */
-            const info: InfoEvent = { sender: senderId ?? "" }
+            const info: InfoEvent = { sender: senderId }
             if (request.receiver)
                 info.receiver = request.receiver
             if (request.meta)
