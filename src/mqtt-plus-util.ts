@@ -190,10 +190,10 @@ export async function sendStreamAsChunks (
 }
 
 /*  utility function for making two object fields mutually exclusive  */
-export function makeMutuallyExclusiveFields (
-    obj:     any,
-    f1Name:  string,
-    f2Name:  string
+export function makeMutuallyExclusiveFields<T extends object>(
+    obj: T,
+    f1Name: keyof T & string,
+    f2Name: keyof T & string
 ): void {
     if (!(typeof obj === "object" && obj !== null))
         throw new Error("invalid object")
