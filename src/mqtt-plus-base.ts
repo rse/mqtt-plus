@@ -23,7 +23,6 @@
 */
 
 /*  external requirements  */
-import PLazy                            from "p-lazy"
 import { MqttClient,
     type OnMessageCallback,
     type IClientSubscribeOptions,
@@ -36,6 +35,7 @@ import type { APIOptions }              from "./mqtt-plus-options"
 import { TraceTrait }                   from "./mqtt-plus-trace"
 import type { Spool }                   from "./mqtt-plus-error"
 import { ensureError }                  from "./mqtt-plus-error"
+import { PLazy }                        from "./mqtt-plus-util"
 
 /*  MQTTp Base class with shared infrastructure  */
 export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
