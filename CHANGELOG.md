@@ -2,6 +2,11 @@
 ChangeLog
 =========
 
+1.4.8 (2026-02-22)
+------------------
+
+- PERFORMANCE: cache encoder/decoder in encoding functions
+
 1.4.7 (2026-02-22)
 ------------------
 
