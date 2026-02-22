@@ -54,7 +54,7 @@ class RefCountedSubscription {
     /*  decrement reference count for a topic  */
     private decrementCount (topic: string): number | undefined {
         const count = this.counts.get(topic)
-        if (count) {
+        if (count !== undefined) {
             if (count <= 1) {
                 this.counts.delete(topic)
                 return 0

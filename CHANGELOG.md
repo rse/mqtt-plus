@@ -6,6 +6,7 @@ ChangeLog
 ------------------
 
 - BUGFIX: clear internal response handlers in destroy()
+- BUGFIX: correctly decrement counter in subscription handling
 
 1.4.8 (2026-02-22)
 ------------------
