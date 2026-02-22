@@ -40,7 +40,8 @@ Installation
 ------------
 
 **MQTT+** is published as a Node Package Manager (NPM) package named
-`mqtt-plus`. Install it, together with its peer dependency MQTT.js, with
+[`mqtt-plus`](https://npmjs.com/mqtt-plus).
+Install it, together with its peer dependency MQTT.js, with
 the help of the NPM Command-Line Interface (CLI):
 
 ```shell
