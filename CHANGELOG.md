@@ -2,6 +2,11 @@
 ChangeLog
 =========
 
+1.4.9 (2026-02-22)
+------------------
+
+- BUGFIX: clear internal response handlers in destroy()
+
 1.4.8 (2026-02-22)
 ------------------
 

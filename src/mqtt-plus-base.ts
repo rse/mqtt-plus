@@ -101,6 +101,8 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     async destroy () {
         this.log("info", "un-hooking from MQTT client")
         this.mqtt.off("message", this.messageHandler)
+        this.onRequest.clear()
+        this.onResponse.clear()
     }
 
     /*  create a registration for subsequent destruction  */
