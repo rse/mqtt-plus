@@ -7,6 +7,7 @@ ChangeLog
 
 - PERFORMANCE: cache encoder/decoder in encoding functions
 - CLEANUP: refactor RefCountedSubscription class to be redundancyfree
+- BUGFIX: fix memory leak in destroy() for sink()
 
 1.4.7 (2026-02-22)
 ------------------
