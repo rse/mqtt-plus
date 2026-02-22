@@ -60,6 +60,10 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
     async issue (payload: TokenPayload) {
         if (this._credential === null)
             throw new Error("credential has to be provided before issuing tokens")
+        if (payload.roles.length === 0)
+            throw new Error("payload.roles must be a non-empty array")
+        if (payload.roles.length > 64)
+            throw new Error("payload.roles must not exceed 64 roles")
         const jwt = new SignJWT(payload)
         jwt.setProtectedHeader({ alg: "HS256", typ: "JWT" })
         const token = await jwt.sign(this._credential)
