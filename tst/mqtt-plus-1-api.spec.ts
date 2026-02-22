@@ -39,7 +39,7 @@ chai.config.includeStack = true
 const { expect } = chai
 
 /*  test suite  */
-describe("MQTT+ API", function () {
+describe("MQTT+ Basics", function () {
     /*  test case: TypeScript API  */
     it("MQTT+ TypeScript API", async function () {
         expect(MQTTp).to.be.a("function")
