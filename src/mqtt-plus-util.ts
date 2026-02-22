@@ -92,6 +92,9 @@ export class CreditGate {
     }
 }
 
+/*  reusable encoder instance  */
+const textEncoder = new TextEncoder()
+
 /*  concatenate elements of a Uint8Array array  */
 function uint8ArrayConcat (arrays: Uint8Array[]) {
     const totalLength = arrays.reduce((acc, value) => acc + value.byteLength, 0)
@@ -112,7 +115,7 @@ function chunkToBuffer (chunk: unknown): Uint8Array {
     else if (chunk instanceof Uint8Array)
         buffer = chunk
     else if (typeof chunk === "string")
-        buffer = new TextEncoder().encode(chunk)
+        buffer = textEncoder.encode(chunk)
     else
         throw new Error("invalid chunk type: expected Buffer, Uint8Array, or string")
     return buffer
