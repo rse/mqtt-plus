@@ -47,6 +47,7 @@
         "typescript-eslint":          "8.56.0",
         "@typescript-eslint/parser":  "8.56.0",
         "mqtt":                       "5.15.0",
+        "aedes":                      "1.0.0",
         "mosquitto":                  "1.0.2",
         "textframe":                  "1.2.1",
         "vite":                       "7.3.1",

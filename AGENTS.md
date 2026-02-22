@@ -129,7 +129,9 @@ Test files live in `tst/`:
 | File                              | Role |
 |-----------------------------------|------|
 | `tst/mqtt-plus-0-fixture.ts`      | Shared test fixture setup (broker, MQTTp instances, etc.) |
-| `tst/mqtt-plus-0-mosquitto.ts`    | Helper for starting/stopping the Mosquitto MQTT broker |
+| `tst/mqtt-plus-0-broker.ts`       | Broker dispatch: creates Aedes or Mosquitto broker based on env |
+| `tst/mqtt-plus-0-broker-aedes.ts` | Helper for starting/stopping the Aedes MQTT broker |
+| `tst/mqtt-plus-0-broker-mosquitto.ts` | Helper for starting/stopping the Mosquitto MQTT broker |
 | `tst/mqtt-plus-1-api.spec.ts`     | API type and endpoint definition tests |
 | `tst/mqtt-plus-2-event.spec.ts`   | Event Emission pattern tests |
 | `tst/mqtt-plus-3-service.spec.ts` | Service Call / RPC pattern tests |

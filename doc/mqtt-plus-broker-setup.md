@@ -143,10 +143,10 @@ pattern read      $share/server/example/server/+/sink-push-request/%c
 topic   write     example/server/+/sink-push-response/+
 pattern read      example/server/+/sink-push-chunk/%c
 pattern read      $share/server/example/server/+/sink-push-chunk/%c
-topic   write     example/client/+/sink-push-credit/+
 
 topic   write     example/client/+/sink-push-request/+
 pattern read      example/client/+/sink-push-response/%c
+topic   write     example/client/+/sink-push-credit/+
 topic   write     example/client/+/sink-push-chunk/+
 ```
 

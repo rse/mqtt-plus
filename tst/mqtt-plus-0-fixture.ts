@@ -26,9 +26,11 @@
 import MQTT                                   from "mqtt"
 
 /*  internal dependencies  */
-import Mosquitto                              from "./mqtt-plus-0-mosquitto"
 import MQTTp                                  from "mqtt-plus"
 import type { Event, Service, Source, Sink }  from "mqtt-plus"
+
+/*  broker dependencies  */
+import Broker                                 from "./mqtt-plus-0-broker"
 
 /*  example API  */
 export type API = {
@@ -52,23 +54,24 @@ export const ctx = {} as {
 /*  shared log buffer  */
 export const logs: string[] = []
 
-/*  Mosquitto instance (module-private)  */
-let mosquitto: Mosquitto | undefined
+/*  broker instance (module-private)  */
+let broker: Broker | undefined
 let testsFailed = 0
 
 /*  Mocha root hooks  */
 export const mochaHooks = {
     /*  actions before all test cases  */
     async beforeAll (this: Mocha.Context) {
-        /*  start Mosquitto  */
+        /*  start MQTT broker  */
         this.timeout(8000)
-        mosquitto = new Mosquitto()
-        await mosquitto.start()
+        broker = await Broker.create()
+        await broker.start()
 
         /*  connect with MQTT as client  */
         ctx.mqttC = MQTT.connect("mqtt://127.0.0.1:1883",
             { clientId: "client" })
-        ctx.apiC = new MQTTp<API>(ctx.mqttC, { id: "client", timeout: 500 })
+        ctx.apiC = new MQTTp<API>(ctx.mqttC, { id: "client", timeout: 500,
+            ...(Broker.type === "mosquitto" ? { share: "client" } : {}) })
         await new Promise<void>((resolve, reject) => {
             ctx.mqttC.once("connect", ()           => { resolve() })
             ctx.mqttC.once("error",   (err: Error) => { reject(err) })
@@ -81,7 +84,8 @@ export const mochaHooks = {
         /*  connect with MQTT as server  */
         ctx.mqttS = MQTT.connect("mqtt://127.0.0.1:1883",
             { clientId: "server", username: "example", password: "example" })
-        ctx.apiS = new MQTTp<API>(ctx.mqttS, { id: "server", timeout: 500 })
+        ctx.apiS = new MQTTp<API>(ctx.mqttS, { id: "server", timeout: 500,
+            ...(Broker.type === "mosquitto" ? { share: "server" } : {}) })
         await new Promise<void>((resolve, reject) => {
             ctx.mqttS.once("connect", ()           => { resolve() })
             ctx.mqttS.once("error",   (err: Error) => { reject(err) })
@@ -108,14 +112,14 @@ export const mochaHooks = {
         await ctx.mqttC?.endAsync()
         await ctx.mqttS?.endAsync()
 
-        /*  stop Mosquitto  */
+        /*  stop MQTT broker  */
         this.timeout(4000)
-        await mosquitto?.stop()
+        await broker?.stop()
 
-        /*  in case of any failed tests, show the Mosquitto logs  */
+        /*  in case of any failed tests, show the broker logs  */
         if (testsFailed > 0) {
             logs.forEach((entry) => console.log(entry))
-            console.log(mosquitto?.logs())
+            console.log(broker?.logs())
         }
     }
 }

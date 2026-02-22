@@ -26,6 +26,9 @@
 import textframe from "textframe"
 import Mosquitto from "mosquitto"
 
+/*  internal dependencies  */
+import Broker    from "./mqtt-plus-0-broker"
+
 /*  Mosquitto ACL
     NOTICE: schema is <app>/<tier>/<topic>/<operation>/<receiver>  */
 const ACL = textframe(`
@@ -117,33 +120,33 @@ const ACL = textframe(`
     #   ---- sink push ----
 
     topic   read      example/server/+/sink-push-request/any
-    topic   read      $share/default/example/server/+/sink-push-request/any
+    topic   read      $share/server/example/server/+/sink-push-request/any
     pattern read      example/server/+/sink-push-request/%c
-    pattern read      $share/default/example/server/+/sink-push-request/%c
+    pattern read      $share/server/example/server/+/sink-push-request/%c
     topic   write     example/server/+/sink-push-response/+
     pattern read      example/server/+/sink-push-chunk/%c
-    pattern read      $share/default/example/server/+/sink-push-chunk/%c
-    topic   write     example/client/+/sink-push-credit/+
+    pattern read      $share/server/example/server/+/sink-push-chunk/%c
 
     topic   write     example/client/+/sink-push-request/+
     pattern read      example/client/+/sink-push-response/%c
+    topic   write     example/client/+/sink-push-credit/+
     topic   write     example/client/+/sink-push-chunk/+
 `)
 
 /*  Mosquitto utility/helper class  */
-export default class MosquittoHelper {
+export default class MosquittoHelper extends Broker {
     private mosquitto: Mosquitto | null = null
-    async start () {
+    override async start () {
         this.mosquitto = new Mosquitto({ acl: ACL })
         await this.mosquitto.start()
     }
-    async stop () {
+    override async stop () {
         if (this.mosquitto !== null) {
             await this.mosquitto.stop()
             await new Promise((resolve) => { setTimeout(resolve, 500) })
         }
     }
-    logs () {
+    override logs () {
         if (this.mosquitto !== null)
             return this.mosquitto.logs()
     }

@@ -22,32 +22,31 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-{
-    "$schema": "https://unpkg.com/knip@5/schema.json",
-    "entry": [
-        "src/mqtt-plus.ts",
-        "etc/eslint.mts",
-        "tst/mqtt-plus-0-broker.ts",
-        "tst/mqtt-plus-0-broker-aedes.ts",
-        "tst/mqtt-plus-0-broker-mosquitto.ts",
-        "tst/mqtt-plus-0-fixture.ts",
-        "tst/mqtt-plus-1-api.spec.ts",
-        "tst/mqtt-plus-2-event.spec.ts",
-        "tst/mqtt-plus-3-service.spec.ts",
-        "tst/mqtt-plus-4-sink.spec.ts",
-        "tst/mqtt-plus-5-source.spec.ts",
-        "tst/mqtt-plus-6-misc.spec.ts",
-        "etc/vite.mts",
-        "etc/d2.mts"
-    ],
-    "project": [
-        "src/**/*.ts",
-        "tst/**/*.spec.ts"
-    ],
-    "ignoreDependencies": [
-        "shx",
-        "chokidar-cli",
-        "chalk"
-    ]
-}
+import chalk from "chalk"
 
+/*  abstract broker base class  */
+export default abstract class Broker {
+    abstract start (): Promise<void>
+    abstract stop  (): Promise<void>
+    abstract logs  (): string | string[] | undefined
+
+    /*  broker type (set by factory)  */
+    static type: string = ""
+
+    /*  broker factory: create broker instance based on environment variable  */
+    static async create (): Promise<Broker> {
+        Broker.type = process.env.MQTT_BROKER ?? "mosquitto"
+        if (Broker.type === "aedes") {
+            process.stderr.write(chalk.grey(`  [using internal ${chalk.bold("Aedes MQTT 3.1")} broker]\n\n`))
+            const { default: AedesHelper } = await import("./mqtt-plus-0-broker-aedes")
+            return new AedesHelper()
+        }
+        else if (Broker.type === "mosquitto") {
+            process.stderr.write(chalk.grey(`  [using external ${chalk.bold("Mosquitto MQTT 5.0")} broker]\n\n`))
+            const { default: MosquittoHelper } = await import("./mqtt-plus-0-broker-mosquitto")
+            return new MosquittoHelper()
+        }
+        else
+            throw new Error("invalid broker type")
+    }
+}
