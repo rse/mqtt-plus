@@ -6,8 +6,11 @@ ChangeLog
 ------------------
 
 - IMPROVEMENT: make code more type-safe
-- IMPROVEMENT: make "stream" and "buffer" fields mandator in sink() "info" object
+- IMPROVEMENT: make "stream" and "buffer" fields mandatory in sink() "info" object
+- IMPROVEMENT: make test suite more robust and support async/non-async handlers
+- BUGFIX: fix leak in subscription handling
 - CLEANUP: remove unused fields from protocol messages
+- CLEANUP: add protection and align code with implementation
 - CLEANUP: improve about description and text
 - DOCUMENTATION: switch about information to Markdown and SVG format
 - DOCUMENTATION: add hint to NPM
