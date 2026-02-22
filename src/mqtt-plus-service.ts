@@ -39,7 +39,6 @@ import type { AuthOption }            from "./mqtt-plus-auth"
 
 /*  Service Call Trait  */
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
-
     /*  register a service call handler  */
     async service<K extends ServiceKeys<T> & string> (
         name:     K,
@@ -244,5 +243,4 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
         return promise
     }
-
 }

@@ -194,7 +194,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     }
 
     /*  handle incoming MQTT message  */
-    private _onMessage (topic: string, data: string | Uint8Array, packet: IPublishPacket): void {
+    private _onMessage (topic: string, data: string | Uint8Array, _packet: IPublishPacket): void {
         /*  parse MQTT topic  */
         const topicMatch = this.options.topicMatch(topic)
         if (topicMatch === null)
