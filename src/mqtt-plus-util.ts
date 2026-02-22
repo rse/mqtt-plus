@@ -97,9 +97,9 @@ function uint8ArrayConcat (arrays: Uint8Array[]) {
     const totalLength = arrays.reduce((acc, value) => acc + value.byteLength, 0)
     const result = new Uint8Array(totalLength)
     let offset = 0
-    for (const array of arrays) {
-        result.set(array, offset)
-        offset += array.byteLength
+    for (const a of arrays) {
+        result.set(a, offset)
+        offset += a.byteLength
     }
     return result
 }

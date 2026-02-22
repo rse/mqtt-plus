@@ -44,9 +44,9 @@ class LogEvent {
         if (this.msg instanceof Promise)
             this.msg = await this.msg.catch(() => "<resolve-failed>")
         if (this.data)
-            for (const field of Object.keys(this.data))
-                if (this.data[field] instanceof Promise)
-                    this.data[field] = await this.data[field].catch(() => "<resolve-failed>")
+            for (const k of Object.keys(this.data))
+                if (this.data[k] instanceof Promise)
+                    this.data[k] = await this.data[k].catch(() => "<resolve-failed>")
     }
 
     /*  render log event as string  */
