@@ -111,7 +111,7 @@ function uint8ArrayConcat (arrays: Uint8Array[]) {
 function chunkToBuffer (chunk: unknown): Uint8Array {
     let buffer: Uint8Array
     if (chunk instanceof Buffer)
-        buffer = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.length)
+        buffer = new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength)
     else if (chunk instanceof Uint8Array)
         buffer = chunk
     else if (typeof chunk === "string")

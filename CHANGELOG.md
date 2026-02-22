@@ -9,6 +9,7 @@ ChangeLog
 - BUGFIX: correctly decrement counter in subscription handling
 - BUGFIX: let the registration's destroy() throw errors correctly
 - BUGFIX: correctly handle synchronous response handler failures
+- BUGFIX: fix internal chunkToBuffer() method for byte-length calculation
 - REFACTOR: factor out topic subscription and spooling topic unsubscription into helper function
 - REFACTOR: make response handlers async functions to correctly catch their failures
 - IMPROVEMENT: use a cached TextEncoder in utility functions
