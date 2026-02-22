@@ -137,12 +137,12 @@ pattern read      example/client/+/source-fetch-chunk/%c
 #   ---- sink push ----
 
 topic   read      example/server/+/sink-push-request/any
-topic   read      $share/default/example/server/+/sink-push-request/any
+topic   read      $share/server/example/server/+/sink-push-request/any
 pattern read      example/server/+/sink-push-request/%c
-pattern read      $share/default/example/server/+/sink-push-request/%c
+pattern read      $share/server/example/server/+/sink-push-request/%c
 topic   write     example/server/+/sink-push-response/+
 pattern read      example/server/+/sink-push-chunk/%c
-pattern read      $share/default/example/server/+/sink-push-chunk/%c
+pattern read      $share/server/example/server/+/sink-push-chunk/%c
 topic   write     example/client/+/sink-push-credit/+
 
 topic   write     example/client/+/sink-push-request/+
