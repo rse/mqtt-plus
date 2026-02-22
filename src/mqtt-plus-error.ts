@@ -270,7 +270,7 @@ export function run<T> (
     }
     else if (typeof args[0] === "string") {
         description = args[0]
-        if (args[1] instanceof Spool) {
+        if (args[1] instanceof Spool || (args[1] === undefined && typeof args[2] === "function")) {
             spool       = args[1]
             action      = args[2]
             oncatch     = args[3]
@@ -285,7 +285,7 @@ export function run<T> (
         }
     }
     else {
-        if (args[0] instanceof Spool) {
+        if (args[0] instanceof Spool || (args[0] === undefined && typeof args[1] === "function")) {
             spool       = args[0]
             action      = args[1]
             oncatch     = args[2]
