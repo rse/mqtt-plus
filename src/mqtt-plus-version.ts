@@ -30,7 +30,7 @@ export const versionToNum = (str: string) => {
     const minor = parseInt(m[2], 10)
     if (minor > 99)
         throw new Error("invalid version string: minor version exceeds 99")
-    return parseInt(m[1], 10) + minor / 100
+    return parseInt(m[1], 10) * 100 + minor
 }
 
 /*  package version (string format, injected)  */
