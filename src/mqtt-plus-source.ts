@@ -339,11 +339,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const buffer = streamToBuffer(stream)
 
         /*  create promise for meta (resolved on first chunk)  */
-        let metaResolve: (value: Record<string, any> | undefined) => void
+        let metaResolve!: (value: Record<string, any> | undefined) => void
         const metaP = new Promise<Record<string, any> | undefined>((resolve) => {
             metaResolve = resolve
         })
-        spool.roll(() => { metaResolve?.(undefined) })
+        spool.roll(() => { metaResolve(undefined) })
 
         /*  define timer  */
         const timerId = `source-fetch:${requestId}`
@@ -366,7 +366,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         this.onResponse.set(`source-fetch-response:${requestId}`, (response: SourceFetchResponse) => {
             if (response.sender)
                 serverId = response.sender
-            metaResolve?.(response.meta)
+            metaResolve(response.meta)
             if (response.error) {
                 stream.destroy(new Error(response.error))
                 spool.unroll()
