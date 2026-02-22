@@ -145,6 +145,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             reqSpool.roll(() => { this.pushSpools.delete(requestId) })
 
             /*  check authentication and prepare stream  */
+            let ackSent = false
             try {
                 if (topicName !== request.name)
                     throw new Error(`sink name mismatch (topic: "${topicName}", payload: "${request.name}")`)
@@ -246,6 +247,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  send ack response  */
                 await sendResponse()
+                ackSent = true
 
                 /*  call handler  */
                 return await callback(...params, info)
@@ -259,9 +261,17 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     stream.destroy(error)
                 reqSpool.unroll()
 
-                /*  send error (nak response)  */
+                /*  send error as nak response or as error chunk  */
                 this.error(error)
-                await sendResponse(error.message).catch(() => {})
+                if (ackSent) {
+                    const chunkTopic = this.options.topicMake(name, "sink-push-chunk", sender)
+                    const chunkMsg = this.msg.makeSinkPushChunk(requestId,
+                        name, undefined, error.message, true, this.options.id, sender)
+                    const message = this.codec.encode(chunkMsg)
+                    await this.publishToTopic(chunkTopic, message, { qos: options.qos ?? 2 }).catch(() => {})
+                }
+                else
+                    await sendResponse(error.message).catch(() => {})
             }
         })
         spool.roll(() => { this.onRequest.delete(`sink-push-request:${name}`) })
@@ -452,12 +462,16 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
         }
         catch (err: unknown) {
-            const error = ensureError(err).message
-            const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
-            const chunkMsg = this.msg.makeSinkPushChunk(requestId,
-                name, undefined, error, true, this.options.id, receiver)
-            const message = this.codec.encode(chunkMsg)
-            await this.publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
+            /*  send error chunk only if receiver is known
+                (otherwise the sink already received the error via the nak response)  */
+            if (receiver !== undefined) {
+                const error = ensureError(err).message
+                const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
+                const chunkMsg = this.msg.makeSinkPushChunk(requestId,
+                    name, undefined, error, true, this.options.id, receiver)
+                const message = this.codec.encode(chunkMsg)
+                await this.publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
+            }
             throw err
         }
         finally {
