@@ -31,14 +31,18 @@ import { CodecTrait }      from "./mqtt-plus-codec"
 
 /*  encoding trait  */
 export class EncodeTrait<T extends APISchema = APISchema> extends CodecTrait<T> {
+    /*  reusable encoder/decoder instances  */
+    private static encoder = new TextEncoder()
+    private static decoder = new TextDecoder()
+
     /*  convert character string to buffer  */
     str2buf (data: string): Uint8Array {
-        return new TextEncoder().encode(data)
+        return EncodeTrait.encoder.encode(data)
     }
 
     /*  convert buffer to character string  */
     buf2str (data: Uint8Array): string {
-        return new TextDecoder().decode(data)
+        return EncodeTrait.decoder.decode(data)
     }
 
     /*  convert byte-based typed array to buffer  */
