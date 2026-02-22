@@ -83,14 +83,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         let name:     K
         let callback: WithInfo<T[K], InfoSource>
         let options:  Partial<IClientSubscribeOptions> = {}
-        let share:    string = "default"
+        let share     = this.options.share
         let auth:     AuthOption | undefined
         if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
             name     = nameOrConfig.name
             callback = nameOrConfig.callback
             options  = nameOrConfig.options ?? {}
-            share    = nameOrConfig.share   ?? "default"
+            share    = nameOrConfig.share   ?? this.options.share
             auth     = nameOrConfig.auth
         }
         else {
@@ -107,7 +107,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             throw new Error(`source: source "${name}" already established`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topicS       = `$share/${share}/${name}`
+        const topicS       = share !== "" ? `$share/${share}/${name}` : name
         const topicReqB    = this.options.topicMake(topicS, "source-fetch-request")
         const topicReqD    = this.options.topicMake(name,   "source-fetch-request", this.options.id)
         const topicCreditD = this.options.topicMake(name,   "source-fetch-credit",  this.options.id)

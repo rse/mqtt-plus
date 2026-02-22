@@ -17,6 +17,7 @@ Construction
             id:          string
             codec:       "cbor" | "json"
             timeout:     number
+            share:       string
             chunkSize:   number
             chunkCredit: number
             topicMake:   (name: string, operation: string, peerId?: string) => string
@@ -36,6 +37,14 @@ describing the available events, services, sources, and sinks.
   - `id`: Custom MQTT peer identifier (default: auto-generated NanoID).
   - `codec`: Encoding format, either `cbor` or `json` (default: `cbor`).
   - `timeout`: Communication timeout in milliseconds (default: `10000`).
+  - `share`: Default
+    [MQTT Shared Subscription](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
+    group name for `service()`, `source()`, and `sink()` registrations
+    (default: `""`). Set to a non-empty string (e.g., `"default"`) to
+    enable shared subscriptions globally, which internally prefixes
+    topics with `$share/<share>/`. This global default can be overridden
+    per-call via the `share` option on `event()`, `service()`,
+    `source()`, and `sink()`.
   - `chunkSize`: Chunk size in bytes for source/sink transfers (default: `16384`).
   - `chunkCredit`: Number of credit units for flow control in source/sink
     chunked transfers (default: `4`). Controls how many chunks can be
@@ -235,7 +244,8 @@ Register for an event.
   [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
   (MQTT 5.0) for load-balancing messages across multiple registrations
   by specifying a group name. This internally prefixes the event with
-  `$share/<share>/`.
+  `$share/<share>/`. By default no shared subscription is used for
+  events (unlike `service()`, `source()`, and `sink()`).
 
 - The optional `auth` enables authentication validation on incoming events.
   When set to a role name string (e.g., `"admin"`), authentication is required
@@ -364,7 +374,8 @@ Register a service.
   [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
   (MQTT 5.0) for load-balancing service calls across multiple services
   by specifying a group name. This internally prefixes the service
-  with `$share/<share>/`. By default a share named `default` is used.
+  with `$share/<share>/`. Defaults to the global `share` constructor
+  option (default: `""`).
 
 - The optional `auth` enables authentication validation on incoming service calls.
   When set to a role name string (e.g., `"admin"`), authentication is required
@@ -464,8 +475,8 @@ Register a sink for receiving data.
   [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
   (MQTT 5.0) for load-balancing sink pushes across multiple sink
   handlers by specifying a group name. This internally prefixes the
-  sink with `$share/<share>/`. By default a share named `default` is
-  used.
+  sink with `$share/<share>/`. Defaults to the global `share` constructor
+  option (default: `""`).
 
 - The optional `auth` enables authentication validation on incoming sink pushes.
   When set to a role name string (e.g., `"admin"`), authentication
@@ -587,8 +598,8 @@ Register a source for sending data.
   [MQTT Shared Subscriptions](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901250)
   (MQTT 5.0) for load-balancing source requests across multiple
   sources by specifying a group name. This internally prefixes the
-  source with `$share/<share>/`. By default a share named `default` is
-  used.
+  source with `$share/<share>/`. Defaults to the global `share` constructor
+  option (default: `""`).
 
 - The optional `auth` enables authentication validation on incoming source fetches.
   When set to a role name string (e.g., `"admin"`), authentication

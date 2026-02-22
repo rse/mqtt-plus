@@ -38,6 +38,7 @@ export interface APIOptions {
     id:          string
     codec:       "cbor" | "json"
     timeout:     number
+    share:       string
     chunkSize:   number
     chunkCredit: number
     topicMake:   TopicMake
@@ -57,6 +58,7 @@ export class OptionsTrait<T extends APISchema = APISchema> {
             id:          nanoid(),
             codec:       "cbor",
             timeout:     10 * 1000,
+            share:       "",
             chunkSize:   16 * 1024,
             chunkCredit: 4,
             topicMake: (name, operation, peerId) => {

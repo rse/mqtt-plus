@@ -68,14 +68,14 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         let name:     K
         let callback: WithInfo<T[K], InfoService>
         let options:  Partial<IClientSubscribeOptions> = {}
-        let share:    string = "default"
+        let share     = this.options.share
         let auth:     AuthOption | undefined
         if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
             name     = nameOrConfig.name
             callback = nameOrConfig.callback
             options  = nameOrConfig.options ?? {}
-            share    = nameOrConfig.share   ?? "default"
+            share    = nameOrConfig.share   ?? this.options.share
             auth     = nameOrConfig.auth
         }
         else {
@@ -92,7 +92,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             throw new Error(`service: service "${name}" already registered`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topicS = `$share/${share}/${name}`
+        const topicS = share !== "" ? `$share/${share}/${name}` : name
         const topicB = this.options.topicMake(topicS, "service-call-request")
         const topicD = this.options.topicMake(name,   "service-call-request", this.options.id)
 

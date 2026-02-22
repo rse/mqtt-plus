@@ -85,14 +85,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         let name:     K
         let callback: WithInfo<T[K], InfoSink>
         let options:  Partial<IClientSubscribeOptions> = {}
-        let share:    string = "default"
+        let share     = this.options.share
         let auth:     AuthOption | undefined
         if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
             name     = nameOrConfig.name
             callback = nameOrConfig.callback
             options  = nameOrConfig.options ?? {}
-            share    = nameOrConfig.share   ?? "default"
+            share    = nameOrConfig.share   ?? this.options.share
             auth     = nameOrConfig.auth
         }
         else {
@@ -109,7 +109,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             throw new Error(`sink: sink "${name}" already established`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topicS      = `$share/${share}/${name}`
+        const topicS      = share !== "" ? `$share/${share}/${name}` : name
         const topicReqB   = this.options.topicMake(topicS, "sink-push-request")
         const topicReqD   = this.options.topicMake(name,   "sink-push-request", this.options.id)
         const topicChunkD = this.options.topicMake(name,   "sink-push-chunk",   this.options.id)
