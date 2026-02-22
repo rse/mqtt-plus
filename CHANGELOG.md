@@ -6,9 +6,11 @@ ChangeLog
 ------------------
 
 - PERFORMANCE: cache encoder/decoder in encoding functions
-- CLEANUP: refactor RefCountedSubscription class to be redundancyfree
-- BUGFIX: fix memory leak in destroy() for sink()
-- BUGFIX: namespace timers of sink() and source()
+- BUGFIX: fix memory leak in destroy() for sink
+- BUGFIX: namespace timers of sink() and source() to avoid conflicts
+- BUGFIX: align event() share default with service/source/sink
+- CLEANUP: refactor RefCountedSubscription class to be redundancy-free
+- CLEANUP: various minor code cleanups (formatting, modernization)
 
 1.4.7 (2026-02-22)
 ------------------
