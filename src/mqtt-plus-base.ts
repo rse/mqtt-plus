@@ -43,8 +43,8 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     private messageHandler: OnMessageCallback
 
     /*  central message callback registries  */
-    protected onRequest  = new Map<string, (message: any, topicName: string) => void>()
-    protected onResponse = new Map<string, (message: any, topicName: string) => void>()
+    protected onRequest  = new Map<string, (message: any, topicName: string) => void | Promise<void>>()
+    protected onResponse = new Map<string, (message: any, topicName: string) => void | Promise<void>>()
 
     /*  construct API class  */
     constructor (
@@ -226,24 +226,18 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
             /*  dispatch request message  */
             const handler = this.onRequest.get(`${topicMatch.operation}:${message.name}`)
             if (handler !== undefined) {
-                try {
-                    handler(message, topicMatch.name)
-                }
-                catch (err: unknown) {
+                Promise.resolve(handler(message, topicMatch.name)).catch((err: unknown) => {
                     this.error(ensureError(err, `dispatching request message from MQTT topic "${topic}" failed`))
-                }
+                })
             }
         }
         else if (this.msg.isResponse(message)) {
             /*  dispatch response message  */
             const handler = this.onResponse.get(`${topicMatch.operation}:${message.id}`)
             if (handler !== undefined) {
-                try {
-                    handler(message, topicMatch.name)
-                }
-                catch (err: unknown) {
+                Promise.resolve(handler(message, topicMatch.name)).catch((err: unknown) => {
                     this.error(ensureError(err, `dispatching response message from MQTT topic "${topic}" failed`))
-                }
+                })
             }
         }
     }
