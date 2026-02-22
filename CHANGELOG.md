@@ -2,7 +2,7 @@
 ChangeLog
 =========
 
-1.5.0 (2026-02-22)
+1.4.7 (2026-02-22)
 ------------------
 
 - IMPROVEMENT: provide a global "share" option
