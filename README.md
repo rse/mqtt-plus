@@ -96,8 +96,8 @@ const Server = async (api: MQTTp<API>, log: (msg: string, ...args: any[]) => voi
     await api.sink("example/upload", async (filename, info) => {
         log("example/upload: SERVER:", filename)
         const chunks: Uint8Array[] = []
-        info.stream!.on("data", (chunk: Uint8Array) => { chunks.push(chunk) })
-        await new Promise<void>((resolve) => { info.stream!.once("end", resolve) })
+        info.stream.on("data", (chunk: Uint8Array) => { chunks.push(chunk) })
+        await new Promise<void>((resolve) => { info.stream.once("end", resolve) })
         const total = chunks.reduce((n, c) => n + c.length, 0)
         log("received", total, "bytes")
     })
