@@ -41,8 +41,8 @@ export interface InfoSource  extends InfoBase {
     buffer?:  Promise<Uint8Array>
 }
 export interface InfoSink    extends InfoBase {
-    stream?:  Readable
-    buffer?:  Promise<Uint8Array>
+    stream:   Readable
+    buffer:   Promise<Uint8Array>
 }
 
 /*  type utility: extend function with Info parameter  */

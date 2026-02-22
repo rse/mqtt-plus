@@ -123,11 +123,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             if (sender === undefined || sender === "")
                 throw new Error("invalid request: missing sender")
             const receiver  = request.receiver
-            const info: InfoSink = { sender }
-            if (receiver)
-                info.receiver = receiver
-            if (request.meta)
-                info.meta = request.meta
 
             /*  generate corresponding MQTT topic for response  */
             const responseTopic = this.options.topicMake(name, "sink-push-response", sender)
@@ -151,9 +146,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             Promise.resolve().then(async () => {
                 if (topicName !== request.name)
                     throw new Error(`sink name mismatch between topic "${topicName}" and payload "${request.name}"`)
+                let authenticated: boolean | undefined = undefined
                 if (auth)
-                    info.authenticated = await this.authenticated(request.sender, request.auth, auth)
-                if (info.authenticated !== undefined && !info.authenticated)
+                    authenticated = await this.authenticated(request.sender, request.auth, auth)
+                if (authenticated !== undefined && !authenticated)
                     throw new Error(`sink "${name}" failed authentication`)
 
                 /*  initialize credit-based flow control state  */
@@ -229,8 +225,17 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  prepare info object  */
                 const promise = streamToBuffer(readable)
-                info.stream = readable
-                info.buffer = promise
+                const info: InfoSink = {
+                    sender,
+                    stream: readable,
+                    buffer: promise
+                }
+                if (receiver)
+                    info.receiver = receiver
+                if (authenticated !== undefined)
+                    info.authenticated = authenticated
+                if (request.meta)
+                    info.meta = request.meta
                 makeMutuallyExclusiveFields(info, "stream", "buffer")
 
                 /*  send ack response  */

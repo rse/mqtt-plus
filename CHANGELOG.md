@@ -6,6 +6,7 @@ ChangeLog
 ------------------
 
 - IMPROVEMENT: make code more type-safe
+- IMPROVEMENT: make "stream" and "buffer" fields mandator in sink() "info" object
 - CLEANUP: remove unused fields from protocol messages
 - CLEANUP: improve about description and text
 - DOCUMENTATION: switch about information to Markdown and SVG format
