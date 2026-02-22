@@ -5,10 +5,13 @@ ChangeLog
 1.4.7 (2026-02-22)
 ------------------
 
+- IMPROVEMENT: use timer utility code for internal timing
+- IMPROVEMENT: improve error handling
 - IMPROVEMENT: make code more type-safe
 - IMPROVEMENT: make "stream" and "buffer" fields mandatory in sink() "info" object
 - IMPROVEMENT: make test suite more robust and support async/non-async handlers
 - BUGFIX: fix leak in subscription handling
+- CLEANUP: various code cleanups
 - CLEANUP: remove unused fields from protocol messages
 - CLEANUP: add protection and align code with implementation
 - CLEANUP: improve about description and text
