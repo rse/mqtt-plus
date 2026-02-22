@@ -8,6 +8,7 @@ ChangeLog
 - BUGFIX: clear internal response handlers in destroy()
 - BUGFIX: correctly decrement counter in subscription handling
 - BUGFIX: let the registration's destroy() throw errors correctly
+- BUGFIX: correctly handle synchronous response handler failures
 
 1.4.8 (2026-02-22)
 ------------------

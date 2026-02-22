@@ -230,7 +230,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
             /*  dispatch request message  */
             const handler = this.onRequest.get(`${topicMatch.operation}:${message.name}`)
             if (handler !== undefined) {
-                Promise.resolve(handler(message, topicMatch.name)).catch((err: unknown) => {
+                Promise.resolve().then(() => handler(message, topicMatch.name)).catch((err: unknown) => {
                     this.error(ensureError(err, `dispatching request message from MQTT topic "${topic}" failed`))
                 })
             }
@@ -239,7 +239,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
             /*  dispatch response message  */
             const handler = this.onResponse.get(`${topicMatch.operation}:${message.id}`)
             if (handler !== undefined) {
-                Promise.resolve(handler(message, topicMatch.name)).catch((err: unknown) => {
+                Promise.resolve().then(() => handler(message, topicMatch.name)).catch((err: unknown) => {
                     this.error(ensureError(err, `dispatching response message from MQTT topic "${topic}" failed`))
                 })
             }
