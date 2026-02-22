@@ -31,21 +31,46 @@ import { BaseTrait }                    from "./mqtt-plus-base"
 
 /*  reference-counted subscription helper  */
 class RefCountedSubscription {
+    /*  internal state  */
     private counts    = new Map<string, number>()
     private pending   = new Map<string, Promise<void>>()
     private lingers   = new Map<string, ReturnType<typeof setTimeout>>()
     private unsubbing = new Map<string, Promise<void>>()
+
+    /*  initial construction with configuration  */
     constructor (
         private subscribeFn:   (topic: string, options: IClientSubscribeOptions) => Promise<void>,
         private unsubscribeFn: (topic: string) => Promise<void>,
         private lingerMs:      number = 30 * 1000
     ) {}
 
+    /*  increment reference count for a topic  */
+    private incrementCount (topic: string) {
+        const count = this.counts.get(topic) ?? 0
+        this.counts.set(topic, count + 1)
+        return count
+    }
+
+    /*  decrement reference count for a topic  */
+    private decrementCount (topic: string): number | undefined {
+        const count = this.counts.get(topic)
+        if (count) {
+            if (count <= 1) {
+                this.counts.delete(topic)
+                return 0
+            }
+            else {
+                this.counts.set(topic, count - 1)
+                return count - 1
+            }
+        }
+        return undefined
+    }
+
     /*  subscribe to a topic (reference-counted)  */
     async subscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
         /*  increment count first to reserve our interest  */
-        const count = this.counts.get(topic) ?? 0
-        this.counts.set(topic, count + 1)
+        const count = this.incrementCount(topic)
 
         /*  optionally just cancel a pending linger unsubscription
             (subscription is still kept active on the broker)  */
@@ -58,24 +83,33 @@ class RefCountedSubscription {
 
         /*  if we are the first, we must perform the actual subscription  */
         if (count === 0) {
+            /*  create a deferred promise and store it in pending immediately,
+                so concurrent subscribers arriving during the await below
+                will find and await it instead of returning prematurely  */
+            let resolve: () => void
+            let reject:  (err: Error) => void
+            const deferred = new Promise<void>((res, rej) => {
+                resolve = res
+                reject  = rej
+            })
+            this.pending.set(topic, deferred)
+
             /*  await any in-flight linger unsubscription to avoid a race
                 where the broker processes UNSUBSCRIBE after our SUBSCRIBE  */
             const inflight = this.unsubbing.get(topic)
             if (inflight)
                 await inflight
-            const promise = this.subscribeFn(topic, options).finally(() => {
+
+            /*  perform the actual subscription  */
+            const promise = this.subscribeFn(topic, options).then(() => {
                 this.pending.delete(topic)
+                resolve()
             }).catch((err: Error) => {
-                const count = this.counts.get(topic)
-                if (count) {
-                    if (count <= 1)
-                        this.counts.delete(topic)
-                    else
-                        this.counts.set(topic, count - 1)
-                }
+                this.pending.delete(topic)
+                this.decrementCount(topic)
+                reject(err)
                 throw err
             })
-            this.pending.set(topic, promise)
             return promise
         }
         else {
@@ -83,13 +117,7 @@ class RefCountedSubscription {
             const pending = this.pending.get(topic)
             if (pending)
                 return pending.catch((err: Error) => {
-                    const count = this.counts.get(topic)
-                    if (count) {
-                        if (count <= 1)
-                            this.counts.delete(topic)
-                        else
-                            this.counts.set(topic, count - 1)
-                    }
+                    this.decrementCount(topic)
                     throw err
                 })
         }
@@ -97,26 +125,28 @@ class RefCountedSubscription {
 
     /*  unsubscribe from a topic (reference-counted)  */
     async unsubscribe (topic: string): Promise<void> {
-        const count = this.counts.get(topic)
-        if (count) {
-            if (count <= 1) {
-                this.counts.delete(topic)
-                if (this.lingerMs > 0) {
-                    /*  defer the actual broker unsubscription  */
-                    const timer = setTimeout(() => {
-                        this.lingers.delete(topic)
-                        const promise = this.unsubscribeFn(topic).catch(() => {}).finally(() => {
-                            this.unsubbing.delete(topic)
-                        })
-                        this.unsubbing.set(topic, promise)
-                    }, this.lingerMs)
-                    this.lingers.set(topic, timer)
-                }
-                else
-                    await this.unsubscribeFn(topic).catch(() => {})
+        const count = this.decrementCount(topic)
+        if (count === 0) {
+            if (this.lingerMs > 0) {
+                /*  defer the actual broker unsubscription  */
+                const timer = setTimeout(() => {
+                    this.lingers.delete(topic)
+                    const promise = this.unsubscribeFn(topic).catch(() => {}).finally(() => {
+                        this.unsubbing.delete(topic)
+                    })
+                    this.unsubbing.set(topic, promise)
+                }, this.lingerMs)
+                this.lingers.set(topic, timer)
             }
-            else
-                this.counts.set(topic, count - 1)
+            else {
+                /*  perform the unsubscription immediately, but still store the
+                    promise in unsubbing so a concurrent subscribe can await it  */
+                const promise = this.unsubscribeFn(topic).catch(() => {}).finally(() => {
+                    this.unsubbing.delete(topic)
+                })
+                this.unsubbing.set(topic, promise)
+                await promise
+            }
         }
     }
 
