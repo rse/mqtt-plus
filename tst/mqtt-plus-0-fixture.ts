@@ -53,7 +53,7 @@ export const ctx = {} as {
 export const logs: string[] = []
 
 /*  Mosquitto instance (module-private)  */
-let mosquitto: Mosquitto
+let mosquitto: Mosquitto | undefined
 let testsFailed = 0
 
 /*  Mocha root hooks  */
@@ -101,22 +101,21 @@ export const mochaHooks = {
     /*  actions after all test cases  */
     async afterAll (this: Mocha.Context) {
         /*  destroy API instances  */
-        ctx.apiC.destroy()
-        ctx.apiS.destroy()
+        ctx.apiC?.destroy()
+        ctx.apiS?.destroy()
 
         /*  disconnect from MQTT  */
-        await ctx.mqttC.endAsync()
-        await ctx.mqttS.endAsync()
+        await ctx.mqttC?.endAsync()
+        await ctx.mqttS?.endAsync()
 
         /*  stop Mosquitto  */
         this.timeout(4000)
-        await mosquitto.stop()
+        await mosquitto?.stop()
 
         /*  in case of any failed tests, show the Mosquitto logs  */
         if (testsFailed > 0) {
             logs.forEach((entry) => console.log(entry))
-            console.log(mosquitto.logs())
+            console.log(mosquitto?.logs())
         }
     }
 }
-
