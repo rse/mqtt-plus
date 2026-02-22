@@ -2,7 +2,7 @@
 ChangeLog
 =========
 
-1.4.7 (2026-02-22)
+1.5.0 (2026-02-22)
 ------------------
 
 - IMPROVEMENT: provide a global "share" option
@@ -11,10 +11,14 @@ ChangeLog
 - IMPROVEMENT: make code more type-safe
 - IMPROVEMENT: make "stream" and "buffer" fields mandatory in sink() "info" object
 - IMPROVEMENT: make test suite more robust and support async/non-async handlers
+- IMPROVEMENT: add Aedes MQTT broker support to not require Docker for the test suite
 - BUGFIX: fix leak in subscription handling
+- BUGFIX: workaround for ESM-only "plazy" module when used from CJS context
+- BUGFIX: fix ACL handling
 - CLEANUP: various code cleanups
 - CLEANUP: remove unused fields from protocol messages
 - CLEANUP: add protection and align code with implementation
+- CLEANUP: improve console output and use Chalk for colored rendering
 - CLEANUP: improve about description and text
 - DOCUMENTATION: switch about information to Markdown and SVG format
 - DOCUMENTATION: add hint to NPM
