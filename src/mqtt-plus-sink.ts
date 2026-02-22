@@ -260,15 +260,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         spool.roll(() => { this.onRequest.delete(`sink-push-request:${name}`) })
 
         /*  subscribe to MQTT topics  */
-        await run(`subscribe to MQTT topic "${topicReqB}"`, spool, () =>
-            this.subscribeTopic(topicReqB, { qos: 2, ...options }))
-        spool.roll(() => this.unsubscribeTopic(topicReqB).catch(() => {}))
-        await run(`subscribe to MQTT topic "${topicReqD}"`, spool, () =>
-            this.subscribeTopic(topicReqD, { qos: 2, ...options }))
-        spool.roll(() => this.unsubscribeTopic(topicReqD).catch(() => {}))
-        await run(`subscribe to MQTT topic "${topicChunkD}"`, spool, () =>
-            this.subscribeTopic(topicChunkD, { qos: 2, ...options }))
-        spool.roll(() => this.unsubscribeTopic(topicChunkD).catch(() => {}))
+        await this.subscribeTopicAndSpool(spool, topicReqB, options)
+        await this.subscribeTopicAndSpool(spool, topicReqD, options)
+        await this.subscribeTopicAndSpool(spool, topicChunkD, options)
 
         /*  provide a registration for subsequent destruction  */
         return this.makeRegistration(spool, "sink", name, `sink-push-request:${name}`)

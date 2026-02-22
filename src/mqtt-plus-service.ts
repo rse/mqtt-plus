@@ -142,12 +142,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         spool.roll(() => { this.onRequest.delete(`service-call-request:${name}`) })
 
         /*  subscribe to MQTT topics  */
-        await run(`subscribe to MQTT topic "${topicB}"`, spool, () =>
-            this.subscribeTopic(topicB, { qos: 2, ...options }))
-        spool.roll(() => this.unsubscribeTopic(topicB).catch(() => {}))
-        await run(`subscribe to MQTT topic "${topicD}"`, spool, () =>
-            this.subscribeTopic(topicD, { qos: 2, ...options }))
-        spool.roll(() => this.unsubscribeTopic(topicD).catch(() => {}))
+        await this.subscribeTopicAndSpool(spool, topicB, options)
+        await this.subscribeTopicAndSpool(spool, topicD, options)
 
         /*  provide a registration for subsequent destruction  */
         return this.makeRegistration(spool, "service", name, `service-call-request:${name}`)

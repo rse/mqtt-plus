@@ -33,8 +33,7 @@ import { MqttClient,
 import type { APISchema, Registration } from "./mqtt-plus-api"
 import type { APIOptions }              from "./mqtt-plus-options"
 import { TraceTrait }                   from "./mqtt-plus-trace"
-import type { Spool }                   from "./mqtt-plus-error"
-import { ensureError }                  from "./mqtt-plus-error"
+import { run, Spool, ensureError }      from "./mqtt-plus-error"
 import { PLazy }                        from "./mqtt-plus-util"
 
 /*  MQTTp Base class with shared infrastructure  */
@@ -118,6 +117,17 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
                 })
             }
         }
+    }
+
+    /*  subscribe to an MQTT topic and spool the unsubscription  */
+    protected async subscribeTopicAndSpool (
+        spool:   Spool,
+        topic:   string,
+        options: Partial<IClientSubscribeOptions> = {}
+    ) {
+        await run(`subscribe to MQTT topic "${topic}"`, spool, () =>
+            this.subscribeTopic(topic, { qos: 2, ...options }))
+        spool.roll(() => this.unsubscribeTopic(topic).catch(() => {}))
     }
 
     /*  subscribe to an MQTT topic (Promise-based)  */

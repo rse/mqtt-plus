@@ -33,7 +33,7 @@ import type { APISchema, EventKeys,
     Registration }                    from "./mqtt-plus-api"
 import type { WithInfo, InfoEvent }   from "./mqtt-plus-info"
 import { AuthTrait, type AuthOption } from "./mqtt-plus-auth"
-import { run, Spool, ensureError }    from "./mqtt-plus-error"
+import { Spool, ensureError }         from "./mqtt-plus-error"
 
 /*  Event Emission Trait  */
 export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
@@ -123,12 +123,8 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         spool.roll(() => { this.onRequest.delete(`event-emission:${name}`) })
 
         /*  subscribe to MQTT topics  */
-        await run(`subscribe to MQTT topic "${topicB}"`, spool, () =>
-            this.subscribeTopic(topicB, { qos: 2, ...options }))
-        spool.roll(() => this.unsubscribeTopic(topicB).catch(() => {}))
-        await run(`subscribe to MQTT topic "${topicD}"`, spool, () =>
-            this.subscribeTopic(topicD, { qos: 2, ...options }))
-        spool.roll(() => this.unsubscribeTopic(topicD).catch(() => {}))
+        await this.subscribeTopicAndSpool(spool, topicB, options)
+        await this.subscribeTopicAndSpool(spool, topicD, options)
 
         /*  provide a registration for subsequent destruction  */
         return this.makeRegistration(spool, "event", name, `event-emission:${name}`)

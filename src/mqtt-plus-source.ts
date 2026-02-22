@@ -224,15 +224,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         spool.roll(() => { this.onRequest.delete(`source-fetch-request:${name}`) })
 
         /*  subscribe to MQTT topics  */
-        await run(`subscribe to MQTT topic "${topicReqB}"`, spool, () =>
-            this.subscribeTopic(topicReqB, { qos: 2, ...options }))
-        spool.roll(() => this.unsubscribeTopic(topicReqB).catch(() => {}))
-        await run(`subscribe to MQTT topic "${topicReqD}"`, spool, () =>
-            this.subscribeTopic(topicReqD, { qos: 2, ...options }))
-        spool.roll(() => this.unsubscribeTopic(topicReqD).catch(() => {}))
-        await run(`subscribe to MQTT topic "${topicCreditD}"`, spool, () =>
-            this.subscribeTopic(topicCreditD, { qos: 2, ...options }))
-        spool.roll(() => this.unsubscribeTopic(topicCreditD).catch(() => {}))
+        await this.subscribeTopicAndSpool(spool, topicReqB, options)
+        await this.subscribeTopicAndSpool(spool, topicReqD, options)
+        await this.subscribeTopicAndSpool(spool, topicCreditD, options)
 
         /*  provide a registration for subsequent destruction  */
         return this.makeRegistration(spool, "source", name, `source-fetch-request:${name}`)
