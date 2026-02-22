@@ -53,14 +53,14 @@ class LogEvent {
     toString () {
         /*  render time  */
         const timestamp = new Date(this.timestamp)
-        const year    = timestamp.getFullYear()
-        const month   = (timestamp.getMonth() + 1).toString().padStart(2, "0")
-        const day     = timestamp.getDate().toString().padStart(2, "0")
-        const hours   = timestamp.getHours().toString().padStart(2, "0")
-        const minutes = timestamp.getMinutes().toString().padStart(2, "0")
-        const seconds = timestamp.getSeconds().toString().padStart(2, "0")
-        const ms      = timestamp.getMilliseconds().toString().padStart(3, "0")
-        const time = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`
+        const year      = timestamp.getFullYear()
+        const month     = (timestamp.getMonth() + 1).toString().padStart(2, "0")
+        const day       = timestamp.getDate().toString().padStart(2, "0")
+        const hours     = timestamp.getHours().toString().padStart(2, "0")
+        const minutes   = timestamp.getMinutes().toString().padStart(2, "0")
+        const seconds   = timestamp.getSeconds().toString().padStart(2, "0")
+        const ms        = timestamp.getMilliseconds().toString().padStart(3, "0")
+        const time      = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${ms}`
 
         /*  render message  */
         const msg = (this.msg instanceof Promise ? "<unresolved>" : this.msg)
