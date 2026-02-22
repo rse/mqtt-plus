@@ -46,8 +46,7 @@
     ],
     "ignoreDependencies": [
         "shx",
-        "chokidar-cli",
-        "chalk"
+        "chokidar-cli"
     ]
 }
 
