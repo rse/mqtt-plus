@@ -117,7 +117,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const topicChunkD = this.options.topicMake(name,   "sink-push-chunk",   this.options.id)
 
         /*  remember the registration  */
-        this.onRequest.set(`sink-push-request:${name}`, (request: SinkPushRequest, topicName: string) => {
+        this.onRequest.set(`sink-push-request:${name}`, async (request: SinkPushRequest, topicName: string) => {
             /*  determine information  */
             const requestId = request.id
             const params    = request.params ?? []
@@ -145,7 +145,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             reqSpool.roll(() => { this.pushSpools.delete(requestId) })
 
             /*  check authentication and prepare stream  */
-            Promise.resolve().then(async () => {
+            try {
                 if (topicName !== request.name)
                     throw new Error(`sink name mismatch (topic: "${topicName}", payload: "${request.name}")`)
                 let authenticated: boolean | undefined = undefined
@@ -244,18 +244,21 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 await sendResponse()
 
                 /*  call handler  */
-                return callback(...params, info)
-            }).catch(async (err: Error) => {
+                return await callback(...params, info)
+            }
+            catch (err: unknown) {
+                const error = ensureError(err)
+
                 /*  cleanup resources  */
                 const stream = this.pushStreams.get(requestId)
                 if (stream !== undefined)
-                    stream.destroy(err)
+                    stream.destroy(error)
                 reqSpool.unroll()
 
                 /*  send error (nak response)  */
-                this.error(err)
-                await sendResponse(err.message).catch(() => {})
-            })
+                this.error(error)
+                await sendResponse(error.message).catch(() => {})
+            }
         })
         spool.roll(() => { this.onRequest.delete(`sink-push-request:${name}`) })
 

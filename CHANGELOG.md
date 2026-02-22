@@ -10,6 +10,7 @@ ChangeLog
 - BUGFIX: let the registration's destroy() throw errors correctly
 - BUGFIX: correctly handle synchronous response handler failures
 - REFACTOR: factor out topic subscription and spooling topic unsubscription into helper function
+- REFACTOR: make response handlers async functions to correctly catch their failures
 
 1.4.8 (2026-02-22)
 ------------------

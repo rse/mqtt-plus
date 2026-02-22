@@ -96,7 +96,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const topicD = this.options.topicMake(name,   "service-call-request", this.options.id)
 
         /*  remember the registration  */
-        this.onRequest.set(`service-call-request:${name}`, (request: ServiceCallRequest, topicName: string) => {
+        this.onRequest.set(`service-call-request:${name}`, async (request: ServiceCallRequest, topicName: string) => {
             /*  determine request information  */
             const requestId = request.id
             const senderId  = request.sender
@@ -111,33 +111,43 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             if (request.meta)
                 info.meta = request.meta
 
-            /*  asynchronously execute handler and send response  */
-            Promise.resolve().then(async () => {
+            /*  execute handler and send response  */
+            try {
                 if (topicName !== request.name)
                     throw new Error(`service name mismatch (topic: "${topicName}", payload: "${request.name}")`)
                 if (auth)
                     info.authenticated = await this.authenticated(senderId, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`service "${name}" failed authentication`)
-                return callback(...params, info)
-            }).then((result: any) => {
+                const result = await callback(...params, info)
+
                 /*  create success response message  */
-                return this.msg.makeServiceCallResponse(requestId, result,
+                const rpcResponse = this.msg.makeServiceCallResponse(requestId, result,
                     undefined, this.options.id, senderId)
-            }, (result: unknown) => {
-                /*  create error response message  */
-                const error = ensureError(result)
-                this.error(error, `handler for service "${name}" failed`)
-                return this.msg.makeServiceCallResponse(requestId, undefined,
-                    error.message, this.options.id, senderId)
-            }).then((rpcResponse) => {
+
                 /*  send response message  */
                 const encoded = this.codec.encode(rpcResponse)
                 const topic = this.options.topicMake(name, "service-call-response", senderId)
-                return this.publishToTopic(topic, encoded, { qos: options.qos ?? 2 })
-            }).catch((err: Error) => {
-                this.error(err, `handler for service "${name}" failed`)
-            })
+                await this.publishToTopic(topic, encoded, { qos: options.qos ?? 2 })
+            }
+            catch (err: unknown) {
+                const error = ensureError(err)
+
+                /*  create error response message  */
+                this.error(error, `handler for service "${name}" failed`)
+                const rpcResponse = this.msg.makeServiceCallResponse(requestId, undefined,
+                    error.message, this.options.id, senderId)
+
+                /*  send response message  */
+                try {
+                    const encoded = this.codec.encode(rpcResponse)
+                    const topic = this.options.topicMake(name, "service-call-response", senderId)
+                    await this.publishToTopic(topic, encoded, { qos: options.qos ?? 2 })
+                }
+                catch (err2: unknown) {
+                    this.error(ensureError(err2), `handler for service "${name}" failed`)
+                }
+            }
         })
         spool.roll(() => { this.onRequest.delete(`service-call-request:${name}`) })
 

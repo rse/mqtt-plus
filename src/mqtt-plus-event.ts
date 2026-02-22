@@ -94,7 +94,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         const topicD = this.options.topicMake(name, "event-emission", this.options.id)
 
         /*  remember the registration  */
-        this.onRequest.set(`event-emission:${name}`, (request: EventEmission, topicName: string) => {
+        this.onRequest.set(`event-emission:${name}`, async (request: EventEmission, topicName: string) => {
             /*  determine event information  */
             const senderId = request.sender
             const params   = request.params ?? []
@@ -107,18 +107,19 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
                 info.meta = request.meta
 
             /*  asynchronously execute handler  */
-            Promise.resolve().then(async () => {
+            try {
                 if (topicName !== request.name)
                     throw new Error(`event name mismatch (topic: "${topicName}", payload: "${request.name}")`)
                 if (auth)
                     info.authenticated = await this.authenticated(request.sender, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`authentication on event "${name}" failed`)
-                return callback(...params, info)
-            }).catch((result: unknown) => {
+                await callback(...params, info)
+            }
+            catch (result: unknown) {
                 const error = ensureError(result)
                 this.error(error, `handler for event "${name}" failed`)
-            })
+            }
         })
         spool.roll(() => { this.onRequest.delete(`event-emission:${name}`) })
 

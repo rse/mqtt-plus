@@ -113,7 +113,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const topicCreditD = this.options.topicMake(name,   "source-fetch-credit",  this.options.id)
 
         /*  remember the registration  */
-        this.onRequest.set(`source-fetch-request:${name}`, (request: SourceFetchRequest, topicName: string) => {
+        this.onRequest.set(`source-fetch-request:${name}`, async (request: SourceFetchRequest, topicName: string) => {
             /*  determine information  */
             const requestId = request.id
             const params    = request.params ?? []
@@ -177,15 +177,15 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
             /*  call the handler callback  */
             let ackSent = false
-            Promise.resolve().then(async () => {
+            try {
                 if (topicName !== request.name)
                     throw new Error(`source name mismatch (topic: "${topicName}", payload: "${request.name}")`)
                 if (auth)
                     info.authenticated = await this.authenticated(request.sender, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`source "${name}" failed authentication`)
-                return callback(...params, info)
-            }).then(async () => {
+                await callback(...params, info)
+
                 /*  check for valid data source  */
                 if (!(info.stream instanceof Readable) && !(info.buffer instanceof Promise))
                     throw new Error("handler did not provide data via info.stream or info.buffer fields")
@@ -203,15 +203,17 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 else if (info.buffer instanceof Promise)
                     /*  handle Buffer result  */
                     await sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk, creditGate)
-            }).catch((err: unknown) => {
+            }
+            catch (err: unknown) {
                 /*  send error as nak response or as error chunk  */
                 const error = ensureError(err)
                 this.error(error, `handler for source "${name}" failed`)
                 if (ackSent)
-                    return sendChunk(undefined, error.message, true).catch(() => {})
+                    await sendChunk(undefined, error.message, true).catch(() => {})
                 else
-                    return sendResponse(error.message).catch(() => {})
-            }).finally(() => {
+                    await sendResponse(error.message).catch(() => {})
+            }
+            finally {
                 /*  cleanup resources  */
                 clearSourceTimeout()
                 if (creditGate) {
@@ -219,7 +221,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     this.sourceCreditGates.delete(requestId)
                 }
                 this.onResponse.delete(`source-fetch-credit:${requestId}`)
-            })
+            }
         })
         spool.roll(() => { this.onRequest.delete(`source-fetch-request:${name}`) })
 
