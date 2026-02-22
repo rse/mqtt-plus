@@ -364,6 +364,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  register response dispatch callback  */
         this.onResponse.set(`source-fetch-response:${requestId}`, (response: SourceFetchResponse) => {
+            if (response.name !== name) {
+                stream.destroy(new Error(`source name mismatch (expected "${name}", got "${response.name}")`))
+                spool.unroll()
+                return
+            }
             if (response.sender)
                 serverId = response.sender
             metaResolve(response.meta)
@@ -377,6 +382,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  register chunk dispatch callback  */
         this.onResponse.set(`source-fetch-chunk:${requestId}`, (response: SourceFetchChunk) => {
+            if (response.name !== name) {
+                stream.destroy(new Error(`source name mismatch (expected "${name}", got "${response.name}")`))
+                spool.unroll()
+                return
+            }
             if (response.sender)
                 serverId = response.sender
             if (response.error) {

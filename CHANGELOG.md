@@ -11,6 +11,7 @@ ChangeLog
 - BUGFIX: correctly handle synchronous response handler failures
 - BUGFIX: fix internal chunkToBuffer() method for byte-length calculation
 - BUGFIX: apply the same limits on sender size for authenticate() as on receiver side
+- BUGFIX: check for name/topic mismatches also in source fetch()
 - REFACTOR: factor out topic subscription and spooling topic unsubscription into helper function
 - REFACTOR: make response handlers async functions to correctly catch their failures
 - IMPROVEMENT: use a cached TextEncoder in utility functions
