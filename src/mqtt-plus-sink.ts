@@ -145,7 +145,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  check authentication and prepare stream  */
             Promise.resolve().then(async () => {
                 if (topicName !== request.name)
-                    throw new Error(`sink name mismatch between topic "${topicName}" and payload "${request.name}"`)
+                    throw new Error(`sink name mismatch (topic: "${topicName}", payload: "${request.name}")`)
                 let authenticated: boolean | undefined = undefined
                 if (auth)
                     authenticated = await this.authenticated(request.sender, request.auth, auth)
@@ -198,8 +198,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  register chunk dispatch callback  */
                 this.onResponse.set(`sink-push-chunk:${requestId}`, (chunkParsed: SinkPushChunk, chunkTopicName: string) => {
                     if (chunkTopicName !== chunkParsed.name)
-                        throw new Error(`sink name mismatch between topic "${chunkTopicName}" ` +
-                            `and payload "${chunkParsed.name}"`)
+                        throw new Error(`sink name mismatch (topic: "${chunkTopicName}", payload: "${chunkParsed.name}")`)
                     if (chunkParsed.error !== undefined) {
                         readable.destroy(new Error(chunkParsed.error))
                         reqSpool.unroll()

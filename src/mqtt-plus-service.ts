@@ -114,8 +114,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
             /*  asynchronously execute handler and send response  */
             Promise.resolve().then(async () => {
-                if (topicName !== name)
-                    throw new Error(`service name mismatch (topic: "${topicName}", payload: "${name}")`)
+                if (topicName !== request.name)
+                    throw new Error(`service name mismatch (topic: "${topicName}", payload: "${request.name}")`)
                 if (auth)
                     info.authenticated = await this.authenticated(senderId, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)

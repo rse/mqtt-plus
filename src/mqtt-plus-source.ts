@@ -178,7 +178,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             let ackSent = false
             Promise.resolve().then(async () => {
                 if (topicName !== request.name)
-                    throw new Error(`source name mismatch between topic "${topicName}" and payload "${request.name}"`)
+                    throw new Error(`source name mismatch (topic: "${topicName}", payload: "${request.name}")`)
                 if (auth)
                     info.authenticated = await this.authenticated(request.sender, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)

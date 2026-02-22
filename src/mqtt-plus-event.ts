@@ -108,8 +108,8 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
 
             /*  asynchronously execute handler  */
             Promise.resolve().then(async () => {
-                if (topicName !== name)
-                    throw new Error(`event name mismatch (topic: "${topicName}", payload: "${name}")`)
+                if (topicName !== request.name)
+                    throw new Error(`event name mismatch (topic: "${topicName}", payload: "${request.name}")`)
                 if (auth)
                     info.authenticated = await this.authenticated(request.sender, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
