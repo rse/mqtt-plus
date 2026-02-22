@@ -15,6 +15,7 @@ ChangeLog
 - REFACTOR: factor out topic subscription and spooling topic unsubscription into helper function
 - REFACTOR: make response handlers async functions to correctly catch their failures
 - IMPROVEMENT: use a cached TextEncoder in utility functions
+- IMPROVEMENT: ensure generated NanoIDs do not conflict with pending requests
 
 1.4.8 (2026-02-22)
 ------------------

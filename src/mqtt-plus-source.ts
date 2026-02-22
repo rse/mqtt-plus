@@ -294,7 +294,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const spool = new Spool()
 
         /*  generate unique request id  */
-        const requestId = nanoid()
+        let requestId = nanoid()
+        while (
+            this.onResponse.has(`source-fetch-response:${requestId}`)
+            || this.onResponse.has(`source-fetch-chunk:${requestId}`)
+        )
+            requestId = nanoid()
 
         /*  subscribe to response topic (for ack/nak) and chunk topic (for data)  */
         const responseTopic = this.options.topicMake(name, "source-fetch-response", this.options.id)

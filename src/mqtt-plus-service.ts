@@ -207,7 +207,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const spool = new Spool()
 
         /*  generate unique request id  */
-        const requestId = nanoid()
+        let requestId = nanoid()
+        while (this.onResponse.has(`service-call-response:${requestId}`))
+            requestId = nanoid()
 
         /*  subscribe to MQTT response topic  */
         const responseTopic = this.options.topicMake(name, "service-call-response", this.options.id)
