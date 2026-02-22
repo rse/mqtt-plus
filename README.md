@@ -39,6 +39,9 @@ critical for reliability and long-term maintainability.
 Installation
 ------------
 
+**MQTT+** is published as a Node Package Manager (NPM) package named
+`mqtt-plus`. Install it with:
+
 ```shell
 $ npm install mqtt mqtt-plus
 ```
