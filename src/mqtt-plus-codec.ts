@@ -89,12 +89,16 @@ class Codec {
         if (this.format === "cbor") {
             if (!(data instanceof Uint8Array))
                 throw new Error("failed to decode CBOR format (data type is not Uint8Array)")
+            if (data.byteLength === 0)
+                throw new Error("failed to decode CBOR format (data is empty)")
             try { result = CBOR.decode(data, { tags: this.tags }) }
             catch (err: unknown) { throw new Error("failed to decode CBOR format", { cause: err }) }
         }
         else if (this.format === "json") {
             if (typeof data !== "string")
                 throw new Error("failed to decode JSON format (data type is not string)")
+            if (data.length === 0)
+                throw new Error("failed to decode JSON format (data is empty)")
             try { result = JSONX.parse(data) }
             catch (err: unknown) { throw new Error("failed to decode JSON format", { cause: err }) }
         }
