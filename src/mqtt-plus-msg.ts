@@ -427,9 +427,9 @@ class Msg {
         /*  sanity check version  */
         if (typeof obj.version !== "string")
             throw new Error("invalid object: missing or invalid \"version\" field")
-        const m = obj.version.match(/^MQTT\+\/(\d+\.\d+)$/)
-        const V = m !== null ? versionToNum(m[1]) : 0.0
-        if (V !== version)
+        const match      = obj.version.match(/^MQTT\+\/(\d+\.\d+)$/)
+        const versionNum = match !== null ? versionToNum(match[1]) : 0
+        if (versionNum !== version)
             throw new Error(`protocol version mismatch (expected version ${VERSION}, got version ${obj.version})`)
 
         /*  helper function for Valibot-based validation  */

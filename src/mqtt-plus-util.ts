@@ -31,10 +31,12 @@ import PLazy                            from "p-lazy"
 
 /*  credit-based flow control gate for chunk producers  */
 export class CreditGate {
+    /*  internal state  */
     private remaining: number
-    private waiters: Array<(aborted: boolean) => void> = []
-    private aborted = false
+    private waiters:   Array<(aborted: boolean) => void> = []
+    private aborted                                      = false
 
+    /*  initialization  */
     constructor (initialCredit: number) {
         this.remaining = initialCredit
     }
