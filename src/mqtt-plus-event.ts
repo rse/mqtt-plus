@@ -65,14 +65,14 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         let name:     K
         let callback: WithInfo<T[K], InfoEvent>
         let options:  Partial<IClientSubscribeOptions> = {}
-        let share:    string | undefined
+        let share     = this.options.share
         let auth:     AuthOption | undefined
         if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
             name     = nameOrConfig.name
             callback = nameOrConfig.callback
             options  = nameOrConfig.options ?? {}
-            share    = nameOrConfig.share
+            share    = nameOrConfig.share   ?? this.options.share
             auth     = nameOrConfig.auth
         }
         else {
