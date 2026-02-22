@@ -78,12 +78,19 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
     authenticate (token: string): void
     authenticate (token: string, remove: boolean): void
     authenticate (token?: string, remove?: boolean): string[] | undefined | void {
-        if (token === undefined)
-            return this._tokens.size > 0 ? Array.from(this._tokens) : undefined
+        if (token === undefined) {
+            const tokens = Array.from(this._tokens).filter((token) => token.length <= 8192).slice(0, 8)
+            return tokens.length > 0 ? tokens : undefined
+        }
         else if (remove === true)
             this._tokens.delete(token)
-        else
+        else {
+            if (token.length > 8192)
+                throw new Error("token must not exceed 8192 characters")
+            if (!this._tokens.has(token) && this._tokens.size >= 8)
+                throw new Error("at most 8 tokens can be authenticated at once")
             this._tokens.add(token)
+        }
     }
 
     /*  validate client-side token on server-side  */
