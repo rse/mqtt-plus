@@ -2,6 +2,16 @@
 ChangeLog
 =========
 
+1.4.7 (2026-02-22)
+------------------
+
+- IMPROVEMENT: make code more type-safe
+- CLEANUP: remove unused fields from protocol messages
+- CLEANUP: improve about description and text
+- DOCUMENTATION: switch about information to Markdown and SVG format
+- DOCUMENTATION: add hint to NPM
+- DOCUMENTATION: fix name of peer dependency
+
 1.4.6 (2026-02-22)
 ------------------
 
