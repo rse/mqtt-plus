@@ -449,6 +449,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             else if (data instanceof Uint8Array)
                 /*  split buffer into chunks and send them  */
                 await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
+            else
+                throw new Error("invalid data type: expected Readable or Uint8Array")
         }
         catch (err: unknown) {
             const error = ensureError(err).message
