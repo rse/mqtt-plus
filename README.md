@@ -175,7 +175,7 @@ Notice
 ------
 
 > [!Note]
-> **MQTT+** and its peer dependency **MQTT** provide a powerful
+> **MQTT+** and its peer dependency **MQTT.js** provide a powerful
 > functionality, but are not small in size. **MQTT+** is 3.500 LoC
 > and 75 KB in size (ESM and CJS format). When bundled with all its
 > dependencies, it is 220 KB in size (UMD format). Its peer dependency
