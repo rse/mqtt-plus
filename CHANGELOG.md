@@ -5,6 +5,7 @@ ChangeLog
 1.4.7 (2026-02-22)
 ------------------
 
+- IMPROVEMENT: provide a global "share" option
 - IMPROVEMENT: use timer utility code for internal timing
 - IMPROVEMENT: improve error handling
 - IMPROVEMENT: make code more type-safe
