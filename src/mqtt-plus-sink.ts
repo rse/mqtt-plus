@@ -161,14 +161,15 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 } : undefined
 
                 /*  utility functions for timeout management  */
-                const refreshPushTimeout = () => this.timerRefresh(requestId, () => {
+                const pushTimerId = `sink-push-recv:${requestId}`
+                const refreshPushTimeout = () => this.timerRefresh(pushTimerId, () => {
                     const stream = this.pushStreams.get(requestId)
                     if (stream !== undefined)
                         stream.destroy(new Error("push stream timeout"))
                     const spool = this.pushSpools.get(requestId)
                     spool?.unroll()
                 })
-                const clearPushTimeout   = () => this.timerClear(requestId)
+                const clearPushTimeout   = () => this.timerClear(pushTimerId)
 
                 /*  create a readable for buffering received chunks  */
                 const readable = new Readable({
@@ -344,11 +345,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const abortSignal     = abortController.signal
 
         /*  utility function for timeout refresh  */
-        const refreshTimeout = () => this.timerRefresh(requestId, () => {
+        const pushTimerId = `sink-push-send:${requestId}`
+        const refreshTimeout = () => this.timerRefresh(pushTimerId, () => {
             abortController.abort(new Error(`push to sink "${name}" timed out`))
             spool.unroll()
         })
-        spool.roll(() => { this.timerClear(requestId) })
+        spool.roll(() => { this.timerClear(pushTimerId) })
 
         /*  start timeout handler  */
         refreshTimeout()
