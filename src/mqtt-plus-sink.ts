@@ -135,11 +135,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  callback for sending the ack/nak response  */
             const chunkCredit = this.options.chunkCredit
             const sendResponse = async (error?: string) => {
-                const authToken = this.authenticate()
-                const metaStore = this.metaStore(info.meta)
                 const credit = chunkCredit > 0 ? chunkCredit : undefined
                 const response = this.msg.makeSinkPushResponse(requestId,
-                    name, error, this.options.id, sender, authToken, metaStore, credit)
+                    name, error, this.options.id, sender, credit)
                 const message = this.codec.encode(response)
                 await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 })
             }

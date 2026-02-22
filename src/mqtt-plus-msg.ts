@@ -160,8 +160,6 @@ export class SinkPushResponse extends Base {
         public error?:   string,
         sender?:         string,
         receiver?:       string,
-        public auth?:    string[],
-        public meta?:    Record<string, any>,
         public credit?:  number
     ) { super("sink-push-response", id, sender, receiver) }
 }
@@ -170,8 +168,6 @@ const SinkPushResponseSchema = v.strictObject({
     type:                v.literal("sink-push-response"),
     name:                v.string(),
     error:               v.optional(v.string()),
-    auth:                v.optional(AuthSchema),
-    meta:                v.optional(MetaSchema),
     credit:              v.optional(v.pipe(v.number(), v.integer(), v.minValue(1)))
 })
 
@@ -244,7 +240,6 @@ export class SourceFetchResponse extends Base {
         public error?:   string,
         sender?:         string,
         receiver?:       string,
-        public auth?:    string[],
         public meta?:    Record<string, any>
     ) { super("source-fetch-response", id, sender, receiver) }
 }
@@ -253,7 +248,6 @@ const SourceFetchResponseSchema = v.strictObject({
     type:                v.literal("source-fetch-response"),
     name:                v.string(),
     error:               v.optional(v.string()),
-    auth:                v.optional(AuthSchema),
     meta:                v.optional(MetaSchema)
 })
 
@@ -346,11 +340,9 @@ class Msg {
         error?:         string,
         sender?:        string,
         receiver?:      string,
-        auth?:          string[],
-        meta?:          Record<string, any>,
         credit?:        number
     ) {
-        return new SinkPushResponse(id, name, error, sender, receiver, auth, meta, credit)
+        return new SinkPushResponse(id, name, error, sender, receiver, credit)
     }
     makeSinkPushChunk (
         id:             string,
@@ -390,10 +382,9 @@ class Msg {
         error?:         string,
         sender?:        string,
         receiver?:      string,
-        auth?:          string[],
         meta?:          Record<string, any>
     ) {
-        return new SourceFetchResponse(id, name, error, sender, receiver, auth, meta)
+        return new SourceFetchResponse(id, name, error, sender, receiver, meta)
     }
     makeSourceFetchChunk (
         id:             string,
@@ -476,7 +467,7 @@ class Msg {
         else if (obj.type === "sink-push-response") {
             const out = parseObject<SinkPushResponse>(obj, "SinkPushResponse", SinkPushResponseSchema)
             return this.makeSinkPushResponse(out.id, out.name, out.error, out.sender, out.receiver,
-                out.auth, out.meta, out.credit)
+                out.credit)
         }
         else if (obj.type === "sink-push-chunk") {
             const out = parseObject<SinkPushChunk>(obj, "SinkPushChunk", SinkPushChunkSchema)
@@ -495,7 +486,7 @@ class Msg {
         else if (obj.type === "source-fetch-response") {
             const out = parseObject<SourceFetchResponse>(obj, "SourceFetchResponse", SourceFetchResponseSchema)
             return this.makeSourceFetchResponse(out.id, out.name, out.error, out.sender, out.receiver,
-                out.auth, out.meta)
+                out.meta)
         }
         else if (obj.type === "source-fetch-chunk") {
             const out = parseObject<SourceFetchChunk>(obj, "SourceFetchChunk", SourceFetchChunkSchema)

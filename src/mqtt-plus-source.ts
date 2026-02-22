@@ -133,10 +133,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
             /*  callback for sending the ack/nak response  */
             const sendResponse = async (error?: string) => {
-                const authToken = this.authenticate()
                 const metaStore = this.metaStore(info.meta)
                 const response = this.msg.makeSourceFetchResponse(requestId,
-                    name, error, this.options.id, sender, authToken, metaStore)
+                    name, error, this.options.id, sender, metaStore)
                 const message = this.codec.encode(response)
                 await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 })
             }
