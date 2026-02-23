@@ -346,8 +346,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         let requestId = nanoid()
         while (
             this.onResponse.has(`sink-push-response:${requestId}`)
-            || this.onResponse.has(`sink-push-credit:${requestId}`)
-        )
+            || this.onResponse.has(`sink-push-credit:${requestId}`))
             requestId = nanoid()
 
         /*  subscribe to response topic (for ack/nak)  */

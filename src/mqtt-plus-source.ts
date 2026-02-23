@@ -297,8 +297,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         let requestId = nanoid()
         while (
             this.onResponse.has(`source-fetch-response:${requestId}`)
-            || this.onResponse.has(`source-fetch-chunk:${requestId}`)
-        )
+            || this.onResponse.has(`source-fetch-chunk:${requestId}`))
             requestId = nanoid()
 
         /*  subscribe to response topic (for ack/nak) and chunk topic (for data)  */
