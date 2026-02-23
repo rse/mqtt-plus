@@ -261,14 +261,13 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     stream.destroy(error)
                 reqSpool.unroll()
 
-                /*  send error as nak response or as error chunk  */
+                /*  send error as nak response or as mid-stream error response  */
                 this.error(error)
                 if (ackSent) {
-                    const chunkTopic = this.options.topicMake(name, "sink-push-chunk", sender)
-                    const chunkMsg = this.msg.makeSinkPushChunk(requestId,
-                        name, undefined, error.message, true, this.options.id, sender)
-                    const message = this.codec.encode(chunkMsg)
-                    await this.publishToTopic(chunkTopic, message, { qos: options.qos ?? 2 }).catch(() => {})
+                    const responseMsg = this.msg.makeSinkPushResponse(requestId,
+                        name, error.message, this.options.id, sender)
+                    const message = this.codec.encode(responseMsg)
+                    await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 }).catch(() => {})
                 }
                 else
                     await sendResponse(error.message).catch(() => {})
@@ -392,10 +391,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     }
                 })
                 spool.roll(() => { this.onResponse.delete(`sink-push-response:${requestId}`) })
-                this.onResponse.set(`sink-push-credit:${requestId}`, (_response: SinkPushCredit) => {
-                    refreshTimeout()
-                })
-                spool.roll(() => { this.onResponse.delete(`sink-push-credit:${requestId}`) })
 
                 /*  generate and send request message  */
                 const auth      = this.authenticate()
@@ -434,6 +429,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     gate.replenish(response.credit)
                     refreshTimeout()
                 })
+                spool.roll(() => { this.onResponse.delete(`sink-push-credit:${requestId}`) })
             }
 
             /*  generate corresponding MQTT topic for chunks  */
