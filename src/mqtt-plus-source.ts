@@ -375,13 +375,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             }
             if (response.sender)
                 serverId = response.sender
-            metaResolve(response.meta)
             if (response.error) {
                 stream.destroy(new Error(response.error))
                 spool.unroll()
             }
-            else
+            else {
+                metaResolve(response.meta)
                 refreshTimeout()
+            }
         })
 
         /*  register chunk dispatch callback  */
