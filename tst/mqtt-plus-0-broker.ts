@@ -37,12 +37,12 @@ export default abstract class Broker {
     static async create (): Promise<Broker> {
         Broker.type = process.env.MQTT_BROKER ?? "mosquitto"
         if (Broker.type === "aedes") {
-            process.stderr.write(chalk.grey(`  [using internal ${chalk.bold("Aedes MQTT 3.1")} broker]\n\n`))
+            process.stderr.write(chalk.grey(`  [using internal ${chalk.bold("Aedes MQTT/3.1")} broker]\n\n`))
             const { default: AedesHelper } = await import("./mqtt-plus-0-broker-aedes")
             return new AedesHelper()
         }
         else if (Broker.type === "mosquitto") {
-            process.stderr.write(chalk.grey(`  [using external ${chalk.bold("Mosquitto MQTT 5.0")} broker]\n\n`))
+            process.stderr.write(chalk.grey(`  [using external ${chalk.bold("Mosquitto MQTT/5.0")} broker]\n\n`))
             const { default: MosquittoHelper } = await import("./mqtt-plus-0-broker-mosquitto")
             return new MosquittoHelper()
         }
