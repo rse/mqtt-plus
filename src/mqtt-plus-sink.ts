@@ -250,16 +250,16 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 ackSent = true
 
                 /*  call handler  */
-                return await callback(...params, info)
+                await callback(...params, info)
             }
             catch (err: unknown) {
-                const error = ensureError(err)
+                const error = ensureError(err, `handler for sink "${name}" failed`)
 
                 /*  cleanup resources  */
                 const stream = this.pushStreams.get(requestId)
                 if (stream !== undefined)
                     stream.destroy(error)
-                reqSpool.unroll()
+                await reqSpool.unroll()
 
                 /*  send error as nak response or as mid-stream error response  */
                 this.error(error)

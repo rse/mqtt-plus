@@ -126,6 +126,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 info.receiver = receiver
             if (request.meta)
                 info.meta = request.meta
+            makeMutuallyExclusiveFields(info, "stream", "buffer")
 
             /*  generate corresponding MQTT topics  */
             const responseTopic = this.options.topicMake(name, "source-fetch-response", sender)
@@ -140,9 +141,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 })
             }
 
+            /*  define abort controller and signal  */
+            const abortController = new AbortController()
+            const abortSignal     = abortController.signal
+
             /*  utility functions for timeout management  */
             const sourceTimerId = `source-fetch-send:${requestId}`
             const refreshSourceTimeout = () => this.timerRefresh(sourceTimerId, () => {
+                abortController.abort(new Error(`source fetch "${name}" timed out`))
                 const gate = this.sourceCreditGates.get(requestId)
                 if (gate !== undefined)
                     gate.abort()
@@ -163,20 +169,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 await this.publishToTopic(chunkTopic, message, { qos: options.qos ?? 2 })
             }
 
-            /*  handle credit-based flow control (if credit provided in request)  */
-            const initialCredit = request.credit
-            const creditGate = (initialCredit !== undefined && initialCredit > 0)
-                ? new CreditGate(initialCredit) : undefined
-            if (creditGate) {
-                this.sourceCreditGates.set(requestId, creditGate)
-                this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
-                    creditGate.replenish(creditParsed.credit)
-                    refreshSourceTimeout()
-                })
-            }
-
             /*  call the handler callback  */
             let ackSent = false
+            let creditGate: CreditGate | undefined
             try {
                 if (topicName !== request.name)
                     throw new Error(`source name mismatch (topic: "${topicName}", payload: "${request.name}")`)
@@ -184,6 +179,19 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     info.authenticated = await this.authenticated(request.sender, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
                     throw new Error(`source "${name}" failed authentication`)
+
+                /*  handle credit-based flow control (if credit provided in request)  */
+                const initialCredit = request.credit
+                creditGate = (initialCredit !== undefined && initialCredit > 0)
+                    ? new CreditGate(initialCredit) : undefined
+                if (creditGate) {
+                    this.sourceCreditGates.set(requestId, creditGate)
+                    this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
+                        creditGate!.replenish(creditParsed.credit)
+                        refreshSourceTimeout()
+                    })
+                }
+
                 await callback(...params, info)
 
                 /*  check for valid data source  */
@@ -199,19 +207,19 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 /*  dispatch according to data type  */
                 if (info.stream instanceof Readable)
                     /*  handle Readable stream result  */
-                    await sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk, creditGate)
+                    await sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk, creditGate, abortSignal)
                 else if (info.buffer instanceof Promise)
                     /*  handle Buffer result  */
-                    await sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk, creditGate)
+                    await sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk, creditGate, abortSignal)
             }
             catch (err: unknown) {
                 /*  cleanup stream resource (if provided by handler)  */
-                const error = ensureError(err)
+                const error = ensureError(err, `handler for source "${name}" failed`)
                 if (info.stream instanceof Readable && !info.stream.destroyed)
                     info.stream.destroy(error)
 
                 /*  send error as nak response or as error chunk  */
-                this.error(error, `handler for source "${name}" failed`)
+                this.error(error)
                 if (ackSent)
                     await sendChunk(undefined, error.message, true).catch(() => {})
                 else
@@ -339,6 +347,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     this.publishToTopic(creditTopic, encoded, { qos: options.qos ?? 2 }).catch((err: Error) => {
                         this.error(err, `sending credit for fetch "${name}" failed`)
                     })
+                    refreshTimeout()
                 }
             }
         })
