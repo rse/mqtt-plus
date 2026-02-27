@@ -205,8 +205,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     await sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk, creditGate)
             }
             catch (err: unknown) {
-                /*  send error as nak response or as error chunk  */
+                /*  cleanup stream resource (if provided by handler)  */
                 const error = ensureError(err)
+                if (info.stream instanceof Readable && !info.stream.destroyed)
+                    info.stream.destroy(error)
+
+                /*  send error as nak response or as error chunk  */
                 this.error(error, `handler for source "${name}" failed`)
                 if (ackSent)
                     await sendChunk(undefined, error.message, true).catch(() => {})
