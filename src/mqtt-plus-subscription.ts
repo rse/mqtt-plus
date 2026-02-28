@@ -170,8 +170,8 @@ class RefCountedSubscription {
         await Promise.allSettled([ ...this.pending.values(), ...this.unsubbing.values() ])
 
         /*  then unsubscribe from all potentially active topics  */
-        for (const topic of topics)
-            await this.unsubscribeFn(topic).catch(() => {})
+        await Promise.allSettled([ ...topics ].map((topic) =>
+            this.unsubscribeFn(topic).catch(() => {})))
 
         /*  clear remaining internal state  */
         this.pending.clear()
