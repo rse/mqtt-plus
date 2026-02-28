@@ -30,7 +30,7 @@ import { Readable }                     from "node:stream"
 import PLazyAPI                         from "p-lazy"
 
 /*  workaround for ESM-only module "p-lazy" which, when used in the context
-    of MQTT+'s CJS built (e.g. inside test suite), exports via "default"  */
+    of MQTT+'s CJS build (e.g. inside test suite), exports via "default"  */
 export const PLazy = ((PLazyAPI as { default?: typeof PLazyAPI }).default ?? PLazyAPI) as typeof PLazyAPI
 
 /*  credit-based flow control gate for chunk producers  */
