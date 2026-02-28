@@ -126,7 +126,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 info.receiver = receiver
             if (request.meta)
                 info.meta = request.meta
-            makeMutuallyExclusiveFields(info, "stream", "buffer")
 
             /*  generate corresponding MQTT topics  */
             const responseTopic = this.options.topicMake(name, "source-fetch-response", sender)
