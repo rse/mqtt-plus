@@ -29,7 +29,7 @@ import { SinkTrait }      from "./mqtt-plus-sink"
 /*  re-export most important types  */
 export type *             from "./mqtt-plus-api"
 export type *             from "./mqtt-plus-info"
-export type *             from "./mqtt-plus-version"
+export *                  from "./mqtt-plus-version"
 
 /*  export the default API class  */
 export default class MQTTp<T extends APISchema = APISchema>
