@@ -29,7 +29,7 @@ import { Readable }                     from "node:stream"
 /*  external requirements  */
 import PLazyAPI                         from "p-lazy"
 
-/*  workaround for ESM-only module "plazy" which, when used in the context
+/*  workaround for ESM-only module "p-lazy" which, when used in the context
     of MQTT+'s CJS built (e.g. inside test suite), exports via "default"  */
 export const PLazy = ((PLazyAPI as { default?: typeof PLazyAPI }).default ?? PLazyAPI) as typeof PLazyAPI
 
