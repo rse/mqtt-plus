@@ -161,8 +161,8 @@ class RefCountedSubscription {
         ])
 
         /*  cancel all pending linger timers first (synchronously)  */
-        for (const topic of this.lingers.keys())
-            clearTimeout(this.lingers.get(topic))
+        for (const timer of this.lingers.values())
+            clearTimeout(timer)
         this.lingers.clear()
         this.counts.clear()
 
