@@ -145,7 +145,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     await this.publishToTopic(topic, encoded, { qos: options.qos ?? 2 })
                 }
                 catch (err2: unknown) {
-                    this.error(ensureError(err2), `handler for service "${name}" failed`)
+                    this.error(ensureError(err2), `sending error response for service "${name}" failed`)
                 }
             }
         })
