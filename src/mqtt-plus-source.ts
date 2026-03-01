@@ -184,9 +184,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 creditGate = (initialCredit !== undefined && initialCredit > 0)
                     ? new CreditGate(initialCredit) : undefined
                 if (creditGate) {
-                    this.sourceCreditGates.set(requestId, creditGate)
+                    const gate = creditGate
+                    this.sourceCreditGates.set(requestId, gate)
                     this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
-                        creditGate!.replenish(creditParsed.credit)
+                        gate.replenish(creditParsed.credit)
                         refreshSourceTimeout()
                     })
                 }
