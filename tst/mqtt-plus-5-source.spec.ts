@@ -64,7 +64,7 @@ describe("MQTT+ Source Fetch", function () {
         const error2 = await result2.buffer.catch((err: Error) => {
             return err.message
         })
-        expect(error2).to.be.equal("invalid source")
+        expect(error2).to.be.equal("handler for source \"example/server/download\" failed: invalid source")
 
         /*  fetch non-existing source (invalid source name)  */
         const result3 = await ctx.apiC.fetch("example/server/download-invalid", "foo")
@@ -92,7 +92,7 @@ describe("MQTT+ Source Fetch", function () {
                 info.stream = readable
             }
             else
-                throw new Error("invalid source")
+                throw new Error("handler for source \"example/server/download\" failed: invalid source")
         })
 
         /*  fetch source and consume via stream  */
