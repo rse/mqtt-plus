@@ -25,6 +25,7 @@
 /*  internal requirements  */
 import type { APISchema }     from "./mqtt-plus-api"
 import { SubscriptionTrait }  from "./mqtt-plus-subscription"
+import { ensureError }        from "./mqtt-plus-error"
 
 /*  Timer trait with reusable timer management  */
 export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTrait<T> {
