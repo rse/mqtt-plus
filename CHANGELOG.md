@@ -6,6 +6,7 @@ ChangeLog
 -------------------
 
 - UPDATE: update AGENTS.md
+- UPDATE: upgrade NPM dependencies
 
 1.4.10 (2026-03-01)
 -------------------
