@@ -54,7 +54,7 @@ describe("MQTT+ Miscellaneous", function () {
 
         /*  generate connection close event  */
         const mqttpDry = new MQTTp<API>(null, { id: "my-client" })
-        const will = mqttpDry.emit({ dry: true, event: "example/server/connection", params: [ "close" ] })
+        const will = mqttpDry.emit({ dry: true, name: "example/server/connection", params: [ "close" ] })
         mqttpDry.destroy()
 
         /*  connect to broker as a server  */
