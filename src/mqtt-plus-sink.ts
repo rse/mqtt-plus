@@ -232,6 +232,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  prepare info object  */
                 const promise = streamToBuffer(readable)
+                promise.catch(() => {}) /*  avoid unhandled promise rejection  */
                 const info: InfoSink = {
                     sender,
                     stream: readable,

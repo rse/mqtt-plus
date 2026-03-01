@@ -357,6 +357,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  create promise for collecting stream chunks  */
         const buffer = streamToBuffer(stream)
+        buffer.catch(() => {}) /*  avoid unhandled promise rejection  */
 
         /*  create promise for meta (resolved on first chunk)  */
         let metaResolve!: (value: Record<string, any> | undefined) => void
