@@ -122,8 +122,6 @@ Exactly one of `result` or `error` is present.
 |----------|------------------------|----------|-------------------------------|
 | `name`   | `string`               | yes      | Sink endpoint name            |
 | `error`  | `string`               | no       | Error message (nak) or absent (ack) |
-| `auth`   | `string[]`             | no       | JWT tokens (max 8)            |
-| `meta`   | `Record<string, any>`  | no       | Arbitrary metadata            |
 | `credit` | `integer`              | no       | Initial flow control credit (min 1) |
 
 ### `sink-push-chunk`
@@ -158,7 +156,6 @@ Exactly one of `result` or `error` is present.
 |----------|------------------------|----------|-------------------------------|
 | `name`   | `string`               | yes      | Source endpoint name          |
 | `error`  | `string`               | no       | Error message (nak) or absent (ack) |
-| `auth`   | `string[]`             | no       | JWT tokens (max 8)            |
 | `meta`   | `Record<string, any>`  | no       | Arbitrary metadata            |
 
 ### `source-fetch-chunk`

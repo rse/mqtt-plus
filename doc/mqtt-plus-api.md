@@ -65,7 +65,7 @@ describing the available events, services, sources, and sinks.
 Destruction
 -----------
 
-    destroy(): void
+    destroy(): Promise<void>
 
 Clean up the MQTT+ instance by removing all event listeners.
 Call this method when the instance is no longer needed.
