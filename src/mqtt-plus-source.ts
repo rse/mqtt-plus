@@ -144,6 +144,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             const abortController = new AbortController()
             const abortSignal     = abortController.signal
 
+            /*  ensure stream gets destroyed on abort  */
+            abortSignal.addEventListener("abort", () => {
+                if (info.stream instanceof Readable && !info.stream.destroyed)
+                    info.stream.destroy(abortSignal.reason as Error)
+            }, { once: true })
+
             /*  utility functions for timeout management  */
             const sourceTimerId = `source-fetch-send:${requestId}`
             const refreshSourceTimeout = () => this.timerRefresh(sourceTimerId, () => {
@@ -152,8 +158,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const gate = this.sourceCreditGates.get(requestId)
                 if (gate !== undefined)
                     gate.abort()
-                if (info.stream instanceof Readable && !info.stream.destroyed)
-                    info.stream.destroy(error)
             })
             const clearSourceTimeout   = () => this.timerClear(sourceTimerId)
             refreshSourceTimeout()
@@ -218,8 +222,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             catch (err: unknown) {
                 /*  cleanup stream resource (if provided by handler)  */
                 const error = ensureError(err, `handler for source "${name}" failed`)
-                if (info.stream instanceof Readable && !info.stream.destroyed)
-                    info.stream.destroy(error)
+                abortController.abort(error)
 
                 /*  send error as nak response or as error chunk  */
                 this.error(error)

@@ -359,13 +359,20 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const abortController = new AbortController()
         const abortSignal     = abortController.signal
 
+        /*  ensure stream gets destroyed on abort  */
+        if (data instanceof Readable) {
+            const stream = data
+            abortSignal.addEventListener("abort", () => {
+                if (!stream.destroyed)
+                    stream.destroy(abortSignal.reason as Error)
+            }, { once: true })
+        }
+
         /*  utility function for timeout refresh  */
         const pushTimerId = `sink-push-send:${requestId}`
         const refreshTimeout = () => this.timerRefresh(pushTimerId, () => {
             const error = new Error(`push to sink "${name}" timed out`)
             abortController.abort(error)
-            if (data instanceof Readable && !data.destroyed)
-                data.destroy(error)
             spool.unroll()
         })
         spool.roll(() => { this.timerClear(pushTimerId) })
@@ -411,12 +418,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  override handler for mid-stream (error) responses  */
             this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
-                if (response.error) {
-                    const error = new Error(response.error)
-                    abortController.abort(error)
-                    if (data instanceof Readable && !data.destroyed)
-                        data.destroy(error)
-                }
+                if (response.error)
+                    abortController.abort(new Error(response.error))
             })
 
             /*  create credit gate for flow control (if server granted credit)  */
@@ -466,8 +469,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         }
         catch (err: unknown) {
             const error = ensureError(err)
-            if (data instanceof Readable && !data.destroyed)
-                data.destroy(error)
+            abortController.abort(error)
 
             /*  send error chunk only if receiver is known
                 (otherwise the sink already received the error via the nak response)  */
