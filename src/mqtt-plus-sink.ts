@@ -361,7 +361,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  utility function for timeout refresh  */
         const pushTimerId = `sink-push-send:${requestId}`
         const refreshTimeout = () => this.timerRefresh(pushTimerId, () => {
-            abortController.abort(new Error(`push to sink "${name}" timed out`))
+            const error = new Error(`push to sink "${name}" timed out`)
+            abortController.abort(error)
+            if (data instanceof Readable && !data.destroyed)
+                data.destroy(error)
             spool.unroll()
         })
         spool.roll(() => { this.timerClear(pushTimerId) })
@@ -407,8 +410,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  override handler for mid-stream (error) responses  */
             this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
-                if (response.error)
-                    abortController.abort(new Error(response.error))
+                if (response.error) {
+                    const error = new Error(response.error)
+                    abortController.abort(error)
+                    if (data instanceof Readable && !data.destroyed)
+                        data.destroy(error)
+                }
             })
 
             /*  create credit gate for flow control (if server granted credit)  */
@@ -457,13 +464,16 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
         }
         catch (err: unknown) {
+            const error = ensureError(err)
+            if (data instanceof Readable && !data.destroyed)
+                data.destroy(error)
+
             /*  send error chunk only if receiver is known
                 (otherwise the sink already received the error via the nak response)  */
             if (receiver !== undefined) {
-                const error = ensureError(err).message
                 const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
                 const chunkMsg = this.msg.makeSinkPushChunk(requestId,
-                    name, undefined, error, true, this.options.id, receiver)
+                    name, undefined, error.message, true, this.options.id, receiver)
                 const message = this.codec.encode(chunkMsg)
                 await this.publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
             }
