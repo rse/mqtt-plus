@@ -33,11 +33,13 @@ npm start sample        # run sample/sample.ts via `tsx`
 
 npm start clean         # remove dst-stage1/ and dst-stage2/
 npm start distclean     # remove node_modules/ and package-lock.json
+npm start publish       # publish to npm (restricted to maintainer host)
 
 ```
 
-Tests require a Mosquitto MQTT broker under run-time; the `mosquitto`
-npm package provides one that the test suite starts/stops automatically.
+Tests require an MQTT broker under run-time; the test suite starts/stops
+one automatically. If Docker is available, a Mosquitto broker is used;
+otherwise, the Aedes in-process broker serves as the fallback.
 
 Build Pipeline
 --------------
@@ -51,7 +53,7 @@ Two-stage build:
    `mqtt-plus.esm.js`, `mqtt-plus.cjs.js`, `mqtt-plus.umd.js`.
    UMD build includes Node polyfills (events, stream, buffer).
 
-Configuration lives in `etc/`: `tsc.json`, `vite.mts`, `eslint.mts`, `knip.jsonc`, `stx.conf`, `d2.mts`.
+Configuration lives in `etc/`: `tsc.json`, `vite.mts`, `eslint.mts`, `knip.jsonc`, `stx.conf`, `d2.mts`, `d2.theme.d2`, `logo.ai`, `logo.svg`.
 
 Architecture
 ------------
@@ -70,6 +72,7 @@ the bottom of this chain:
   ↓ TraceTrait          — EventEmitter + structured logging
   ↓ BaseTrait           — MQTT client hookup, subscription management, message routing
   ↓ SubscriptionTrait   — ref-counted MQTT topic subscription management
+  ↓ TimerTrait          — named timer management (refresh/clear)
   ↓ MetaTrait           — instance/per-request metadata
   ↓ AuthTrait           — JWT authentication (jose), role-based access
   ↓ EventTrait          — Event Emission pattern (event/emit)
@@ -98,6 +101,7 @@ Each trait lives in its own file: `src/mqtt-plus-<trait>.ts`.
 | `src/mqtt-plus-trace.ts`        | TraceTrait — EventEmitter and structured logging |
 | `src/mqtt-plus-base.ts`         | BaseTrait — MQTT client connection, subscription management, message routing |
 | `src/mqtt-plus-subscription.ts` | SubscriptionTrait — ref-counted MQTT topic subscription management |
+| `src/mqtt-plus-timer.ts`        | TimerTrait — named timer management (refresh/clear) |
 | `src/mqtt-plus-meta.ts`         | MetaTrait — instance and per-request metadata management |
 | `src/mqtt-plus-auth.ts`         | AuthTrait — JWT authentication (jose) and role-based access control |
 | `src/mqtt-plus-event.ts`        | EventTrait — Event Emission communication pattern (event/emit) |
