@@ -58,7 +58,9 @@ export class CreditGate {
             /*  wait for credit to be replenished  */
             await new Promise<void>((resolve, reject) => {
                 const onAbort = () => {
-                    this.waiters.splice(this.waiters.indexOf(waiter), 1)
+                    const idx = this.waiters.indexOf(waiter)
+                    if (idx !== -1)
+                        this.waiters.splice(idx, 1)
                     reject(abortSignal?.reason ?? new Error("aborted"))
                 }
                 if (abortSignal)

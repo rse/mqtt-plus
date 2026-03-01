@@ -40,13 +40,18 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
     }
 
     /*  refresh (or start) a named timer  */
-    protected timerRefresh (id: string, onTimeout: () => void) {
+    protected timerRefresh (id: string, onTimeout: () => void | Promise<void>) {
         const timer = this.timers.get(id)
         if (timer !== undefined)
             clearTimeout(timer)
-        this.timers.set(id, setTimeout(() => {
+        this.timers.set(id, setTimeout(async () => {
             this.timers.delete(id)
-            onTimeout()
+            try {
+                await onTimeout()
+            }
+            catch (err: unknown) {
+                this.error(ensureError(err), `timer "${id}" failed`)
+            }
         }, this.options.timeout))
     }
 
