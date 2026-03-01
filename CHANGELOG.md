@@ -5,8 +5,11 @@ ChangeLog
 1.4.11 (2026-03-01)
 -------------------
 
-- UPDATE: update AGENTS.md
+- IMPROVEMENT: avoid warning in Vite
+- BUGFIX: fix building for Vite compatibility
+- UPDATE: update documentation
 - UPDATE: upgrade NPM dependencies
+- CLEANUP: cleanup code
 
 1.4.10 (2026-03-01)
 -------------------
