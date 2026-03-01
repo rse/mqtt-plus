@@ -2,10 +2,18 @@
 ChangeLog
 =========
 
-1.4.10 (2026-02-22)
+1.4.10 (2026-03-01)
 -------------------
 
+- IMPROVEMENT: improve performance
+- IMPROVEMENT: improve typing and export more public API types
+- IMPROVEMENT: improve description
+- BUGFIX: fix error handling and destruction problems
+- BUGFIX: fix name of module
+- BUGFIX: do not make fields exclusive
 - UPDATE: upgrade NPM dependencies
+- CLEANUP: various code cleanups (simplification, formatting, comments, output polishing)
+- CLEANUP: cleanups for error handling
 
 1.4.9 (2026-02-22)
 ------------------
