@@ -5,11 +5,13 @@ ChangeLog
 1.4.11 (2026-03-01)
 -------------------
 
-- CLEANUP: rename emit() parameter "event" to "name" for consistency
+- IMPROVEMENT: improve error handling
 - IMPROVEMENT: avoid warning in Vite
 - BUGFIX: fix building for Vite compatibility
+- BUGFIX: avoid unhandled rejection error
 - UPDATE: update documentation
 - UPDATE: upgrade NPM dependencies
+- CLEANUP: rename emit() parameter "event" to "name" for consistency
 - CLEANUP: cleanup code
 
 1.4.10 (2026-03-01)
