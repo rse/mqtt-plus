@@ -265,18 +265,18 @@ Event Emission
 
     /*  (simplified TypeScript API method signature)  */
     emit(
-        event:     string,
+        name:      string,
         ...params: any[]
     ): void
     emit({
-        event:     string,
+        name:      string,
         params:    any[],
         receiver?: string,
         options?:  MQTT::IClientPublishOptions,
         meta?:     Record<string, any>
     }): void
     emit({
-        event:     string,
+        name:      string,
         params:    any[],
         receiver?: string,
         options?:  MQTT::IClientPublishOptions,
@@ -300,8 +300,8 @@ Emit an event to all subscribers or a specific subscriber ("fire and forget").
 - The remote `event()` `callback` is called with `params` and its
   return value is silently ignored.
 
-- Internally, publishes to the MQTT topic by `topicMake(event, "event-emission", peerId)`
-  (default: `${event}/event-emission/any` or `${event}/event-emission/${peerId}`).
+- Internally, publishes to the MQTT topic by `topicMake(name, "event-emission", peerId)`
+  (default: `${name}/event-emission/any` or `${name}/event-emission/${peerId}`).
 
 - *Dry-Run Publishing for MQTT Last-Will:*
   When you need to set up an MQTT "last will" message (automatically published
@@ -315,7 +315,7 @@ Emit an event to all subscribers or a specific subscriber ("fire and forget").
     const mqttpDry = new MQTTp<API>(null, { id: "my-client" })
     const will = mqttpDry.emit({
         dry:    true,
-        event:  "example/connection",
+        name:   "example/connection",
         params: [ "close" ],
         [...]
     })

@@ -135,12 +135,12 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
 
     /*  emit event ("fire and forget")  */
     emit<K extends EventKeys<T> & string> (
-        event:         K,
+        name:          K,
         ...params:     Parameters<T[K]>
     ): void
     emit<K extends EventKeys<T> & string> (
         config: {
-            event:     K,
+            name:      K,
             params:    Parameters<T[K]>,
             receiver?: string,
             options?:  IClientPublishOptions,
@@ -149,7 +149,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
     ): void
     emit<K extends EventKeys<T> & string> (
         config: {
-            event:     K,
+            name:      K,
             params:    Parameters<T[K]>,
             receiver?: string,
             options?:  IClientPublishOptions,
@@ -159,7 +159,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
     ): { topic: string, payload: string | Uint8Array, options: IClientPublishOptions }
     emit<K extends EventKeys<T> & string> (
         eventOrConfig: K | {
-            event:     K,
+            name:      K,
             params:    Parameters<T[K]>,
             receiver?: string,
             options?:  IClientPublishOptions,
@@ -169,7 +169,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         ...args:       any[]
     ): void | { topic: string, payload: string | Uint8Array, options: IClientPublishOptions } {
         /*  determine actual parameters  */
-        let event:     K
+        let name:      K
         let params:    Parameters<T[K]>
         let receiver:  string | undefined
         let options:   IClientPublishOptions = {}
@@ -177,7 +177,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         let dry:       boolean | undefined
         if (typeof eventOrConfig === "object" && eventOrConfig !== null) {
             /*  object-based API  */
-            event    = eventOrConfig.event
+            name     = eventOrConfig.name
             params   = eventOrConfig.params
             receiver = eventOrConfig.receiver
             options  = eventOrConfig.options ?? {}
@@ -186,7 +186,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         }
         else {
             /*  positional API  */
-            event    = eventOrConfig
+            name     = eventOrConfig
             params   = args as Parameters<T[K]>
         }
 
@@ -196,12 +196,12 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         /*  generate encoded message  */
         const auth      = this.authenticate()
         const metaStore = this.metaStore(meta)
-        const request   = this.msg.makeEventEmission(requestId, event, params,
+        const request   = this.msg.makeEventEmission(requestId, name, params,
             this.options.id, receiver, auth, metaStore)
         const message   = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
-        const topic = this.options.topicMake(event, "event-emission", receiver)
+        const topic = this.options.topicMake(name, "event-emission", receiver)
 
         /*  produce result  */
         if (dry)
@@ -210,7 +210,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         else
             /*  publish message to MQTT topic  */
             this.publishToTopic(topic, message, { qos: 2, ...options }).catch((err: Error) => {
-                this.error(err, `emitting event "${event}" failed`)
+                this.error(err, `emitting event "${name}" failed`)
             })
     }
 }

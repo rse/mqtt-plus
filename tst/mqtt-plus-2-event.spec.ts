@@ -77,7 +77,7 @@ describe("MQTT+ Event Emission", function () {
 
         /*  emit event  */
         ctx.apiC.emit({
-            event:  "example/server/sample",
+            name:   "example/server/sample",
             params: [ "world", 42 ]
         })
         await new Promise((resolve) => { setTimeout(resolve, 10) })
@@ -105,7 +105,7 @@ describe("MQTT+ Event Emission", function () {
 
         /*  emit event with metadata  */
         ctx.apiC.emit({
-            event:  "example/server/sample",
+            name:   "example/server/sample",
             params: [ "world", 42 ],
             meta:   { tag: "test-meta" }
         })

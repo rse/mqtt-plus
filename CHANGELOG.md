@@ -5,6 +5,7 @@ ChangeLog
 1.4.11 (2026-03-01)
 -------------------
 
+- CLEANUP: rename emit() parameter "event" to "name" for consistency
 - IMPROVEMENT: avoid warning in Vite
 - BUGFIX: fix building for Vite compatibility
 - UPDATE: update documentation
