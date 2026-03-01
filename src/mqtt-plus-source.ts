@@ -46,9 +46,13 @@ import type { AuthOption }                                from "./mqtt-plus-auth
 export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T> {
     /*  source state  */
     private sourceCreditGates = new Map<string, CreditGate>()
+    private sourceControllers = new Map<string, AbortController>()
 
     /*  destroy source trait  */
     override async destroy () {
+        for (const controller of this.sourceControllers.values())
+            controller.abort(new Error("source destroyed"))
+        this.sourceControllers.clear()
         for (const gate of this.sourceCreditGates.values())
             gate.abort()
         this.sourceCreditGates.clear()
@@ -142,6 +146,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
             /*  define abort controller and signal  */
             const abortController = new AbortController()
+            this.sourceControllers.set(requestId, abortController)
             const abortSignal     = abortController.signal
 
             /*  ensure stream gets destroyed on abort  */
@@ -238,6 +243,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     creditGate.abort()
                     this.sourceCreditGates.delete(requestId)
                 }
+                this.sourceControllers.delete(requestId)
                 this.onResponse.delete(`source-fetch-credit:${requestId}`)
             }
         })
