@@ -5,8 +5,10 @@ ChangeLog
 1.4.12 (2026-03-05)
 -------------------
 
+- IMPROVEMENT: make all subscriptions ref-counted and spooled
 - UPDATE: update documentation
 - UPDATE: upgrade NPM dependencies
+- CLEANUP: cleanup code
 
 1.4.11 (2026-03-05)
 -------------------
