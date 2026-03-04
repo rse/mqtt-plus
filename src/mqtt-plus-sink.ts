@@ -350,7 +350,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         /*  subscribe to response topic (for ack/nak)  */
         const responseTopic = this.options.topicMake(name, "sink-push-response", this.options.id)
-        await this.subscribeTopicAndSpool(spool, responseTopic, { qos: options.qos ?? 2 })
+        await run(`subscribe to MQTT topic "${responseTopic}"`, spool, () =>
+            this.subscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
+        spool.roll(() => this.subscriptions.unsubscribe(responseTopic))
 
         /*  define abort controller and signal  */
         const abortController = new AbortController()
@@ -429,7 +431,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  subscribe to credit topic if flow control is active  */
             if (creditGate) {
                 const creditTopic = this.options.topicMake(name, "sink-push-credit", this.options.id)
-                await this.subscribeTopicAndSpool(spool, creditTopic, { qos: options.qos ?? 2 })
+                await run(`subscribe to MQTT topic "${creditTopic}"`, spool, () =>
+                    this.subscriptions.subscribe(creditTopic, { qos: options.qos ?? 2 }))
+                spool.roll(() => this.subscriptions.unsubscribe(creditTopic))
                 const gate = creditGate
                 spool.roll(() => { gate.abort() })
 
