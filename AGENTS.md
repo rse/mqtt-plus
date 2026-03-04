@@ -65,7 +65,7 @@ each extending the previous. The final exported class `MQTTp` sits at
 the bottom of this chain:
 
 ```
-    OptionsTrait        — configuration (id, codec, timeout, chunkSize, chunkCredit, topicMake/topicMatch)
+    OptionsTrait        — configuration (id, codec, timeout, share, chunkSize, chunkCredit, topicMake/topicMatch)
   ↓ CodecTrait          — CBOR/JSON codec handling
   ↓ EncodeTrait         — message encoding/validation (valibot schemas)
   ↓ MsgTrait            — message class definitions and parsing
@@ -92,7 +92,7 @@ Each trait lives in its own file: `src/mqtt-plus-<trait>.ts`.
 | `src/mqtt-plus-api.ts`          | Branded endpoint type definitions (Event, Service, Source, Sink) and APISchema generic |
 | `src/mqtt-plus-info.ts`         | Info/context object types passed to pattern callbacks (sender metadata, etc.) |
 | `src/mqtt-plus-error.ts`        | Spool (resource cleanup) and run (error handling) utilities |
-| `src/mqtt-plus-util.ts`         | Stream/buffer conversion, RefCountedSubscription, and CreditGate flow control |
+| `src/mqtt-plus-util.ts`         | PLazy, CreditGate flow control, and stream/buffer collection utilities |
 | `src/mqtt-plus-version.ts`      | Version utility for converting version strings to numeric format |
 | `src/mqtt-plus-options.ts`      | OptionsTrait — configuration (id, codec, timeout, chunkSize, chunkCredit, topicMake/topicMatch) |
 | `src/mqtt-plus-codec.ts`        | CodecTrait — CBOR and JSON codec encoding/decoding |
