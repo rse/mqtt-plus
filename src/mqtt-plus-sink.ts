@@ -364,7 +364,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             const stream = data
             abortSignal.addEventListener("abort", () => {
                 if (!stream.destroyed)
-                    stream.destroy(abortSignal.reason as Error)
+                    stream.destroy(ensureError(abortSignal.reason))
             }, { once: true })
         }
 

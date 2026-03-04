@@ -152,7 +152,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             /*  ensure stream gets destroyed on abort  */
             abortSignal.addEventListener("abort", () => {
                 if (info.stream instanceof Readable && !info.stream.destroyed)
-                    info.stream.destroy(abortSignal.reason as Error)
+                    info.stream.destroy(ensureError(abortSignal.reason))
             }, { once: true })
 
             /*  utility functions for timeout management  */
