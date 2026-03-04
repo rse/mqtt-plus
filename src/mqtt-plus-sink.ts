@@ -383,6 +383,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  send request and wait for response before sending chunks  */
         let initialCredit: number | undefined
         let creditGate: CreditGate | undefined
+        let remoteError = false
         try {
             await new Promise<void>((resolve, reject) => {
                 /*  handle abort signal  */
@@ -418,8 +419,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  override handler for mid-stream (error) responses  */
             this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
-                if (response.error)
+                if (response.error) {
+                    remoteError = true
                     abortController.abort(new Error(response.error))
+                }
             })
 
             /*  create credit gate for flow control (if server granted credit)  */
@@ -471,9 +474,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             const error = ensureError(err)
             abortController.abort(error)
 
-            /*  send error chunk only if receiver is known
+            /*  send error chunk only if receiver is known and error did not originate from receiver
                 (otherwise the sink already received the error via the nak response)  */
-            if (receiver !== undefined) {
+            if (receiver !== undefined && !remoteError) {
                 const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
                 const chunkMsg = this.msg.makeSinkPushChunk(requestId,
                     name, undefined, error.message, true, this.options.id, receiver)
