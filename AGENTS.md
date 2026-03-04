@@ -67,8 +67,8 @@ the bottom of this chain:
 ```
     OptionsTrait        — configuration (id, codec, timeout, share, chunkSize, chunkCredit, topicMake/topicMatch)
   ↓ CodecTrait          — CBOR/JSON codec handling
-  ↓ EncodeTrait         — message encoding/validation (valibot schemas)
-  ↓ MsgTrait            — message class definitions and parsing
+  ↓ EncodeTrait         — string/buffer conversion utilities (str2buf, buf2str)
+  ↓ MsgTrait            — message class definitions, valibot schemas, and parsing
   ↓ TraceTrait          — EventEmitter + structured logging
   ↓ BaseTrait           — MQTT client hookup, subscription management, message routing
   ↓ SubscriptionTrait   — ref-counted MQTT topic subscription management
@@ -94,13 +94,13 @@ Each trait lives in its own file: `src/mqtt-plus-<trait>.ts`.
 | `src/mqtt-plus-error.ts`        | Spool (resource cleanup) and run (error handling) utilities |
 | `src/mqtt-plus-util.ts`         | PLazy, CreditGate flow control, and stream/buffer collection utilities |
 | `src/mqtt-plus-version.ts`      | Version utility for converting version strings to numeric format |
-| `src/mqtt-plus-options.ts`      | OptionsTrait — configuration (id, codec, timeout, chunkSize, chunkCredit, topicMake/topicMatch) |
+| `src/mqtt-plus-options.ts`      | OptionsTrait — configuration (id, codec, timeout, share, chunkSize, chunkCredit, topicMake/topicMatch) |
 | `src/mqtt-plus-codec.ts`        | CodecTrait — CBOR and JSON codec encoding/decoding |
-| `src/mqtt-plus-encode.ts`       | EncodeTrait — message validation and encoding via valibot schemas |
-| `src/mqtt-plus-msg.ts`          | MsgTrait — message class definitions and parsing logic |
+| `src/mqtt-plus-encode.ts`       | EncodeTrait — string/buffer conversion utilities (str2buf, buf2str) |
+| `src/mqtt-plus-msg.ts`          | MsgTrait — message class definitions, valibot schemas, and parsing logic |
 | `src/mqtt-plus-trace.ts`        | TraceTrait — EventEmitter and structured logging |
 | `src/mqtt-plus-base.ts`         | BaseTrait — MQTT client connection, subscription management, message routing |
-| `src/mqtt-plus-subscription.ts` | SubscriptionTrait — ref-counted MQTT topic subscription management |
+| `src/mqtt-plus-subscription.ts` | SubscriptionTrait — RefCountedSubscription class and ref-counted MQTT topic subscription management |
 | `src/mqtt-plus-timer.ts`        | TimerTrait — named timer management (refresh/clear) |
 | `src/mqtt-plus-meta.ts`         | MetaTrait — instance and per-request metadata management |
 | `src/mqtt-plus-auth.ts`         | AuthTrait — JWT authentication (jose) and role-based access control |
