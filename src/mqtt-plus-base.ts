@@ -23,7 +23,7 @@
 */
 
 /*  external requirements  */
-import { MqttClient,
+import { type MqttClient,
     type OnMessageCallback,
     type IClientSubscribeOptions,
     type IClientPublishOptions,
