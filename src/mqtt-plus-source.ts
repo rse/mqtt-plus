@@ -331,12 +331,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         /*  subscribe to response topic (for ack/nak) and chunk topic (for data)  */
         const responseTopic = this.options.topicMake(name, "source-fetch-response", this.options.id)
         const chunkTopic    = this.options.topicMake(name, "source-fetch-chunk",    this.options.id)
-        await run(`subscribe to MQTT topic "${responseTopic}"`, spool, () =>
-            this.subscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
-        spool.roll(() => this.subscriptions.unsubscribe(responseTopic))
-        await run(`subscribe to MQTT topic "${chunkTopic}"`, spool, () =>
-            this.subscriptions.subscribe(chunkTopic, { qos: options.qos ?? 2 }))
-        spool.roll(() => this.subscriptions.unsubscribe(chunkTopic))
+        await this.subscribeTopicAndSpool(spool, responseTopic, { qos: options.qos ?? 2 })
+        await this.subscribeTopicAndSpool(spool, chunkTopic,    { qos: options.qos ?? 2 })
 
         /*  credit-based flow control state  */
         const chunkCredit  = this.options.chunkCredit

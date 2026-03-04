@@ -48,7 +48,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     private pushStreams = new Map<string, Readable>()
     private pushSpools  = new Map<string, Spool>()
 
-    /*  destroy sink trait  */
+    /*  destroy trait  */
     override async destroy () {
         for (const stream of this.pushStreams.values())
             stream.destroy(new Error("sink destroyed"))
@@ -61,8 +61,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
     /*  register a sink  */
     async sink<K extends SinkKeys<T> & string> (
-        name:     K,
-        callback: WithInfo<T[K], InfoSink>
+        name:          K,
+        callback:      WithInfo<T[K], InfoSink>
     ): Promise<Registration>
     async sink<K extends SinkKeys<T> & string> (
         config: {
@@ -84,23 +84,23 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         ...args:       any[]
     ): Promise<Registration> {
         /*  determine actual parameters  */
-        let name:     K
-        let callback: WithInfo<T[K], InfoSink>
-        let options:  Partial<IClientSubscribeOptions> = {}
-        let share     = this.options.share
-        let auth:     AuthOption | undefined
+        let name:      K
+        let callback:  WithInfo<T[K], InfoSink>
+        let options:   Partial<IClientSubscribeOptions> = {}
+        let share      = this.options.share
+        let auth:      AuthOption | undefined
         if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
-            name     = nameOrConfig.name
-            callback = nameOrConfig.callback
-            options  = nameOrConfig.options ?? {}
-            share    = nameOrConfig.share   ?? this.options.share
-            auth     = nameOrConfig.auth
+            name       = nameOrConfig.name
+            callback   = nameOrConfig.callback
+            options    = nameOrConfig.options ?? {}
+            share      = nameOrConfig.share   ?? this.options.share
+            auth       = nameOrConfig.auth
         }
         else {
             /*  positional API  */
-            name     = nameOrConfig
-            callback = args[0]
+            name       = nameOrConfig
+            callback   = args[0]
         }
 
         /*  create a resource spool  */
@@ -116,7 +116,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const topicReqD   = this.options.topicMake(name,   "sink-push-request", this.options.id)
         const topicChunkD = this.options.topicMake(name,   "sink-push-chunk",   this.options.id)
 
-        /*  remember the registration  */
+        /*  react on sink push request  */
         this.onRequest.set(`sink-push-request:${name}`, async (request: SinkPushRequest, topicName: string) => {
             /*  determine information  */
             const requestId = request.id
@@ -277,8 +277,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         spool.roll(() => { this.onRequest.delete(`sink-push-request:${name}`) })
 
         /*  subscribe to MQTT topics  */
-        await this.subscribeTopicAndSpool(spool, topicReqB, options)
-        await this.subscribeTopicAndSpool(spool, topicReqD, options)
+        await this.subscribeTopicAndSpool(spool, topicReqB,   options)
+        await this.subscribeTopicAndSpool(spool, topicReqD,   options)
         await this.subscribeTopicAndSpool(spool, topicChunkD, options)
 
         /*  provide a registration for subsequent destruction  */
@@ -313,26 +313,26 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         ...args:       any[]
     ): Promise<void> {
         /*  determine actual parameters  */
-        let name:           K
-        let data:           Readable | Uint8Array
-        let params:         Parameters<T[K]>
-        let receiver:       string | undefined
-        let options:        IClientPublishOptions = {}
-        let meta:           Record<string, any> | undefined
+        let name:      K
+        let data:      Readable | Uint8Array
+        let params:    Parameters<T[K]>
+        let receiver:  string | undefined
+        let options:   IClientPublishOptions = {}
+        let meta:      Record<string, any> | undefined
         if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
-            name     = nameOrConfig.name
-            data     = nameOrConfig.data
-            params   = nameOrConfig.params
-            receiver = nameOrConfig.receiver
-            options  = nameOrConfig.options ?? {}
-            meta     = nameOrConfig.meta
+            name       = nameOrConfig.name
+            data       = nameOrConfig.data
+            params     = nameOrConfig.params
+            receiver   = nameOrConfig.receiver
+            options    = nameOrConfig.options ?? {}
+            meta       = nameOrConfig.meta
         }
         else {
             /*  positional API  */
-            name     = nameOrConfig
-            data     = args[0]
-            params   = args.slice(1) as Parameters<T[K]>
+            name       = nameOrConfig
+            data       = args[0]
+            params     = args.slice(1) as Parameters<T[K]>
         }
 
         /*  sanity check data type  */
@@ -344,16 +344,13 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         /*  generate unique request id  */
         let requestId = nanoid()
-        while (
-            this.onResponse.has(`sink-push-response:${requestId}`)
+        while (this.onResponse.has(`sink-push-response:${requestId}`)
             || this.onResponse.has(`sink-push-credit:${requestId}`))
             requestId = nanoid()
 
         /*  subscribe to response topic (for ack/nak)  */
         const responseTopic = this.options.topicMake(name, "sink-push-response", this.options.id)
-        await run(`subscribe to MQTT topic "${responseTopic}"`, spool, () =>
-            this.subscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
-        spool.roll(() => this.subscriptions.unsubscribe(responseTopic))
+        await this.subscribeTopicAndSpool(spool, responseTopic, { qos: options.qos ?? 2 })
 
         /*  define abort controller and signal  */
         const abortController = new AbortController()
@@ -432,9 +429,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  subscribe to credit topic if flow control is active  */
             if (creditGate) {
                 const creditTopic = this.options.topicMake(name, "sink-push-credit", this.options.id)
-                await run(`subscribe to MQTT topic "${creditTopic}"`, spool, () =>
-                    this.subscriptions.subscribe(creditTopic, { qos: options.qos ?? 2 }))
-                spool.roll(() => this.subscriptions.unsubscribe(creditTopic))
+                await this.subscribeTopicAndSpool(spool, creditTopic, { qos: options.qos ?? 2 })
                 const gate = creditGate
                 spool.roll(() => { gate.abort() })
 
