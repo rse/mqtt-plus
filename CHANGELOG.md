@@ -2,13 +2,16 @@
 ChangeLog
 =========
 
-1.4.11 (2026-03-01)
+1.4.11 (2026-03-05)
 -------------------
 
-- IMPROVEMENT: improve error handling
+- IMPROVEMENT: improve error handling and use error ensure function consistently
+- IMPROVEMENT: improve cleanup handling and correctly track resources
+- IMPROVEMENT: improve typing and fix overloads
 - IMPROVEMENT: avoid warning in Vite
 - BUGFIX: fix building for Vite compatibility
 - BUGFIX: avoid unhandled rejection error
+- BUGFIX: fix test
 - UPDATE: update documentation
 - UPDATE: upgrade NPM dependencies
 - CLEANUP: rename emit() parameter "event" to "name" for consistency
