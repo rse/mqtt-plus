@@ -213,9 +213,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
         /*  subscribe to MQTT response topic  */
         const responseTopic = this.options.topicMake(name, "service-call-response", this.options.id)
-        await run(`subscribe to MQTT topic "${responseTopic}"`, spool, () =>
-            this.subscriptions.subscribe(responseTopic, { qos: options.qos ?? 2 }))
-        spool.roll(() => this.subscriptions.unsubscribe(responseTopic))
+        await this.subscribeTopicAndSpool(spool, responseTopic, { qos: options.qos ?? 2 })
 
         /*  create promise for MQTT response handling  */
         const timerId = `service-call:${requestId}`

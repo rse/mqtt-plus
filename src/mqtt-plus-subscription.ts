@@ -28,6 +28,7 @@ import type { IClientSubscribeOptions } from "mqtt"
 /*  internal requirements  */
 import type { APISchema }               from "./mqtt-plus-api"
 import { BaseTrait }                    from "./mqtt-plus-base"
+import { run, Spool }                   from "./mqtt-plus-error"
 
 /*  reference-counted subscription helper  */
 class RefCountedSubscription {
@@ -185,6 +186,17 @@ export class SubscriptionTrait<T extends APISchema = APISchema> extends BaseTrai
         (topic, options) => this.subscribeTopic(topic, options),
         (topic)          => this.unsubscribeTopic(topic)
     )
+
+    /*  subscribe to an MQTT topic (reference-counted) and spool the unsubscription  */
+    protected async subscribeTopicAndSpool (
+        spool:   Spool,
+        topic:   string,
+        options: Partial<IClientSubscribeOptions> = {}
+    ) {
+        await run(`subscribe to MQTT topic "${topic}"`, spool, () =>
+            this.subscriptions.subscribe(topic, { qos: 2, ...options }))
+        spool.roll(() => this.subscriptions.unsubscribe(topic))
+    }
 
     /*  destroy subscription trait  */
     override async destroy () {
