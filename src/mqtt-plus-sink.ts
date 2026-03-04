@@ -286,12 +286,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     }
 
     /*  push to sink ("chunked content")  */
-    push<K extends SinkKeys<T> & string> (
+    async push<K extends SinkKeys<T> & string> (
         name:          K,
         data:          Readable | Uint8Array,
         ...params:     Parameters<T[K]>
     ): Promise<void>
-    push<K extends SinkKeys<T> & string> (
+    async push<K extends SinkKeys<T> & string> (
         config: {
             name:      K,
             data:      Readable | Uint8Array,
