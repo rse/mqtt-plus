@@ -52,9 +52,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     override async destroy () {
         for (const stream of this.pushStreams.values())
             stream.destroy(new Error("sink destroyed"))
+        this.pushStreams.clear()
         for (const spool of this.pushSpools.values())
             await spool.unroll()
-        this.pushStreams.clear()
         this.pushSpools.clear()
         await super.destroy()
     }
