@@ -161,8 +161,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const error = new Error(`source fetch "${name}" timed out`)
                 abortController.abort(error)
                 const gate = this.sourceCreditGates.get(requestId)
-                if (gate !== undefined)
+                if (gate !== undefined) {
                     gate.abort()
+                    this.sourceCreditGates.delete(requestId)
+                }
+                this.sourceControllers.delete(requestId)
+                this.onResponse.delete(`source-fetch-credit:${requestId}`)
             })
             const clearSourceTimeout   = () => this.timerClear(sourceTimerId)
             refreshSourceTimeout()
