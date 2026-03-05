@@ -33,7 +33,7 @@ import { type MqttClient,
 import type { APISchema, Registration } from "./mqtt-plus-api"
 import type { APIOptions }              from "./mqtt-plus-options"
 import { TraceTrait }                   from "./mqtt-plus-trace"
-import { Spool, ensureError }            from "./mqtt-plus-error"
+import { Spool, ensureError }           from "./mqtt-plus-error"
 import { PLazy }                        from "./mqtt-plus-util"
 
 /*  MQTTp Base class with shared infrastructure  */
