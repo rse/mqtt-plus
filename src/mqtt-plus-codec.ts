@@ -122,4 +122,3 @@ export class CodecTrait<T extends APISchema = APISchema> extends OptionsTrait<T>
         this.codec = new Codec(this.options.codec)
     }
 }
-

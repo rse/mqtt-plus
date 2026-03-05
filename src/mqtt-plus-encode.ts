@@ -73,4 +73,3 @@ export class EncodeTrait<T extends APISchema = APISchema> extends CodecTrait<T> 
         return arr
     }
 }
-

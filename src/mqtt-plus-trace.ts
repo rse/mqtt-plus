@@ -124,4 +124,3 @@ export class TraceTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
         this.log("error", err.message)
     }
 }
-
