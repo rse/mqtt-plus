@@ -253,6 +253,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  call handler  */
                 await callback(...params, info)
 
+                /*  await full stream consumption before confirming success  */
+                await promise.catch(() => {})
+
                 /*  send terminal success response  */
                 await sendResponse()
             }
@@ -498,9 +501,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             const error = ensureError(err)
             abortController.abort(error)
 
-            /*  send error chunk only if receiver is known and error did not originate from receiver
-                (otherwise the sink already received the error via the nak response)  */
-            if (receiver !== undefined && !remoteError) {
+            /*  send error chunk only if push was acked and error did not originate from receiver
+                (before ack, the sink has no chunk handler yet and will time out on its own)  */
+            if (pushAcked && receiver !== undefined && !remoteError) {
                 const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
                 const chunkMsg = this.msg.makeSinkPushChunk(requestId,
                     name, undefined, error.message, true, this.options.id, receiver)

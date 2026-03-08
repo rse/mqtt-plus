@@ -434,8 +434,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         /*  helper for processing a chunk message  */
         const processChunk = (response: SourceFetchChunk) => {
             if (!ackReceived) {
+                if (pendingChunks.length >= chunkCredit * 2 + 64) {
+                    stream.destroy(new Error("too many chunks received before ack"))
+                    spool.unroll()
+                    return
+                }
                 pendingChunks.push(response)
-                refreshTimeout()
                 return
             }
             if (response.error) {
