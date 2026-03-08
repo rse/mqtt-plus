@@ -339,6 +339,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         let chunksReceived = 0
         let creditGranted  = chunkCredit
         let serverId:        string | undefined
+        let ackReceived      = false
+        const pendingChunks: SourceFetchChunk[] = []
 
         /*  establish a readable for buffering received chunks  */
         const stream = new Readable({
@@ -406,20 +408,36 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 spool.unroll()
             }
             else {
+                ackReceived = true
                 metaResolve(response.meta)
                 refreshTimeout()
+                while (pendingChunks.length > 0) {
+                    const chunk = pendingChunks.shift()!
+                    if (chunk.error) {
+                        stream.destroy(new Error(chunk.error))
+                        spool.unroll()
+                        return
+                    }
+                    if (chunk.chunk !== undefined) {
+                        chunksReceived++
+                        stream.push(chunk.chunk)
+                    }
+                    if (chunk.final) {
+                        stream.push(null)
+                        spool.unroll()
+                        return
+                    }
+                }
             }
         })
 
-        /*  register chunk dispatch callback  */
-        this.onResponse.set(`source-fetch-chunk:${requestId}`, (response: SourceFetchChunk) => {
-            if (response.name !== name) {
-                stream.destroy(new Error(`source name mismatch (expected "${name}", got "${response.name}")`))
-                spool.unroll()
+        /*  helper for processing a chunk message  */
+        const processChunk = (response: SourceFetchChunk) => {
+            if (!ackReceived) {
+                pendingChunks.push(response)
+                refreshTimeout()
                 return
             }
-            if (response.sender)
-                serverId = response.sender
             if (response.error) {
                 stream.destroy(new Error(response.error))
                 spool.unroll()
@@ -435,6 +453,18 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     spool.unroll()
                 }
             }
+        }
+
+        /*  register chunk dispatch callback  */
+        this.onResponse.set(`source-fetch-chunk:${requestId}`, (response: SourceFetchChunk) => {
+            if (response.name !== name) {
+                stream.destroy(new Error(`source name mismatch (expected "${name}", got "${response.name}")`))
+                spool.unroll()
+                return
+            }
+            if (response.sender)
+                serverId = response.sender
+            processChunk(response)
         })
         spool.roll(() => {
             this.onResponse.delete(`source-fetch-response:${requestId}`)
