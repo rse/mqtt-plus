@@ -392,6 +392,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             pushFinalizeResolve = resolve
             pushFinalizeReject  = reject
         })
+        pushFinalize.catch(() => {})  /*  avoid unhandled promise rejection  */
         try {
             await new Promise<void>((resolve, reject) => {
                 /*  handle abort signal  */
