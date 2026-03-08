@@ -131,8 +131,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  callback for sending the ack/nak response  */
             const chunkCredit = this.options.chunkCredit
-            const sendResponse = async (error?: string) => {
-                const credit = (error === undefined && chunkCredit > 0) ? chunkCredit : undefined
+            const sendResponse = async (error?: string, withCredit: boolean = false) => {
+                const credit = (error === undefined && withCredit && chunkCredit > 0) ? chunkCredit : undefined
                 const response = this.msg.makeSinkPushResponse(requestId,
                     name, error, this.options.id, sender, credit)
                 const message = this.codec.encode(response)
@@ -247,11 +247,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 makeMutuallyExclusiveFields(info, "stream", "buffer")
 
                 /*  send ack response  */
-                await sendResponse()
+                await sendResponse(undefined, true)
                 ackSent = true
 
                 /*  call handler  */
                 await callback(...params, info)
+
+                /*  send terminal success response  */
+                await sendResponse()
             }
             catch (err: unknown) {
                 const error = ensureError(err, `handler for sink "${name}" failed`)
@@ -381,6 +384,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         let initialCredit: number | undefined
         let creditGate: CreditGate | undefined
         let remoteError = false
+        let pushAcked = false
+        let pushFinalized = false
+        let pushFinalizeResolve!: () => void
+        let pushFinalizeReject!: (reason?: any) => void
+        const pushFinalize = new Promise<void>((resolve, reject) => {
+            pushFinalizeResolve = resolve
+            pushFinalizeReject  = reject
+        })
         try {
             await new Promise<void>((resolve, reject) => {
                 /*  handle abort signal  */
@@ -396,6 +407,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         if (response.sender)
                             receiver = response.sender
                         initialCredit = response.credit
+                        pushAcked = true
                         resolve()
                     }
                 })
@@ -418,7 +430,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
                 if (response.error) {
                     remoteError = true
+                    pushFinalizeReject(new Error(response.error))
                     abortController.abort(new Error(response.error))
+                }
+                else if (pushAcked && !pushFinalized) {
+                    pushFinalized = true
+                    pushFinalizeResolve()
                 }
             })
 
@@ -464,6 +481,17 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             else if (data instanceof Uint8Array)
                 /*  split buffer into chunks and send them  */
                 await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
+
+            /*  wait for terminal sink response  */
+            if (!pushFinalized) {
+                await new Promise<void>((resolve, reject) => {
+                    const onAbort = () => { reject(abortSignal.reason) }
+                    abortSignal.addEventListener("abort", onAbort, { once: true })
+                    pushFinalize.then(resolve, reject).finally(() => {
+                        abortSignal.removeEventListener("abort", onAbort)
+                    })
+                })
+            }
         }
         catch (err: unknown) {
             const error = ensureError(err)
