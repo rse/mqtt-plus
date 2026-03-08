@@ -340,6 +340,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         let creditGranted  = chunkCredit
         let serverId:        string | undefined
         let ackReceived      = false
+        let streamEnded      = false
         const pendingChunks: SourceFetchChunk[] = []
 
         /*  establish a readable for buffering received chunks  */
@@ -396,7 +397,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  register response dispatch callback  */
         this.onResponse.set(`source-fetch-response:${requestId}`, (response: SourceFetchResponse) => {
+            if (streamEnded)
+                return
             if (response.name !== name) {
+                streamEnded = true
                 stream.destroy(new Error(`source name mismatch (expected "${name}", got "${response.name}")`))
                 spool.unroll()
                 return
@@ -404,6 +408,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             if (response.sender)
                 serverId = response.sender
             if (response.error) {
+                streamEnded = true
                 stream.destroy(new Error(response.error))
                 spool.unroll()
             }
@@ -414,6 +419,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 while (pendingChunks.length > 0) {
                     const chunk = pendingChunks.shift()!
                     if (chunk.error) {
+                        streamEnded = true
                         stream.destroy(new Error(chunk.error))
                         spool.unroll()
                         return
@@ -423,6 +429,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         stream.push(chunk.chunk)
                     }
                     if (chunk.final) {
+                        streamEnded = true
                         stream.push(null)
                         spool.unroll()
                         return
@@ -433,8 +440,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  helper for processing a chunk message  */
         const processChunk = (response: SourceFetchChunk) => {
+            if (streamEnded)
+                return
             if (!ackReceived) {
                 if (pendingChunks.length >= chunkCredit * 2 + 64) {
+                    streamEnded = true
                     stream.destroy(new Error("too many chunks received before ack"))
                     spool.unroll()
                     return
@@ -443,6 +453,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 return
             }
             if (response.error) {
+                streamEnded = true
                 stream.destroy(new Error(response.error))
                 spool.unroll()
             }
@@ -453,6 +464,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     stream.push(response.chunk)
                 }
                 if (response.final) {
+                    streamEnded = true
                     stream.push(null)
                     spool.unroll()
                 }
@@ -461,7 +473,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  register chunk dispatch callback  */
         this.onResponse.set(`source-fetch-chunk:${requestId}`, (response: SourceFetchChunk) => {
+            if (streamEnded)
+                return
             if (response.name !== name) {
+                streamEnded = true
                 stream.destroy(new Error(`source name mismatch (expected "${name}", got "${response.name}")`))
                 spool.unroll()
                 return

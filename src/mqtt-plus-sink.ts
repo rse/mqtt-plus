@@ -200,14 +200,19 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 readable.once("error", () => reqSpool.unroll())
 
                 /*  register chunk dispatch callback  */
+                let streamEnded = false
                 this.onResponse.set(`sink-push-chunk:${requestId}`, (chunkParsed: SinkPushChunk, chunkTopicName: string) => {
+                    if (streamEnded)
+                        return
                     if (chunkTopicName !== chunkParsed.name) {
                         const error = new Error(`sink name mismatch (topic: "${chunkTopicName}", payload: "${chunkParsed.name}")`)
+                        streamEnded = true
                         readable.destroy(error)
                         reqSpool.unroll()
                         return
                     }
                     if (chunkParsed.error !== undefined) {
+                        streamEnded = true
                         readable.destroy(new Error(chunkParsed.error))
                         reqSpool.unroll()
                     }
@@ -219,6 +224,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                             readable.push(chunkParsed.chunk)
                         }
                         if (chunkParsed.final) {
+                            streamEnded = true
                             readable.push(null)
                             reqSpool.unroll()
                         }
@@ -254,7 +260,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 await callback(...params, info)
 
                 /*  await full stream consumption before confirming success  */
-                await promise.catch(() => {})
+                await promise
 
                 /*  send terminal success response  */
                 await sendResponse()
