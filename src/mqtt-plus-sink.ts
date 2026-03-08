@@ -196,8 +196,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 })
                 this.pushStreams.set(requestId, readable)
                 reqSpool.roll(() => { this.pushStreams.delete(requestId) })
-                readable.once("close", () => reqSpool.unroll())
-                readable.once("error", () => reqSpool.unroll())
+                readable.once("error", () => {}) /*  prevent unhandled error exception  */
 
                 /*  register chunk dispatch callback  */
                 let streamEnded = false
@@ -268,12 +267,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             catch (err: unknown) {
                 const error = ensureError(err, `handler for sink "${name}" failed`)
 
-                /*  cleanup resources  */
-                const stream = this.pushStreams.get(requestId)
-                if (stream !== undefined)
-                    stream.destroy(error)
-                await reqSpool.unroll()
-
                 /*  send error as nak response or as mid-stream error response  */
                 this.error(error)
                 if (ackSent) {
@@ -284,6 +277,13 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 }
                 else
                     await sendResponse(error.message).catch(() => {})
+            }
+            finally {
+                /*  cleanup resources  */
+                const stream = this.pushStreams.get(requestId)
+                if (stream !== undefined && !stream.destroyed)
+                    stream.destroy()
+                await reqSpool.unroll()
             }
         })
         spool.roll(() => { this.onRequest.delete(`sink-push-request:${name}`) })
