@@ -200,20 +200,20 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  register chunk dispatch callback  */
                 let streamEnded = false
-                this.onResponse.set(`sink-push-chunk:${requestId}`, (chunkParsed: SinkPushChunk, chunkTopicName: string) => {
+                this.onResponse.set(`sink-push-chunk:${requestId}`, async (chunkParsed: SinkPushChunk, chunkTopicName: string) => {
                     if (streamEnded)
                         return
                     if (chunkTopicName !== chunkParsed.name) {
                         const error = new Error(`sink name mismatch (topic: "${chunkTopicName}", payload: "${chunkParsed.name}")`)
                         streamEnded = true
                         readable.destroy(error)
-                        reqSpool.unroll()
+                        await reqSpool.unroll()
                         return
                     }
                     if (chunkParsed.error !== undefined) {
                         streamEnded = true
                         readable.destroy(new Error(chunkParsed.error))
-                        reqSpool.unroll()
+                        await reqSpool.unroll()
                     }
                     else {
                         refreshPushTimeout()
@@ -225,7 +225,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         if (chunkParsed.final) {
                             streamEnded = true
                             readable.push(null)
-                            reqSpool.unroll()
+                            await reqSpool.unroll()
                         }
                     }
                 })
