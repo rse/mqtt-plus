@@ -217,7 +217,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
         /*  create promise for MQTT response handling  */
         const timerId = `service-call:${requestId}`
+        let rejectPromise!: (reason?: any) => void
         const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {
+            rejectPromise = reject
             this.timerRefresh(timerId, async () => {
                 await spool.unroll()
                 reject(new Error("communication timeout"))
@@ -244,8 +246,14 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const topic = this.options.topicMake(name, "service-call-request", receiver)
 
         /*  publish message to MQTT topic  */
-        await run(`publish service request as MQTT message to topic "${topic}"`, spool, () =>
-            this.publishToTopic(topic, message, { qos: 2, ...options }))
+        try {
+            await run(`publish service request as MQTT message to topic "${topic}"`, spool, () =>
+                this.publishToTopic(topic, message, { qos: 2, ...options }))
+        }
+        catch (err: unknown) {
+            rejectPromise(err)
+            return promise
+        }
 
         return promise
     }

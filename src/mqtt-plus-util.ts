@@ -179,6 +179,7 @@ export async function sendStreamAsChunks (
     creditGate?:  CreditGate,
     abortSignal?: AbortSignal
 ): Promise<void> {
+    let pending: Uint8Array | undefined
     for await (const raw of readable) {
         if (abortSignal?.aborted)
             throw abortSignal.reason ?? new Error("aborted")
@@ -190,14 +191,23 @@ export async function sendStreamAsChunks (
                 throw abortSignal.reason ?? new Error("aborted")
             const size  = Math.min(buffer.byteLength - i, chunkSize)
             const chunk = buffer.subarray(i, i + size)
-            if (creditGate)
-                await creditGate.acquire(abortSignal)
-            await sendChunk(chunk, undefined, false)
+            if (pending !== undefined) {
+                if (creditGate)
+                    await creditGate.acquire(abortSignal)
+                await sendChunk(pending, undefined, false)
+            }
+            pending = chunk
         }
     }
     if (abortSignal?.aborted)
         throw abortSignal.reason ?? new Error("aborted")
-    await sendChunk(undefined, undefined, true)
+    if (pending !== undefined) {
+        if (creditGate)
+            await creditGate.acquire(abortSignal)
+        await sendChunk(pending, undefined, true)
+    }
+    else
+        await sendChunk(undefined, undefined, true)
 }
 
 /*  utility function for making two object fields mutually exclusive  */
