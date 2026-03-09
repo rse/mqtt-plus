@@ -381,16 +381,16 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         refreshTimeout()
 
         /*  send request and wait for response before sending chunks  */
-        let initialCredit: number | undefined
-        let creditGate: CreditGate | undefined
-        let remoteError = false
-        let pushAcked = false
-        let pushFinalized = false
+        let initialCredit:        number | undefined
+        let creditGate:           CreditGate | undefined
+        let remoteError           = false
+        let pushAcked             = false
+        let pushFinalized         = false
         let pushFinalizeResolve!: () => void
-        let pushFinalizeReject!: (reason?: any) => void
-        const pushFinalize = new Promise<void>((resolve, reject) => {
-            pushFinalizeResolve = resolve
-            pushFinalizeReject  = reject
+        let pushFinalizeReject!:  (reason?: any) => void
+        const pushFinalize        = new Promise<void>((resolve, reject) => {
+            pushFinalizeResolve   = resolve
+            pushFinalizeReject    = reject
         })
         pushFinalize.catch(() => {})  /*  avoid unhandled promise rejection  */
         try {
