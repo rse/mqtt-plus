@@ -93,6 +93,7 @@ class RefCountedSubscription {
                 resolve = res
                 reject  = rej
             })
+            deferred.catch(() => {}) /*  avoid unhandled promise rejection  */
             this.pending.set(topic, deferred)
 
             /*  await any in-flight linger unsubscription to avoid a race
