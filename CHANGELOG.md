@@ -12,7 +12,7 @@ ChangeLog
 - BUGFIX: fix acknowledgement handling
 - REFACTOR: use a single response topic for each of event/service/sink/source
 - UPDATE: upgrade NPM dependencies
-- CLEANUP: various minor code cleanups (naming, alignment, formatting)
+- CLEANUP: various minor code cleanups (naming, alignment, formatting, ack handling)
 
 1.4.12 (2026-03-05)
 -------------------
