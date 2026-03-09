@@ -65,7 +65,7 @@ export class Spool {
         return spool
     }
 
-    /*  unroll last or all cleanup procedures from spool  */
+    /*  unroll all cleanup procedures from spool  */
     unroll (suppress = true): Promise<void> | void {
         /*  NOTICE: we operate synchronously until the first
             cleanup procedure returns a Promise. Then we continue
