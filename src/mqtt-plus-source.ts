@@ -336,8 +336,19 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         let serverId:        string | undefined
         let streamEnded    = false
 
+        /*  define timer  */
+        const timerId = `source-fetch:${requestId}`
+        let stream: Readable
+        const refreshTimeout = () => {
+            this.timerRefresh(timerId, () => {
+                stream.destroy(new Error("communication timeout"))
+                spool.unroll()
+            })
+        }
+        spool.roll(() => { this.timerClear(timerId) })
+
         /*  establish a readable for buffering received chunks  */
-        const stream = new Readable({
+        stream = new Readable({
             highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
             read: (_size) => {
                 if (chunkCredit <= 0 || !this.onResponse.has(`source-fetch-response:${requestId}`))
@@ -370,16 +381,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             metaResolve = resolve
         })
         spool.roll(() => { metaResolve(undefined) })
-
-        /*  define timer  */
-        const timerId = `source-fetch:${requestId}`
-        const refreshTimeout = () => {
-            this.timerRefresh(timerId, () => {
-                stream.destroy(new Error("communication timeout"))
-                spool.unroll()
-            })
-        }
-        spool.roll(() => { this.timerClear(timerId) })
 
         /*  start timeout handler  */
         refreshTimeout()
