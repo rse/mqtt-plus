@@ -5,8 +5,14 @@ ChangeLog
 1.5.0 (2026-03-09)
 ------------------
 
-- UPDATE: upgrade NPM dependencies
+- IMPROVEMENT: improve error handling in sink pattern
+- BUGFIX: fix error handling in sink pattern
+- BUGFIX: prevent unhandled promise rejections
+- BUGFIX: fix await unrolling in message handling
+- BUGFIX: fix acknowledgement handling
 - REFACTOR: use a single response topic for each of event/service/sink/source
+- UPDATE: upgrade NPM dependencies
+- CLEANUP: various minor code cleanups (naming, alignment, formatting)
 
 1.4.12 (2026-03-05)
 -------------------
