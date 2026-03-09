@@ -8,7 +8,6 @@ broker.class: brown
 
 sink("foo/bar") {
     server -> broker: "op: subscribe\ntopic: foo/bar/sink-push-request/any"
-    server -> broker: "op: subscribe\ntopic: foo/bar/sink-push-chunk/YYY"
 }
 
 push("foo/bar") {
@@ -17,9 +16,9 @@ push("foo/bar") {
     broker -> server: "op: publish\ntopic: foo/bar/sink-push-request/any\ndata: Sink-Push-Request"
     broker <- server: "op: publish\ntopic: foo/bar/sink-push-response/XXX\ndata: Sink-Push-Response"
     client <- broker: "op: publish\ntopic: foo/bar/sink-push-response/XXX\ndata: Sink-Push-Response"
-    client -> broker: "op: publish\ntopic: foo/bar/sink-push-chunk/YYY\ndata: Sink-Push-Chunk #1 (first)"
-    broker -> server: "op: publish\ntopic: foo/bar/sink-push-chunk/YYY\ndata: Sink-Push-Chunk #1 (first)"
-    client -> broker: "op: publish\ntopic: foo/bar/sink-push-chunk/YYY\ndata: Sink-Push-Chunk #N (final)"
-    broker -> server: "op: publish\ntopic: foo/bar/sink-push-chunk/YYY\ndata: Sink-Push-Chunk #N (final)"
+    client -> broker: "op: publish\ntopic: foo/bar/sink-push-request/YYY\ndata: Sink-Push-Chunk #1 (first)"
+    broker -> server: "op: publish\ntopic: foo/bar/sink-push-request/YYY\ndata: Sink-Push-Chunk #1 (first)"
+    client -> broker: "op: publish\ntopic: foo/bar/sink-push-request/YYY\ndata: Sink-Push-Chunk #N (final)"
+    broker -> server: "op: publish\ntopic: foo/bar/sink-push-request/YYY\ndata: Sink-Push-Chunk #N (final)"
     client -> broker: "op: unsubscribe\ntopic: foo/bar/sink-push-response/XXX"
 }

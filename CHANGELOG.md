@@ -2,10 +2,11 @@
 ChangeLog
 =========
 
-1.4.13 (2026-03-06)
--------------------
+1.5.0 (2026-03-09)
+------------------
 
 - UPDATE: upgrade NPM dependencies
+- REFACTOR: use a single response topic for each of event/service/sink/source
 
 1.4.12 (2026-03-05)
 -------------------

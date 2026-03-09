@@ -75,25 +75,19 @@ pattern write     example/client/+/service-call-response/%c
 
 topic   write     example/server/+/source-fetch-request/+
 pattern read      example/server/+/source-fetch-response/%c
-pattern read      example/server/+/source-fetch-chunk/%c
-topic   write     example/server/+/source-fetch-credit/+
 
 topic   read      example/client/+/source-fetch-request/any
 pattern read      example/client/+/source-fetch-request/%c
 topic   write     example/client/+/source-fetch-response/+
-topic   write     example/client/+/source-fetch-chunk/+
 
 #   ---- sink push ----
 
 topic   write     example/server/+/sink-push-request/+
 pattern read      example/server/+/sink-push-response/%c
-topic   write     example/server/+/sink-push-chunk/+
 
 topic   read      example/client/+/sink-push-request/any
 pattern read      example/client/+/sink-push-request/%c
 pattern write     example/client/+/sink-push-response/%c
-pattern read      example/client/+/sink-push-chunk/%c
-pattern read      example/client/+/sink-push-credit/%c
 
 #   ==== server/authenticated ACL ====
 
@@ -126,13 +120,9 @@ topic   read      $share/server/example/server/+/source-fetch-request/any
 pattern read      example/server/+/source-fetch-request/%c
 pattern read      $share/server/example/server/+/source-fetch-request/%c
 topic   write     example/server/+/source-fetch-response/+
-topic   write     example/server/+/source-fetch-chunk/+
-pattern read      example/server/+/source-fetch-credit/%c
-pattern read      $share/server/example/server/+/source-fetch-credit/%c
 
 topic   write     example/client/+/source-fetch-request/+
 pattern read      example/client/+/source-fetch-response/%c
-pattern read      example/client/+/source-fetch-chunk/%c
 
 #   ---- sink push ----
 
@@ -141,13 +131,9 @@ topic   read      $share/server/example/server/+/sink-push-request/any
 pattern read      example/server/+/sink-push-request/%c
 pattern read      $share/server/example/server/+/sink-push-request/%c
 topic   write     example/server/+/sink-push-response/+
-pattern read      example/server/+/sink-push-chunk/%c
-pattern read      $share/server/example/server/+/sink-push-chunk/%c
 
 topic   write     example/client/+/sink-push-request/+
 pattern read      example/client/+/sink-push-response/%c
-topic   write     example/client/+/sink-push-credit/+
-topic   write     example/client/+/sink-push-chunk/+
 ```
 
 ...and an `example` user (with password `example`) in `mosquitto-pwd.txt` like:

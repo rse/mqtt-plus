@@ -111,10 +111,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             throw new Error(`sink: sink "${name}" already established`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topicS      = share !== "" ? `$share/${share}/${name}` : name
-        const topicReqB   = this.options.topicMake(topicS, "sink-push-request")
-        const topicReqD   = this.options.topicMake(name,   "sink-push-request", this.options.id)
-        const topicChunkD = this.options.topicMake(name,   "sink-push-chunk",   this.options.id)
+        const topicS    = share !== "" ? `$share/${share}/${name}` : name
+        const topicReqB = this.options.topicMake(topicS, "sink-push-request")
+        const topicReqD = this.options.topicMake(name,   "sink-push-request", this.options.id)
 
         /*  react on sink push request  */
         this.onRequest.set(`sink-push-request:${name}`, async (request: SinkPushRequest, topicName: string) => {
@@ -186,7 +185,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                                 name, creditToGrant, this.options.id, sender)
                             const encoded = this.codec.encode(creditMsg)
                             const creditTopic = this.options.topicMake(
-                                name, "sink-push-credit", sender)
+                                name, "sink-push-response", sender)
                             this.publishToTopic(creditTopic, encoded, { qos: options.qos ?? 2 }).catch((err: Error) => {
                                 this.error(err, `sending credit for push "${name}" failed`)
                             })
@@ -200,16 +199,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  register chunk dispatch callback  */
                 let streamEnded = false
-                this.onResponse.set(`sink-push-chunk:${requestId}`, async (chunkParsed: SinkPushChunk, chunkTopicName: string) => {
+                this.onResponse.set(`sink-push-chunk:${requestId}`, async (chunkParsed: SinkPushChunk) => {
                     if (streamEnded)
                         return
-                    if (chunkTopicName !== chunkParsed.name) {
-                        const error = new Error(`sink name mismatch (topic: "${chunkTopicName}", payload: "${chunkParsed.name}")`)
-                        streamEnded = true
-                        readable.destroy(error)
-                        await reqSpool.unroll()
-                        return
-                    }
                     if (chunkParsed.error !== undefined) {
                         streamEnded = true
                         readable.destroy(new Error(chunkParsed.error))
@@ -289,9 +281,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         spool.roll(() => { this.onRequest.delete(`sink-push-request:${name}`) })
 
         /*  subscribe to MQTT topics  */
-        await this.subscribeTopicAndSpool(spool, topicReqB,   options)
-        await this.subscribeTopicAndSpool(spool, topicReqD,   options)
-        await this.subscribeTopicAndSpool(spool, topicChunkD, options)
+        await this.subscribeTopicAndSpool(spool, topicReqB, options)
+        await this.subscribeTopicAndSpool(spool, topicReqD, options)
 
         /*  provide a registration for subsequent destruction  */
         return this.makeRegistration(spool, "sink", name, `sink-push-request:${name}`)
@@ -453,14 +444,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             if (initialCredit !== undefined && initialCredit > 0)
                 creditGate = new CreditGate(initialCredit)
 
-            /*  subscribe to credit topic if flow control is active  */
+            /*  register credit callback for flow control (credit arrives on response topic)  */
             if (creditGate) {
-                const creditTopic = this.options.topicMake(name, "sink-push-credit", this.options.id)
-                await this.subscribeTopicAndSpool(spool, creditTopic, { qos: options.qos ?? 2 })
                 const gate = creditGate
                 spool.roll(() => { gate.abort() })
-
-                /*  update credit callback to include gate replenish  */
                 this.onResponse.set(`sink-push-credit:${requestId}`, (response: SinkPushCredit) => {
                     gate.replenish(response.credit)
                     refreshTimeout()
@@ -468,8 +455,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 spool.roll(() => { this.onResponse.delete(`sink-push-credit:${requestId}`) })
             }
 
-            /*  generate corresponding MQTT topic for chunks  */
-            const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
+            /*  generate corresponding MQTT topic for chunks (use request topic)  */
+            const chunkTopic = this.options.topicMake(name, "sink-push-request", receiver)
 
             /*  callback for creating and sending a chunk message  */
             const sendChunk = async (
@@ -510,7 +497,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  send error chunk only if push was acked and error did not originate from receiver
                 (before ack, the sink has no chunk handler yet and will time out on its own)  */
             if (pushAcked && receiver !== undefined && !remoteError) {
-                const chunkTopic = this.options.topicMake(name, "sink-push-chunk", receiver)
+                const chunkTopic = this.options.topicMake(name, "sink-push-request", receiver)
                 const chunkMsg = this.msg.makeSinkPushChunk(requestId,
                     name, undefined, error.message, true, this.options.id, receiver)
                 const message = this.codec.encode(chunkMsg)

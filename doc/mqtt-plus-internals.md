@@ -208,20 +208,22 @@ subscriptions by default (all registered handlers receive the event).
 
 ### Direct Topics (Responses and Chunks)
 
-Response messages, chunks, and credits are sent to peer-specific topics:
+Response messages, chunks, and credits are sent to peer-specific topics.
+To ensure message ordering, all response-direction messages share a single
+response topic and all caller-to-handler messages share the request topic:
 
-| Pattern                                          | Operation                 |
-|--------------------------------------------------|---------------------------|
-| `{name}/service-call-response/{clientId}`        | `service-call-response`   |
-| `{name}/sink-push-response/{clientId}`           | `sink-push-response`      |
-| `{name}/sink-push-chunk/{sinkId}`                | `sink-push-chunk`         |
-| `{name}/sink-push-credit/{pusherId}`             | `sink-push-credit`        |
-| `{name}/source-fetch-response/{clientId}`        | `source-fetch-response`   |
-| `{name}/source-fetch-chunk/{clientId}`           | `source-fetch-chunk`      |
-| `{name}/source-fetch-credit/{sourceId}`          | `source-fetch-credit`     |
+| Pattern                                          | Message Types                                          |
+|--------------------------------------------------|--------------------------------------------------------|
+| `{name}/service-call-response/{clientId}`        | `service-call-response`                                |
+| `{name}/sink-push-response/{pusherId}`           | `sink-push-response`, `sink-push-credit`               |
+| `{name}/sink-push-request/{sinkId}`              | `sink-push-request`, `sink-push-chunk`                 |
+| `{name}/source-fetch-response/{fetcherId}`       | `source-fetch-response`, `source-fetch-chunk`          |
+| `{name}/source-fetch-request/{sourceId}`         | `source-fetch-request`, `source-fetch-credit`          |
 
-The `{clientId}` is the `sender` field from the corresponding request
-message, ensuring responses are routed back to the originating peer only.
+The `{clientId}`/`{pusherId}`/`{fetcherId}` is the `sender` field from the
+corresponding request message, ensuring responses are routed back to the
+originating peer only. Message routing uses the `type` field from the
+message payload rather than the topic to dispatch to the correct handler.
 
 ### Topic Customization
 

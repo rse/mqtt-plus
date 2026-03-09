@@ -111,10 +111,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             throw new Error(`source: source "${name}" already established`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
-        const topicS       = share !== "" ? `$share/${share}/${name}` : name
-        const topicReqB    = this.options.topicMake(topicS, "source-fetch-request")
-        const topicReqD    = this.options.topicMake(name,   "source-fetch-request", this.options.id)
-        const topicCreditD = this.options.topicMake(name,   "source-fetch-credit",  this.options.id)
+        const topicS    = share !== "" ? `$share/${share}/${name}` : name
+        const topicReqB = this.options.topicMake(topicS, "source-fetch-request")
+        const topicReqD = this.options.topicMake(name,   "source-fetch-request", this.options.id)
 
         /*  remember the registration  */
         this.onRequest.set(`source-fetch-request:${name}`, async (request: SourceFetchRequest, topicName: string) => {
@@ -131,9 +130,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             if (request.meta)
                 info.meta = request.meta
 
-            /*  generate corresponding MQTT topics  */
+            /*  generate corresponding MQTT topic (single topic for all responses)  */
             const responseTopic = this.options.topicMake(name, "source-fetch-response", sender)
-            const chunkTopic    = this.options.topicMake(name, "source-fetch-chunk", sender)
 
             /*  callback for sending the ack/nak response  */
             const sendResponse = async (error?: string) => {
@@ -181,7 +179,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const chunkMsg = this.msg.makeSourceFetchChunk(requestId,
                     name, chunk, error, final, this.options.id, sender)
                 const message = this.codec.encode(chunkMsg)
-                await this.publishToTopic(chunkTopic, message, { qos: options.qos ?? 2 })
+                await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 })
             }
 
             /*  call the handler callback  */
@@ -256,7 +254,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         /*  subscribe to MQTT topics  */
         await this.subscribeTopicAndSpool(spool, topicReqB, options)
         await this.subscribeTopicAndSpool(spool, topicReqD, options)
-        await this.subscribeTopicAndSpool(spool, topicCreditD, options)
 
         /*  provide a registration for subsequent destruction  */
         return this.makeRegistration(spool, "source", name, `source-fetch-request:${name}`)
@@ -328,26 +325,22 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             || this.onResponse.has(`source-fetch-chunk:${requestId}`))
             requestId = nanoid()
 
-        /*  subscribe to response topic (for ack/nak) and chunk topic (for data)  */
+        /*  subscribe to single response topic (for ack/nak and data chunks)  */
         const responseTopic = this.options.topicMake(name, "source-fetch-response", this.options.id)
-        const chunkTopic    = this.options.topicMake(name, "source-fetch-chunk",    this.options.id)
         await this.subscribeTopicAndSpool(spool, responseTopic, { qos: options.qos ?? 2 })
-        await this.subscribeTopicAndSpool(spool, chunkTopic,    { qos: options.qos ?? 2 })
 
         /*  credit-based flow control state  */
         const chunkCredit  = this.options.chunkCredit
         let chunksReceived = 0
         let creditGranted  = chunkCredit
         let serverId:        string | undefined
-        let ackReceived      = false
-        let streamEnded      = false
-        const pendingChunks: SourceFetchChunk[] = []
+        let streamEnded    = false
 
         /*  establish a readable for buffering received chunks  */
         const stream = new Readable({
             highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
             read: (_size) => {
-                if (chunkCredit <= 0 || !this.onResponse.has(`source-fetch-chunk:${requestId}`))
+                if (chunkCredit <= 0 || !this.onResponse.has(`source-fetch-response:${requestId}`))
                     return
                 const targetId = serverId ?? receiver
                 if (!targetId)
@@ -358,7 +351,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     const creditMsg = this.msg.makeSourceFetchCredit(requestId,
                         name, creditToGrant, this.options.id, targetId)
                     const encoded = this.codec.encode(creditMsg)
-                    const creditTopic = this.options.topicMake(name, "source-fetch-credit", targetId)
+                    const creditTopic = this.options.topicMake(name, "source-fetch-request", targetId)
                     this.publishToTopic(creditTopic, encoded, { qos: options.qos ?? 2 }).catch((err: Error) => {
                         this.error(err, `sending credit for fetch "${name}" failed`)
                     })
@@ -395,7 +388,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         stream.once("close", () => spool.unroll())
         stream.once("error", () => spool.unroll())
 
-        /*  register response dispatch callback  */
+        /*  register response dispatch callback (ack/nak)  */
         this.onResponse.set(`source-fetch-response:${requestId}`, (response: SourceFetchResponse) => {
             if (streamEnded)
                 return
@@ -413,45 +406,15 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 spool.unroll()
             }
             else {
-                ackReceived = true
                 metaResolve(response.meta)
                 refreshTimeout()
-                while (pendingChunks.length > 0) {
-                    const chunk = pendingChunks.shift()!
-                    if (chunk.error) {
-                        streamEnded = true
-                        stream.destroy(new Error(chunk.error))
-                        spool.unroll()
-                        return
-                    }
-                    if (chunk.chunk !== undefined) {
-                        chunksReceived++
-                        stream.push(chunk.chunk)
-                    }
-                    if (chunk.final) {
-                        streamEnded = true
-                        stream.push(null)
-                        spool.unroll()
-                        return
-                    }
-                }
             }
         })
 
-        /*  helper for processing a chunk message  */
-        const processChunk = (response: SourceFetchChunk) => {
+        /*  register chunk dispatch callback (data chunks)  */
+        this.onResponse.set(`source-fetch-chunk:${requestId}`, (response: SourceFetchChunk) => {
             if (streamEnded)
                 return
-            if (!ackReceived) {
-                if (pendingChunks.length >= chunkCredit * 2 + 64) {
-                    streamEnded = true
-                    stream.destroy(new Error("too many chunks received before ack"))
-                    spool.unroll()
-                    return
-                }
-                pendingChunks.push(response)
-                return
-            }
             if (response.error) {
                 streamEnded = true
                 stream.destroy(new Error(response.error))
@@ -469,21 +432,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     spool.unroll()
                 }
             }
-        }
-
-        /*  register chunk dispatch callback  */
-        this.onResponse.set(`source-fetch-chunk:${requestId}`, (response: SourceFetchChunk) => {
-            if (streamEnded)
-                return
-            if (response.name !== name) {
-                streamEnded = true
-                stream.destroy(new Error(`source name mismatch (expected "${name}", got "${response.name}")`))
-                spool.unroll()
-                return
-            }
-            if (response.sender)
-                serverId = response.sender
-            processChunk(response)
         })
         spool.roll(() => {
             this.onResponse.delete(`source-fetch-response:${requestId}`)
