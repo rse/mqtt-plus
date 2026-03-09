@@ -226,7 +226,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const promise = streamToBuffer(readable)
                 const streamDone = new Promise<void>((resolve, reject) => {
                     readable.once("end",   () => { resolve() })
-                    readable.once("error", () => { reject()  })
+                    readable.once("error", (err) => { reject(err) })
                 })
                 streamDone.catch(() => {}) /*  avoid unhandled promise rejection  */
                 const info: InfoSink = {
@@ -492,7 +492,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  send error chunk only if push was acked and error did not originate from receiver
                 (before ack, the sink has no chunk handler yet and will time out on its own)  */
-            if (pushAcked && receiver !== undefined && !remoteError) {
+            if (pushAcked && !remoteError) {
                 const chunkTopic = this.options.topicMake(name, "sink-push-request", receiver)
                 const chunkMsg = this.msg.makeSinkPushChunk(requestId,
                     name, undefined, error.message, true, this.options.id, receiver)
