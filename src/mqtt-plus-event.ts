@@ -158,7 +158,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         }
     ): { topic: string, payload: string | Uint8Array, options: IClientPublishOptions }
     emit<K extends EventKeys<T> & string> (
-        eventOrConfig: K | {
+        nameOrConfig: K | {
             name:      K,
             params:    Parameters<T[K]>,
             receiver?: string,
@@ -175,18 +175,18 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         let options:   IClientPublishOptions = {}
         let meta:      Record<string, any> | undefined
         let dry:       boolean | undefined
-        if (typeof eventOrConfig === "object" && eventOrConfig !== null) {
+        if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
             /*  object-based API  */
-            name     = eventOrConfig.name
-            params   = eventOrConfig.params
-            receiver = eventOrConfig.receiver
-            options  = eventOrConfig.options ?? {}
-            meta     = eventOrConfig.meta
-            dry      = eventOrConfig.dry
+            name     = nameOrConfig.name
+            params   = nameOrConfig.params
+            receiver = nameOrConfig.receiver
+            options  = nameOrConfig.options ?? {}
+            meta     = nameOrConfig.meta
+            dry      = nameOrConfig.dry
         }
         else {
             /*  positional API  */
-            name     = eventOrConfig
+            name     = nameOrConfig
             params   = args as Parameters<T[K]>
         }
 
