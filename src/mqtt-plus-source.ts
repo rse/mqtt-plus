@@ -378,9 +378,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             }
         })
 
-        /*  create promise for collecting stream chunks  */
+        /*  create promise for collecting stream chunks
+            (PLazy: stays dormant until consumer accesses buffer)  */
         const buffer = streamToBuffer(stream)
-        buffer.catch(() => {}) /*  avoid unhandled promise rejection  */
 
         /*  create promise for meta (resolved on first chunk)  */
         let metaResolve!: (value: Record<string, any> | undefined) => void
@@ -472,8 +472,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         /*  generate corresponding MQTT topic  */
         const topic = this.options.topicMake(name, "source-fetch-request", receiver)
 
-        /*  publish message to MQTT topic  */
-        run(`publish fetch request as MQTT message to topic "${topic}"`, spool, () =>
+        /*  publish message to MQTT topic
+            (no spool passed to run() — on failure, stream.destroy() triggers
+            cleanup via the stream's "close"/"error" handlers above)  */
+        run(`publish fetch request as MQTT message to topic "${topic}"`, () =>
             this.publishToTopic(topic, message, { qos: 2, ...options })
         ).catch((err: unknown) => {
             stream.destroy(ensureError(err))
