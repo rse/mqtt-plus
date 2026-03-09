@@ -197,14 +197,21 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const initialCredit = request.credit
                 creditGate = (initialCredit !== undefined && initialCredit > 0)
                     ? new CreditGate(initialCredit) : undefined
-                if (creditGate) {
-                    const gate = creditGate
-                    this.sourceCreditGates.set(requestId, gate)
-                    this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
-                        gate.replenish(creditParsed.credit)
+                if (creditGate)
+                    this.sourceCreditGates.set(requestId, creditGate)
+
+                /*  register credit/cancel handler (unconditional for cancel support)  */
+                this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
+                    if (creditParsed.credit === 0) {
+                        /*  cancel signal from fetcher  */
+                        abortController.abort(new Error(`source fetch "${name}" cancelled by fetcher`))
+                        return
+                    }
+                    if (creditGate) {
+                        creditGate.replenish(creditParsed.credit)
                         refreshSourceTimeout()
-                    })
-                }
+                    }
+                })
 
                 await callback(...params, info)
 
@@ -386,8 +393,23 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         refreshTimeout()
 
         /*  ensure resources are released if consumer aborts stream early  */
-        stream.once("close", () => spool.unroll())
-        stream.once("error", () => spool.unroll())
+        let cancelled = false
+        const cancelAndUnroll = () => {
+            if (!cancelled && !streamEnded) {
+                cancelled = true
+                const targetId = serverId ?? receiver
+                if (targetId) {
+                    const cancelMsg = this.msg.makeSourceFetchCredit(requestId,
+                        name, 0, this.options.id, targetId)
+                    const encoded = this.codec.encode(cancelMsg)
+                    const cancelTopic = this.options.topicMake(name, "source-fetch-request", targetId)
+                    this.publishToTopic(cancelTopic, encoded, { qos: options.qos ?? 2 }).catch(() => {})
+                }
+            }
+            spool.unroll()
+        }
+        stream.once("close", cancelAndUnroll)
+        stream.once("error", cancelAndUnroll)
 
         /*  register response dispatch callback (ack/nak)  */
         this.onResponse.set(`source-fetch-response:${requestId}`, (response: SourceFetchResponse) => {

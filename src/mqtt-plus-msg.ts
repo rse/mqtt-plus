@@ -286,7 +286,7 @@ const SourceFetchCreditSchema = v.strictObject({
     ...BaseSchema,
     type:                v.literal("source-fetch-credit"),
     name:                v.string(),
-    credit:              v.pipe(v.number(), v.integer(), v.minValue(1))
+    credit:              v.pipe(v.number(), v.integer(), v.minValue(0))
 })
 
 /*  utility class  */
