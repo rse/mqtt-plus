@@ -175,5 +175,149 @@ describe("MQTT+ Sink Push", function () {
         ctx.apiC.meta("client-version", null)
         await sinking.destroy()
     })
+
+    /*  test case: Sink Push (Large Buffer)  */
+    it("MQTT+ Sink Push (Large Buffer)", async function () {
+        /*  setup  */
+        this.slow(10000)
+        this.timeout(10000)
+        const spy = sinon.spy()
+
+        /*  generate 2 MB of random data  */
+        const data = Buffer.from(crypto.randomBytes(2 * 1024 * 1024))
+
+        /*  establish sink consuming via buffer  */
+        const sinking = await ctx.apiS.sink("example/server/upload", (name: string, info) => {
+            spy("sink")
+            expect(name).to.be.equal("foo")
+            info.buffer.then((buf: Uint8Array) => {
+                spy("buffer")
+                expect(buf.byteLength).to.be.equal(data.byteLength)
+                expect(Buffer.from(buf)).to.deep.equal(data)
+            }).catch(() => {})
+        })
+
+        /*  push the large buffer  */
+        await ctx.apiC.push("example/server/upload", new Uint8Array(data), "foo").then(() => {
+            spy("push-success")
+        }).catch(() => {
+            spy("push-error")
+        })
+        await new Promise((resolve) => { setTimeout(resolve, 200) })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.same.deep.members([ "sink", "push-success", "buffer" ])
+
+        /*  cleanup  */
+        await sinking.destroy()
+    })
+
+    /*  test case: Sink Push (Large Stream)  */
+    it("MQTT+ Sink Push (Large Stream)", async function () {
+        /*  setup  */
+        this.slow(10000)
+        this.timeout(10000)
+        const spy = sinon.spy()
+
+        /*  generate 2 MB of random data  */
+        const data = Buffer.from(crypto.randomBytes(2 * 1024 * 1024))
+
+        /*  establish sink consuming via stream  */
+        const sinking = await ctx.apiS.sink("example/server/upload", (name: string, info) => {
+            spy("sink")
+            expect(name).to.be.equal("foo")
+            const chunks: Buffer[] = []
+            info.stream.on("data", (chunk: Buffer) => { chunks.push(chunk) })
+            info.stream.on("end", () => {
+                spy("end")
+                const received = Buffer.concat(chunks)
+                expect(received.byteLength).to.be.equal(data.byteLength)
+                expect(received).to.deep.equal(data)
+            })
+        })
+
+        /*  feed data in 64 KB pieces via a readable stream  */
+        let offset = 0
+        const pieceSize = 64 * 1024
+        const readable = new stream.Readable({
+            read () {
+                if (offset >= data.byteLength) {
+                    this.push(null)
+                    return
+                }
+                const end = Math.min(offset + pieceSize, data.byteLength)
+                this.push(data.subarray(offset, end))
+                offset = end
+            }
+        })
+        await ctx.apiC.push("example/server/upload", readable, "foo").then(() => {
+            spy("transfer-success")
+        }).catch(() => {
+            spy("transfer-error")
+        })
+        await new Promise((resolve) => { setTimeout(resolve, 200) })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.same.deep.members([ "sink", "transfer-success", "end" ])
+
+        /*  cleanup  */
+        await sinking.destroy()
+    })
+
+    /*  test case: Sink Push (Interrupted)  */
+    it("MQTT+ Sink Push (Interrupted)", async function () {
+        /*  setup  */
+        this.slow(4000)
+        this.timeout(4000)
+
+        /*  generate large random data (128 KB, requires many chunks at 16 KB chunk size)  */
+        const data = Buffer.from(crypto.randomBytes(128 * 1024))
+
+        /*  track received data on the server side  */
+        const receivedChunks: Buffer[] = []
+
+        /*  establish sink consuming via stream  */
+        const sinking = await ctx.apiS.sink("example/server/upload", (name: string, info) => {
+            expect(name).to.be.equal("foo")
+            info.stream.on("data", (chunk: Buffer) => { receivedChunks.push(chunk) })
+        })
+
+        /*  create a slow readable stream that emits data in pieces  */
+        let offset = 0
+        const chunkSize = 16 * 1024
+        const readable = new stream.Readable({
+            read () {
+                if (offset >= data.byteLength) {
+                    this.push(null)
+                    return
+                }
+                const end = Math.min(offset + chunkSize, data.byteLength)
+                const chunk = data.subarray(offset, end)
+                offset = end
+
+                /*  delay each chunk to simulate slow transfer  */
+                setTimeout(() => { this.push(chunk) }, 100)
+            }
+        })
+
+        /*  start the push (will be interrupted by destroying the source readable)  */
+        const pushPromise = ctx.apiC.push("example/server/upload", readable, "foo")
+
+        /*  wait for at least one chunk to be sent, then destroy the client-side readable  */
+        await new Promise<void>((resolve) => { setTimeout(resolve, 200) })
+        readable.destroy(new Error("client aborted"))
+
+        /*  the push should fail  */
+        const error = await pushPromise.catch((err: Error) => err.message)
+        expect(error).to.be.a("string")
+
+        /*  wait for cleanup to settle  */
+        await new Promise((resolve) => { setTimeout(resolve, 200) })
+
+        /*  the received data should be incomplete (less than the full 128 KiB)  */
+        const received = Buffer.concat(receivedChunks)
+        expect(received.byteLength).to.be.lessThan(data.byteLength)
+
+        /*  cleanup  */
+        await sinking.destroy()
+    })
 })
 

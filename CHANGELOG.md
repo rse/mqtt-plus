@@ -6,6 +6,8 @@ ChangeLog
 ------------------
 
 - IMPROVEMENT: improve error handling in sink pattern
+- IMPROVEMENT: add test cases for large buffer/stream transfer via sink/source trait
+- IMPROVEMENT: add test cases for interrupted data transfer via sink/source trait
 - REFACTOR: use a single response topic for each of event/service/sink/source
 - BUGFIX: fix error handling in sink pattern
 - BUGFIX: prevent unhandled promise rejections

@@ -23,6 +23,7 @@
 */
 
 /*  built-in dependencies  */
+import crypto               from "node:crypto"
 import stream               from "node:stream"
 import { Buffer }           from "node:buffer"
 
@@ -128,6 +129,138 @@ describe("MQTT+ Source Fetch", function () {
 
         /*  cleanup  */
         ctx.apiS.meta("server-version", null)
+        await sourcing.destroy()
+    })
+
+    /*  test case: Source Fetch (Large Buffer)  */
+    it("MQTT+ Source Fetch (Large Buffer)", async function () {
+        /*  setup  */
+        this.slow(10000)
+        this.timeout(10000)
+
+        /*  generate 2 MB of random data (128 chunks at 16 KB chunk size)  */
+        const data = Buffer.from(crypto.randomBytes(2 * 1024 * 1024))
+
+        /*  establish source providing data via buffer  */
+        const sourcing = await ctx.apiS.source("example/server/download", async (filename, info) => {
+            if (filename === "large-buf")
+                info.buffer = Promise.resolve(new Uint8Array(data))
+            else
+                throw new Error("invalid source")
+        })
+
+        /*  fetch and consume via buffer  */
+        const result = await ctx.apiC.fetch("example/server/download", "large-buf")
+        const buffer = await result.buffer
+        expect(buffer.byteLength).to.be.equal(data.byteLength)
+        expect(Buffer.from(buffer)).to.deep.equal(data)
+
+        /*  cleanup  */
+        await sourcing.destroy()
+    })
+
+    /*  test case: Source Fetch (Large Stream)  */
+    it("MQTT+ Source Fetch (Large Stream)", async function () {
+        /*  setup  */
+        this.slow(10000)
+        this.timeout(10000)
+
+        /*  generate 2 MB of random data  */
+        const data = Buffer.from(crypto.randomBytes(2 * 1024 * 1024))
+
+        /*  establish source providing data via stream  */
+        const sourcing = await ctx.apiS.source("example/server/download", async (filename, info) => {
+            if (filename === "large-stream") {
+                /*  feed data in 64 KB pieces via a readable stream  */
+                let offset = 0
+                const pieceSize = 64 * 1024
+                info.stream = new stream.Readable({
+                    read () {
+                        if (offset >= data.byteLength) {
+                            this.push(null)
+                            return
+                        }
+                        const end = Math.min(offset + pieceSize, data.byteLength)
+                        this.push(data.subarray(offset, end))
+                        offset = end
+                    }
+                })
+            }
+            else
+                throw new Error("invalid source")
+        })
+
+        /*  fetch and consume via stream  */
+        const result = await ctx.apiC.fetch("example/server/download", "large-stream")
+        const chunks: Buffer[] = []
+        result.stream.on("data", (chunk: Buffer) => { chunks.push(chunk) })
+        await new Promise<void>((resolve, reject) => {
+            result.stream.on("end",   ()           => { resolve() })
+            result.stream.on("error", (err: Error) => { reject(err) })
+        })
+        const received = Buffer.concat(chunks)
+        expect(received.byteLength).to.be.equal(data.byteLength)
+        expect(received).to.deep.equal(data)
+
+        /*  cleanup  */
+        await sourcing.destroy()
+    })
+
+    /*  test case: Source Fetch (Interrupted Mid-Transfer)  */
+    it("MQTT+ Source Fetch (Interrupted)", async function () {
+        /*  setup  */
+        this.slow(4000)
+        this.timeout(4000)
+
+        /*  generate large random data (128 KB, requires many chunks at 16 KB chunk size)  */
+        const data = Buffer.from(crypto.randomBytes(128 * 1024))
+
+        /*  establish source providing data via a slow stream  */
+        const sourcing = await ctx.apiS.source("example/server/download", async (filename, info) => {
+            if (filename === "large") {
+                /*  create a stream that emits data slowly in 16 KiB pieces  */
+                let offset = 0
+                const chunkSize = 16 * 1024
+                info.stream = new stream.Readable({
+                    read () {
+                        if (offset >= data.byteLength) {
+                            this.push(null)
+                            return
+                        }
+                        const end = Math.min(offset + chunkSize, data.byteLength)
+                        const chunk = data.subarray(offset, end)
+                        offset = end
+
+                        /*  delay each chunk to simulate slow transfer  */
+                        setTimeout(() => { this.push(chunk) }, 100)
+                    }
+                })
+            }
+            else
+                throw new Error("invalid source")
+        })
+
+        /*  start fetching the large source  */
+        const result = await ctx.apiC.fetch("example/server/download", "large")
+
+        /*  collect received chunks  */
+        const chunks: Buffer[] = []
+        result.stream.on("data", (chunk: Buffer) => { chunks.push(chunk) })
+
+        /*  wait for at least one chunk to arrive, then destroy the client-side stream  */
+        await new Promise<void>((resolve) => {
+            result.stream.once("data", () => { resolve() })
+        })
+        result.stream.destroy(new Error("client aborted"))
+
+        /*  wait for cleanup to settle  */
+        await new Promise((resolve) => { setTimeout(resolve, 200) })
+
+        /*  the received data should be incomplete (less than the full 128 KiB)  */
+        const received = Buffer.concat(chunks)
+        expect(received.byteLength).to.be.lessThan(data.byteLength)
+
+        /*  cleanup  */
         await sourcing.destroy()
     })
 })
