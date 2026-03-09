@@ -235,7 +235,7 @@ MQTT QoS Levels
 
 | Communication Pattern | QoS | Rationale                         |
 |-----------------------|-----|-----------------------------------|
-| Event Emission        | 0   | Best-effort, fire-and-forget      |
+| Event Emission        | 2   | Exactly-once for reliable delivery |
 | Service Call          | 2   | Exactly-once for reliable RPC     |
 | Sink Push             | 2   | Exactly-once for reliable data transfer |
 | Source Fetch          | 2   | Exactly-once for reliable data transfer |
