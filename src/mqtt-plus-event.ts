@@ -91,7 +91,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
         const topicS = share !== "" ? `$share/${share}/${name}` : name
         const topicB = this.options.topicMake(topicS, "event-emission")
-        const topicD = this.options.topicMake(name, "event-emission", this.options.id)
+        const topicD = this.options.topicMake(name,   "event-emission", this.options.id)
 
         /*  remember the registration  */
         this.onRequest.set(`event-emission:${name}`, async (request: EventEmission, topicName: string) => {
