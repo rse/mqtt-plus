@@ -149,7 +149,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     throw new Error(`sink name mismatch (topic: "${topicName}", payload: "${request.name}")`)
                 let authenticated: boolean | undefined = undefined
                 if (auth)
-                    authenticated = await this.authenticated(request.sender, request.auth, auth)
+                    authenticated = await this.authenticated(sender, request.auth, auth)
                 if (authenticated !== undefined && !authenticated)
                     throw new Error(`sink "${name}" failed authentication`)
 
