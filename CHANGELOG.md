@@ -2,8 +2,8 @@
 ChangeLog
 =========
 
-1.5.0 (2026-03-09)
-------------------
+1.4.13 (2026-03-09)
+-------------------
 
 - IMPROVEMENT: improve error handling in sink pattern
 - IMPROVEMENT: add test cases for large buffer/stream and interrupted data transfer via sink/source
