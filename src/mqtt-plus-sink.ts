@@ -202,7 +202,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     if (chunkParsed.error !== undefined) {
                         streamEnded = true
                         readable.destroy(new Error(chunkParsed.error))
-                        await reqSpool.unroll()
                     }
                     else {
                         refreshPushTimeout()
@@ -214,7 +213,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         if (chunkParsed.final) {
                             streamEnded = true
                             readable.push(null)
-                            await reqSpool.unroll()
                         }
                     }
                 })
