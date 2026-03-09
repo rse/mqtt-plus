@@ -115,7 +115,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
                 if (auth)
                     info.authenticated = await this.authenticated(senderId, request.auth, auth)
                 if (info.authenticated !== undefined && !info.authenticated)
-                    throw new Error(`authentication on event "${name}" failed`)
+                    throw new Error(`event "${name}" failed authentication`)
                 await callback(...params, info)
             }
             catch (result: unknown) {
