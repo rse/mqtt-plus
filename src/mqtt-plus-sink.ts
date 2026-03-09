@@ -144,7 +144,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             reqSpool.roll(() => { this.pushSpools.delete(requestId) })
 
             /*  check authentication and prepare stream  */
-            let ackSent = false
             try {
                 if (topicName !== request.name)
                     throw new Error(`sink name mismatch (topic: "${topicName}", payload: "${request.name}")`)
@@ -245,7 +244,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  send ack response  */
                 await sendResponse(undefined, true)
-                ackSent = true
 
                 /*  call handler  */
                 await callback(...params, info)
@@ -261,14 +259,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  send error as nak response or as mid-stream error response  */
                 this.error(error)
-                if (ackSent) {
-                    const responseMsg = this.msg.makeSinkPushResponse(requestId,
-                        name, error.message, this.options.id, sender)
-                    const message = this.codec.encode(responseMsg)
-                    await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 }).catch(() => {})
-                }
-                else
-                    await sendResponse(error.message).catch(() => {})
+                await sendResponse(error.message).catch(() => {})
             }
             finally {
                 /*  cleanup resources  */
