@@ -108,7 +108,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  sanity check situation  */
         if (this.onRequest.has(`source-fetch-request:${name}`))
-            throw new Error(`source: source "${name}" already established`)
+            throw new Error(`source: source "${name}" already registered`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
         const topicS    = share !== "" ? `$share/${share}/${name}` : name

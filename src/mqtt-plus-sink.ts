@@ -108,7 +108,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         /*  sanity check situation  */
         if (this.onRequest.has(`sink-push-request:${name}`))
-            throw new Error(`sink: sink "${name}" already established`)
+            throw new Error(`sink: sink "${name}" already registered`)
 
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
         const topicS    = share !== "" ? `$share/${share}/${name}` : name
