@@ -226,7 +226,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  prepare info object  */
                 const promise = streamToBuffer(readable)
-                promise.catch(() => {}) /*  avoid unhandled promise rejection  */
+                const streamDone = new Promise<void>((resolve, reject) => {
+                    readable.once("end",   resolve)
+                    readable.once("error", reject)
+                })
+                streamDone.catch(() => {}) /*  avoid unhandled promise rejection  */
                 const info: InfoSink = {
                     sender,
                     stream: readable,
@@ -247,7 +251,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 await callback(...params, info)
 
                 /*  await full stream consumption before confirming success  */
-                await promise
+                await streamDone
 
                 /*  send terminal success response  */
                 await sendResponse()
