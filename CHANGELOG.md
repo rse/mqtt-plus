@@ -6,15 +6,14 @@ ChangeLog
 ------------------
 
 - IMPROVEMENT: improve error handling in sink pattern
-- IMPROVEMENT: add test cases for large buffer/stream transfer via sink/source trait
-- IMPROVEMENT: add test cases for interrupted data transfer via sink/source trait
-- REFACTOR: use a single response topic for each of event/service/sink/source
+- IMPROVEMENT: add test cases for large buffer/stream and interrupted data transfer via sink/source
+- IMPROVEMENT: use a single response topic for each of event/service/sink/source
 - BUGFIX: fix error handling in sink pattern
 - BUGFIX: prevent unhandled promise rejections
 - BUGFIX: fix await unrolling in message handling
 - BUGFIX: fix acknowledgement handling
 - UPDATE: upgrade NPM dependencies
-- CLEANUP: various minor code cleanups (naming, alignment, formatting, ack handling, variable reuse)
+- CLEANUP: various minor code cleanups (naming, alignment, formatting, comments, variable reuse)
 
 1.4.12 (2026-03-05)
 -------------------
