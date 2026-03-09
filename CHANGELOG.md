@@ -6,13 +6,13 @@ ChangeLog
 ------------------
 
 - IMPROVEMENT: improve error handling in sink pattern
+- REFACTOR: use a single response topic for each of event/service/sink/source
 - BUGFIX: fix error handling in sink pattern
 - BUGFIX: prevent unhandled promise rejections
 - BUGFIX: fix await unrolling in message handling
 - BUGFIX: fix acknowledgement handling
-- REFACTOR: use a single response topic for each of event/service/sink/source
 - UPDATE: upgrade NPM dependencies
-- CLEANUP: various minor code cleanups (naming, alignment, formatting, ack handling)
+- CLEANUP: various minor code cleanups (naming, alignment, formatting, ack handling, variable reuse)
 
 1.4.12 (2026-03-05)
 -------------------
