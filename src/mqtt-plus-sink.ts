@@ -225,8 +225,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  prepare info object  */
                 const promise = streamToBuffer(readable)
                 const streamDone = new Promise<void>((resolve, reject) => {
-                    readable.once("end",   resolve)
-                    readable.once("error", reject)
+                    readable.once("end",   () => { resolve() })
+                    readable.once("error", () => { reject()  })
                 })
                 streamDone.catch(() => {}) /*  avoid unhandled promise rejection  */
                 const info: InfoSink = {
@@ -252,7 +252,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 await streamDone
 
                 /*  send terminal success response  */
-                await sendResponse()
+                try {
+                    await sendResponse()
+                }
+                catch (err2: unknown) {
+                    this.error(ensureError(err2), `sending terminal response for sink "${name}" failed`)
+                }
             }
             catch (err: unknown) {
                 const error = ensureError(err, `handler for sink "${name}" failed`)
