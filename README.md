@@ -91,7 +91,7 @@ const Server = async (api: MQTTp<API>, log: (msg: string, ...args: any[]) => voi
         const input = new Readable()
         input.push(api.str2buf(`the ${filename} content`))
         input.push(null)
-        info.stream = readable
+        info.stream = input
     })
     await api.sink("example/upload", async (filename, info) => {
         log("example/upload: SERVER:", filename)
@@ -176,7 +176,7 @@ Notice
 
 > [!Note]
 > **MQTT+** and its peer dependency **MQTT.js** provide a powerful
-> functionality, but are not small in size. **MQTT+** is 3.900 LoC
+> functionality, but are not small in size. **MQTT+** is 4.000 LoC
 > and 75 KB in size (ESM and CJS format). When bundled with all its
 > dependencies, it is 220 KB in size (UMD format). Its peer dependency
 > **MQTT.js** is 370 KB (ESM and CJS format) and 860 KB (UMD format) in
