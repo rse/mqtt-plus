@@ -206,7 +206,7 @@ describe("MQTT+ Source Fetch", function () {
         await sourcing.destroy()
     })
 
-    /*  test case: Source Fetch (Interrupted Mid-Transfer)  */
+    /*  test case: Source Fetch (Interrupted)  */
     it("MQTT+ Source Fetch (Interrupted)", async function () {
         /*  setup  */
         this.slow(4000)
