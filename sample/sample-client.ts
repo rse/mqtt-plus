@@ -31,12 +31,20 @@ mqtt.on("connect", () => {
     })
 
     /*  fetch a resource (chunked content)  */
-    mqttp.fetch("example/data", "foo").then(async ({ buffer, meta }) => {
+    mqttp.fetch("example/download", "foo").then(async ({ buffer, meta }) => {
         const data = await buffer
         const info = await meta
-        console.log("example/data success: ", new TextDecoder().decode(data), info)
+        console.log("example/download success: ", new TextDecoder().decode(data), info)
     }).catch((err) => {
-        console.log("example/data error: ", err)
+        console.log("example/download error: ", err)
+    })
+
+    /*  push data to a sink (chunked content)  */
+    const payload = new TextEncoder().encode("example upload data")
+    mqttp.push("example/upload", payload, "test.txt").then(() => {
+        console.log("example/upload success")
+    }).catch((err) => {
+        console.log("example/upload error: ", err)
     })
 })
 

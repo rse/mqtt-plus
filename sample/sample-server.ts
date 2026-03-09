@@ -1,6 +1,4 @@
 
-import { Buffer }   from "node:buffer"
-
 import Mosquitto    from "mosquitto"
 import MQTT         from "mqtt"
 import MQTTp        from "mqtt-plus"
@@ -42,10 +40,17 @@ mqtt.on("connect", () => {
     })
 
     /*  establish a source for fetch (chunked content)  */
-    mqttp.source("example/data", (a1, info) => {
-        console.log("example/data: request: ", a1, info)
+    mqttp.source("example/download", (a1, info) => {
+        console.log("example/download: request: ", a1, info)
         info.buffer = Promise.resolve(new TextEncoder().encode(`data-for-${a1}`))
         info.meta = { type: "text/plain" }
+    })
+
+    /*  establish a sink for push (chunked content)  */
+    mqttp.sink("example/upload", async (a1, info) => {
+        console.log("example/upload: request: ", a1, info)
+        const data = await info.buffer
+        console.log("example/upload: received: ", new TextDecoder().decode(data))
     })
 })
 
