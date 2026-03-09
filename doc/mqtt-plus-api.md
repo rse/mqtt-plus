@@ -113,7 +113,7 @@ Authentication
     credential(credential: string): void
 
     /*  issue client-side token on server-side  */
-    issue(payload: { roles: string[], id?: string }): Promise<string>
+    issue(payload: { roles: string[], id?: string, exp?: number }): Promise<string>
 
     /*  add/remove client-side token (client-side)  */
     authenticate(token: string): void
@@ -437,8 +437,8 @@ Sink Registration
                 receiver?:      string,
                 authenticated?: boolean,
                 meta?:          Record<string, any>,
-                stream?:        Readable,
-                buffer?:        Promise<Uint8Array>
+                stream:         Readable,
+                buffer:         Promise<Uint8Array>
             }
         ) => void | Promise<void>
     ): Promise<Registration>
@@ -451,8 +451,8 @@ Sink Registration
                 receiver?:      string,
                 authenticated?: boolean,
                 meta?:          Record<string, any>,
-                stream?:        Readable,
-                buffer?:        Promise<Uint8Array>
+                stream:         Readable,
+                buffer:         Promise<Uint8Array>
             }
         ) => void | Promise<void>,
         options?: MQTT::IClientSubscribeOptions,
