@@ -338,10 +338,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  define timer  */
         const timerId = `source-fetch:${requestId}`
-        let stream: Readable
+        let stream: Readable | undefined = undefined
         const refreshTimeout = () => {
             this.timerRefresh(timerId, () => {
-                stream.destroy(new Error("communication timeout"))
+                stream?.destroy(new Error("communication timeout"))
                 spool.unroll()
             })
         }
@@ -452,9 +452,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  publish message to MQTT topic  */
         run(`publish fetch request as MQTT message to topic "${topic}"`, spool, () =>
-            this.publishToTopic(topic, message, { qos: 2, ...options })).catch((err: unknown) => {
-                stream.destroy(ensureError(err))
-            })
+            this.publishToTopic(topic, message, { qos: 2, ...options })
+        ).catch((err: unknown) => {
+            stream.destroy(ensureError(err))
+        })
 
         /*  produce result  */
         const result = { stream, buffer, meta: metaP }
