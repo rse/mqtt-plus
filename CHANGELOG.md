@@ -2,6 +2,11 @@
 ChangeLog
 =========
 
+1.4.14 (2026-03-11)
+-------------------
+
+- CLEANUP: align resource handling in source trait with sink trait
+
 1.4.13 (2026-03-10)
 -------------------
 
