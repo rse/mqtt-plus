@@ -192,6 +192,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             /*  call the handler callback  */
             let ackSent = false
             let creditGate: CreditGate | undefined
+            let cancelledByFetcher = false
             try {
                 if (topicName !== request.name)
                     throw new Error(`source name mismatch (topic: "${topicName}", payload: "${request.name}")`)
@@ -216,6 +217,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
                     if (creditParsed.credit === 0) {
                         /*  cancel signal from fetcher  */
+                        cancelledByFetcher = true
                         abortController.abort(new Error(`source fetch "${name}" cancelled by fetcher`))
                         return
                     }
@@ -250,12 +252,15 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const error = ensureError(err, `handler for source "${name}" failed`)
                 abortController.abort(error)
 
-                /*  send error as nak response or as error chunk  */
-                this.error(error)
-                if (ackSent)
-                    await sendChunk(undefined, error.message, true).catch(() => {})
-                else
-                    await sendResponse(error.message).catch(() => {})
+                /*  on explicit fetcher cancellation, abort silently without emitting error responses  */
+                if (!cancelledByFetcher) {
+                    /*  send error as nak response or as error chunk  */
+                    this.error(error)
+                    if (ackSent)
+                        await sendChunk(undefined, error.message, true).catch(() => {})
+                    else
+                        await sendResponse(error.message).catch(() => {})
+                }
             }
             finally {
                 /*  cleanup resources  */

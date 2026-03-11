@@ -162,6 +162,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  utility functions for timeout management  */
                 const pushTimerId = `sink-push-recv:${requestId}`
                 const refreshPushTimeout = () => this.timerRefresh(pushTimerId, () => {
+                    if (streamEnded)
+                        return
                     const stream = this.pushStreams.get(requestId)
                     if (stream !== undefined)
                         stream.destroy(new Error("push stream timeout"))
@@ -201,6 +203,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         return
                     if (chunkParsed.error !== undefined) {
                         streamEnded = true
+                        clearPushTimeout()
                         readable.destroy(new Error(chunkParsed.error))
                     }
                     else {
@@ -212,6 +215,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         }
                         if (chunkParsed.final) {
                             streamEnded = true
+                            clearPushTimeout()
                             readable.push(null)
                         }
                     }
@@ -382,6 +386,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         let remoteError           = false
         let pushAcked             = false
         let pushFinalized         = false
+        let pushDataFinalSent     = false
         let pushFinalizeResolve!: () => void
         let pushFinalizeReject!:  (reason?: any) => void
         const pushFinalize        = new Promise<void>((resolve, reject) => {
@@ -465,6 +470,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     name, chunk, error, final, this.options.id, receiver)
                 const message = this.codec.encode(chunkMsg)
                 await this.publishToTopic(chunkTopic, message, { qos: 2, ...options })
+                if (error === undefined && final)
+                    pushDataFinalSent = true
             }
 
             /*  iterate over all chunks of the buffer  */
@@ -491,8 +498,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             abortController.abort(error)
 
             /*  send error chunk only if push was acked and error did not originate from receiver
-                (before ack, the sink has no chunk handler yet and will time out on its own)  */
-            if (pushAcked && !remoteError) {
+                (before ack, the sink has no chunk handler yet and will time out on its own;
+                after final data chunk, no additional terminal chunk should be sent)  */
+            if (pushAcked && !remoteError && !pushDataFinalSent) {
                 const chunkTopic = this.options.topicMake(name, "sink-push-request", receiver)
                 const chunkMsg = this.msg.makeSinkPushChunk(requestId,
                     name, undefined, error.message, true, this.options.id, receiver)
