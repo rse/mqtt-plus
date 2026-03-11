@@ -142,6 +142,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 })
             }
 
+            /*  create a resource spool for request cleanup  */
+            const reqSpool = new Spool()
+            reqSpool.roll(() => {
+                this.onResponse.delete(`source-fetch-credit:${requestId}`)
+                this.sourceControllers.delete(requestId)
+            })
+
             /*  define abort controller and signal  */
             const abortController = new AbortController()
             this.sourceControllers.set(requestId, abortController)
@@ -163,11 +170,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     gate.abort()
                     this.sourceCreditGates.delete(requestId)
                 }
-                this.sourceControllers.delete(requestId)
-                this.onResponse.delete(`source-fetch-credit:${requestId}`)
+                reqSpool.unroll()
             })
             const clearSourceTimeout   = () => this.timerClear(sourceTimerId)
             refreshSourceTimeout()
+            reqSpool.roll(() => { clearSourceTimeout() })
 
             /*  callback for creating and sending a chunk message  */
             const sendChunk = async (
@@ -197,8 +204,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const initialCredit = request.credit
                 creditGate = (initialCredit !== undefined && initialCredit > 0)
                     ? new CreditGate(initialCredit) : undefined
-                if (creditGate)
+                if (creditGate) {
                     this.sourceCreditGates.set(requestId, creditGate)
+                    reqSpool.roll(() => {
+                        creditGate!.abort()
+                        this.sourceCreditGates.delete(requestId)
+                    })
+                }
 
                 /*  register credit/cancel handler (unconditional for cancel support)  */
                 this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
@@ -247,13 +259,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             }
             finally {
                 /*  cleanup resources  */
-                clearSourceTimeout()
-                if (creditGate) {
-                    creditGate.abort()
-                    this.sourceCreditGates.delete(requestId)
-                }
-                this.sourceControllers.delete(requestId)
-                this.onResponse.delete(`source-fetch-credit:${requestId}`)
+                await reqSpool.unroll()
             }
         })
         spool.roll(() => { this.onRequest.delete(`source-fetch-request:${name}`) })
