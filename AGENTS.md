@@ -34,7 +34,6 @@ npm start sample        # run sample/sample.ts via `tsx`
 npm start clean         # remove dst-stage1/ and dst-stage2/
 npm start distclean     # remove node_modules/ and package-lock.json
 npm start publish       # publish to npm (restricted to maintainer host)
-
 ```
 
 Tests require an MQTT broker under run-time; the test suite starts/stops
