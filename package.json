@@ -30,6 +30,7 @@
         "./umd":                      { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.umd.js" }
     },
     "devDependencies": {
+        "patch-package":              "8.0.1",
         "@rse/stx":                   "1.1.4",
         "shx":                        "0.4.0",
         "eslint":                     "10.0.3",
@@ -50,7 +51,7 @@
         "aedes":                      "1.0.1",
         "mosquitto":                  "1.0.2",
         "textframe":                  "1.2.1",
-        "vite":                       "7.3.1",
+        "vite":                       "8.0.0",
         "vite-plugin-node-polyfills": "0.25.0",
         "@wroud/vite-plugin-tsc":     "0.12.2",
         "@terrastruct/d2":            "0.1.33",
@@ -66,6 +67,9 @@
     "peerDependencies": {
         "mqtt":                       ">=4.0.0"
     },
+    "overrides": {
+        "vite-plugin-node-polyfills": { "vite": ">=7.0.0" }
+    },
     "dependencies": {
         "nanoid":                     "5.1.6",
         "cbor2":                      "2.3.0",
@@ -79,6 +83,7 @@
         "node":                       ">=16.0.0"
     },
     "scripts": {
+        "postinstall":                "npm start patch-apply",
         "prepublishOnly":             "npm start build",
         "start":                      "stx -v4 -c etc/stx.conf",
         "test":                       "npm start test"
