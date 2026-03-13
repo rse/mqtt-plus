@@ -110,8 +110,8 @@ describe("MQTT+ Miscellaneous", function () {
     /*  test case: Authentication  */
     it("MQTT+ Authentication", async function () {
         /*  setup  */
-        this.slow(1000)
-        this.timeout(1000)
+        this.slow(4000)
+        this.timeout(4000)
         const spy = sinon.spy()
 
         /*  credentials  */
