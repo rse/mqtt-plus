@@ -46,7 +46,9 @@
     ],
     "ignoreDependencies": [
         "shx",
-        "chokidar-cli"
+        "chokidar-cli",
+        "patch-package",
+        "c8"
     ]
 }
 

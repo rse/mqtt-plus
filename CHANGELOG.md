@@ -5,6 +5,7 @@ ChangeLog
 1.4.15 (2026-03-xx)
 -------------------
 
+- IMPROVEMENT: add code coverage during test suite execution
 - UPDATE: upgrade NPM dependencies: Vite 8
 
 1.4.14 (2026-03-11)
