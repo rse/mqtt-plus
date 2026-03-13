@@ -12,7 +12,7 @@
         "resolveJsonModule":       false,
         "isolatedModules":         false,
         "esModuleInterop":         false,
-        "lib":                     [ "es2022", "dom" ],
+        "lib":                     [ "es2022" ],
         "skipLibCheck":            true,
         "declaration":             true,
         "noEmit":                  false,
