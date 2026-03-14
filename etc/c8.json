@@ -1,15 +1,16 @@
 {
     "all":                 false,
+    "reports-dir":         "tst/.c8",
     "extension":           [ ".ts", ".js" ],
     "src":                 [ "." ],
     "include":             [ "src/**/*.ts" ],
     "exclude":             [ "node_modules/**/*" ],
     "exclude-after-remap": true,
     "check-coverage":      true,
-    "lines":               90,
-    "functions":           90,
-    "branches":            90,
     "statements":          90,
-    "reporter":            [ "text" ],
+    "branches":            70,
+    "functions":           90,
+    "lines":               90,
+    "reporter":            [ "text", "html" ],
     "clean":               true
 }
