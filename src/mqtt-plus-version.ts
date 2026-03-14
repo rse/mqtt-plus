@@ -33,9 +33,8 @@ export const versionToNum = (str: string) => {
     return parseInt(m[1], 10) * 100 + minor
 }
 
-/*  package version (string format, injected)  */
-declare const __VERSION__: string
-export const VERSION = __VERSION__
+/*  package version (string format, overridden)  */
+export const VERSION = "0.0"
 
 /*  package version (numeric format)  */
 export const version = versionToNum(VERSION)

@@ -25,6 +25,7 @@
 import * as Vite             from "vite"
 import { tscPlugin }         from "@wroud/vite-plugin-tsc"
 import { nodePolyfills }     from "vite-plugin-node-polyfills"
+import replace               from "@rollup/plugin-replace"
 import pkg                   from "../package.json"
 
 const formats = process.env.VITE_BUILD_FORMATS ?? "es"
@@ -34,9 +35,6 @@ export default Vite.defineConfig(({ command, mode }) => ({
     appType:  "custom",
     base:     "",
     root:     "",
-    define: {
-        "__VERSION__": `"${pkg.version.replace(/\.\d+$/, "")}"`
-    },
     plugins: [
         tscPlugin({
             tscArgs: [
@@ -50,7 +48,12 @@ export default Vite.defineConfig(({ command, mode }) => ({
             include: [ "events", "stream", "buffer" ],
             globals: {},
             protocolImports: true
-        }) ] : [])
+        }) ] : []),
+        replace({
+            "\"0.0\"": `"${pkg.version.replace(/\.\d+$/, "")}"`,
+            delimiters: [ "", "" ],
+            preventAssignment: true
+        })
     ],
     build: {
         rollupOptions: {
