@@ -1,13 +1,15 @@
 {
-    "all":            true,
-    "src":            [ "./src" ],
-    "extension":      [ ".ts" ],
-    "include":        [ "src/**/*.ts" ],
-    "exclude":        [ "tst/**/*.spec.ts" ],
-    "check-coverage": true,
-    "lines":          90,
-    "functions":      90,
-    "branches":       90,
-    "statements":     90,
-    "reporter":       [ "text" ]
+    "all":                 false,
+    "extension":           [ ".ts", ".js" ],
+    "src":                 [ "." ],
+    "include":             [ "src/**/*.ts" ],
+    "exclude":             [ "node_modules/**/*" ],
+    "exclude-after-remap": true,
+    "check-coverage":      true,
+    "lines":               90,
+    "functions":           90,
+    "branches":            90,
+    "statements":          90,
+    "reporter":            [ "text" ],
+    "clean":               true
 }

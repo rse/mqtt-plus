@@ -48,7 +48,8 @@
         "shx",
         "chokidar-cli",
         "patch-package",
-        "c8"
+        "c8",
+        "source-map-support"
     ]
 }
 
