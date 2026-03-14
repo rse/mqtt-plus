@@ -107,6 +107,36 @@ describe("MQTT+ Miscellaneous", function () {
             .to.be.deep.equal([ "open", "close" ])
     })
 
+    /*  test case: JSON Codec  */
+    it("MQTT+ JSON Codec", async function () {
+        /*  setup  */
+        this.slow(2000)
+        this.timeout(2000)
+        const spy = sinon.spy()
+
+        /*  create JSON codec API instances on existing MQTT connections  */
+        const apiJsonS = new MQTTp<API>(ctx.mqttS, { id: "json-server", codec: "json", timeout: 500 })
+        const apiJsonC = new MQTTp<API>(ctx.mqttC, { id: "json-client", codec: "json", timeout: 500 })
+
+        /*  register event handler  */
+        const registration = await apiJsonS.event("example/server/sample", (str: string, num: number) => {
+            spy("event", str, num)
+        })
+
+        /*  emit event via JSON codec  */
+        apiJsonC.emit("example/server/sample", "hello", 99)
+        await new Promise((resolve) => { setTimeout(resolve, 100) })
+
+        /*  verify round-trip  */
+        expect(spy.getCalls().length).to.equal(1)
+        expect(spy.getCalls()[0].args).to.deep.equal([ "event", "hello", 99 ])
+
+        /*  cleanup  */
+        await registration.destroy()
+        apiJsonS.destroy()
+        apiJsonC.destroy()
+    })
+
     /*  test case: Authentication  */
     it("MQTT+ Authentication", async function () {
         /*  setup  */
