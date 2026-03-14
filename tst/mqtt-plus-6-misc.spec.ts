@@ -38,6 +38,7 @@ import MQTT                 from "mqtt"
 import MQTTp                from "mqtt-plus"
 import { ctx }              from "./mqtt-plus-0-fixture"
 import type { API }         from "./mqtt-plus-0-fixture"
+import { makeMutuallyExclusiveFields } from "../src/mqtt-plus-util"
 
 /*  setup test suite infrastructure  */
 chai.config.includeStack = true
@@ -219,6 +220,52 @@ describe("MQTT+ Miscellaneous", function () {
         /*  destroy service  */
         await registration.destroy()
         await registration2.destroy()
+    })
+
+    /*  test case: Unit: arr2buf/buf2arr  */
+    it("MQTT+ Unit: arr2buf/buf2arr", function () {
+        /*  create a dry-run MQTTp instance for accessing encode methods  */
+        const mqttp = new MQTTp(null)
+
+        /*  arr2buf with Int8Array  */
+        const src = new Int8Array([ 1, -2, 3 ])
+        const buf = mqttp.arr2buf(src)
+        expect(buf).to.be.instanceOf(Uint8Array)
+        expect(buf.byteLength).to.equal(3)
+
+        /*  arr2buf with Buffer  */
+        const src2 = Buffer.from([ 10, 20, 30 ])
+        const buf2 = mqttp.arr2buf(src2)
+        expect(buf2).to.be.instanceOf(Uint8Array)
+        expect(buf2.byteLength).to.equal(3)
+
+        /*  buf2arr with Int8Array  */
+        const src3 = new Uint8Array([ 1, 2, 3 ])
+        const arr = mqttp.buf2arr(src3, Int8Array)
+        expect(arr).to.be.instanceOf(Int8Array)
+        expect(arr.byteLength).to.equal(3)
+
+        /*  buf2arr with Float32Array throws  */
+        const src4 = new Uint8Array([ 1, 2, 3, 4 ])
+        expect(() => mqttp.buf2arr(src4, Float32Array as any)).to.throw("invalid data type")
+
+        /*  cleanup  */
+        mqttp.destroy()
+    })
+
+    /*  test case: Unit: makeMutuallyExclusiveFields  */
+    it("MQTT+ Unit: makeMutuallyExclusiveFields", function () {
+        /*  accessing f1 after f2 consumed throws  */
+        const obj1 = { a: 1, b: 2 }
+        makeMutuallyExclusiveFields(obj1, "a", "b")
+        void obj1.b
+        expect(() => obj1.a).to.throw(/mutually exclusive/)
+
+        /*  accessing f2 after f1 consumed throws  */
+        const obj2 = { a: 1, b: 2 }
+        makeMutuallyExclusiveFields(obj2, "a", "b")
+        void obj2.a
+        expect(() => obj2.b).to.throw(/mutually exclusive/)
     })
 })
 

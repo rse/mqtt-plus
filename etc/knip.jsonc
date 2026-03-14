@@ -37,6 +37,8 @@
         "tst/mqtt-plus-4-sink.spec.ts",
         "tst/mqtt-plus-5-source.spec.ts",
         "tst/mqtt-plus-6-misc.spec.ts",
+        "tst/mqtt-plus-7-spool.spec.ts",
+        "tst/mqtt-plus-8-run.spec.ts",
         "etc/vite.mts",
         "etc/d2.mts"
     ],
