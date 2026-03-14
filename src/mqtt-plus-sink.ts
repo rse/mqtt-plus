@@ -252,6 +252,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  call handler  */
                 await callback(...params, info)
 
+                /*  ensure stream is consumed or destroyed to prevent hang  */
+                if (readable.readableFlowing !== true && !readable.destroyed)
+                    readable.resume()
+
                 /*  await full stream consumption before confirming success  */
                 await streamDone
 
