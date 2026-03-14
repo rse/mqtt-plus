@@ -138,5 +138,34 @@ describe("MQTT+ Event Emission", function () {
         const reg2 = await ctx.apiS.event("example/server/sample", () => {})
         await reg2.destroy()
     })
+
+    /*  test case: Event Emission (Handler Error)  */
+    it("MQTT+ Event Emission (Handler Error)", async function () {
+        /*  setup  */
+        this.slow(500)
+        this.timeout(500)
+        const spy = sinon.spy()
+
+        /*  register event handler that throws  */
+        const registration = await ctx.apiS.event("example/server/sample", (_str: string, _num: number) => {
+            throw new Error("handler-boom")
+        })
+
+        /*  emit event  */
+        ctx.apiC.emit("example/server/sample", "world", 42)
+        await new Promise((resolve) => { setTimeout(resolve, 100) })
+
+        /*  verify instance survives and can still receive events  */
+        await registration.destroy()
+        const registration2 = await ctx.apiS.event("example/server/sample",
+            (_str: string, _num: number, _info) => { spy("event-after-error") })
+        ctx.apiC.emit("example/server/sample", "world", 42)
+        await new Promise((resolve) => { setTimeout(resolve, 100) })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.deep.equal([ "event-after-error" ])
+
+        /*  cleanup  */
+        await registration2.destroy()
+    })
 })
 
