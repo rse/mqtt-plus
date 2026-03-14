@@ -2,11 +2,17 @@
 ChangeLog
 =========
 
-1.4.15 (2026-03-xx)
+1.4.15 (2026-03-14)
 -------------------
 
 - IMPROVEMENT: add code coverage during test suite execution
+- IMPROVEMENT: add development build support
+- IMPROVEMENT: improve version injection and source map support
+- IMPROVEMENT: add more test cases for JSON codec and handler errors
+- BUGFIX: prevent hang in test suite
+- BUGFIX: fix TypeScript DOM library configuration
 - UPDATE: upgrade NPM dependencies: Vite 8
+- CLEANUP: minor code cleanups
 
 1.4.14 (2026-03-11)
 -------------------
