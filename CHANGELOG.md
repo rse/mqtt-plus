@@ -2,10 +2,25 @@
 ChangeLog
 =========
 
-1.4.16 (2026-03-14)
+1.4.16 (2026-03-15)
 -------------------
 
+- IMPROVEMENT: allow source/sink operations to be aborted via a signal
+- IMPROVEMENT: support `info.buffer` to be a plain `Uint8Array` for sources
+- IMPROVEMENT: provide callback indicating which field is consumed
+- IMPROVEMENT: improve credit-based flow control enforcement
+- IMPROVEMENT: validate and deduplicate request IDs
+- IMPROVEMENT: lock responder for communication
+- IMPROVEMENT: improve backpressure and stream handling
+- IMPROVEMENT: improve meta handling
+- IMPROVEMENT: improve typing
 - BUGFIX: in sink and source traits: do not miss stream data in case the stream is consumed as a buffer
+- BUGFIX: fix error handling and prevent unhandled exceptions in sink and source traits
+- BUGFIX: fix message name mismatch and cancellation handling
+- BUGFIX: guard for already destroyed streams
+- CLEANUP: align and track spool handling in source trait
+- CLEANUP: align and guard timer handling
+- CLEANUP: merge handlers into one
 
 1.4.15 (2026-03-14)
 -------------------
