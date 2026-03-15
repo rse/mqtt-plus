@@ -177,6 +177,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const refreshPushTimeout = () => this.timerRefresh(pushTimerId, () => {
                     if (streamEnded)
                         return
+                    streamEnded = true
                     abortController.abort(new Error("push stream timeout"))
                     const stream = this.pushStreams.get(requestId)
                     if (stream !== undefined)
@@ -575,11 +576,16 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 (before ack, the sink has no chunk handler yet and will time out on its own;
                 after final data chunk, no additional terminal chunk should be sent)  */
             if (pushAcked && !remoteError && !pushDataFinalSent) {
-                const chunkTopic = this.options.topicMake(name, "sink-push-request", receiver)
-                const chunkMsg = this.msg.makeSinkPushChunk(requestId,
-                    name, undefined, error.message, true, this.options.id, receiver)
-                const message = this.codec.encode(chunkMsg)
-                await this.publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
+                try {
+                    const chunkTopic = this.options.topicMake(name, "sink-push-request", receiver)
+                    const chunkMsg = this.msg.makeSinkPushChunk(requestId,
+                        name, undefined, error.message, true, this.options.id, receiver)
+                    const message = this.codec.encode(chunkMsg)
+                    await this.publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
+                }
+                catch {
+                    /*  best-effort error notification — do not mask original error  */
+                }
             }
             if (remoteErrorObject)
                 throw remoteErrorObject
