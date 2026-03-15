@@ -135,6 +135,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
             /*  generate corresponding MQTT topic (single topic for all responses)  */
             const responseTopic = this.options.topicMake(name, "source-fetch-response", sender)
+            const sourceNameMismatchError = (kind: string, actualName: string) =>
+                new Error(`${kind} name mismatch (expected "${name}", got "${actualName}")`)
 
             /*  callback for sending the ack/nak response  */
             const sendResponse = async (error?: string) => {
@@ -221,6 +223,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
                 /*  register credit/cancel handler (unconditional for cancel support)  */
                 this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
+                    if (creditParsed.name !== name) {
+                        cancelledByFetcher = true
+                        abortController.abort(sourceNameMismatchError("source credit", creditParsed.name))
+                        return
+                    }
                     if (creditParsed.credit === 0) {
                         /*  cancel signal from fetcher  */
                         cancelledByFetcher = true
@@ -356,6 +363,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  subscribe to single response topic (for ack/nak and data chunks)  */
         const responseTopic = this.options.topicMake(name, "source-fetch-response", this.options.id)
+        const sourceNameMismatchError = (kind: string, actualName: string) =>
+            new Error(`${kind} name mismatch (expected "${name}", got "${actualName}")`)
         await this.subscribeTopicAndSpool(spool, responseTopic, { qos: options.qos ?? 2 })
 
         /*  credit-based flow control state  */
@@ -451,7 +460,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 return
             if (response.name !== name) {
                 streamEnded = true
-                const error = new Error(`source name mismatch (expected "${name}", got "${response.name}")`)
+                const error = sourceNameMismatchError("source response", response.name)
                 metaReject(error)
                 stream.destroy(error)
                 spool.unroll()
@@ -477,6 +486,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         this.onResponse.set(`source-fetch-chunk:${requestId}`, (response: SourceFetchChunk) => {
             if (streamEnded)
                 return
+            if (response.name !== name) {
+                streamEnded = true
+                const error = sourceNameMismatchError("source chunk", response.name)
+                metaReject(error)
+                stream.destroy(error)
+                spool.unroll()
+                return
+            }
             if (!responseAcked) {
                 streamEnded = true
                 const error = new Error("received source chunk before source response acknowledgement")

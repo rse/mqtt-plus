@@ -127,6 +127,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  generate corresponding MQTT topic for response  */
             const responseTopic = this.options.topicMake(name, "sink-push-response", sender)
+            const sinkNameMismatchError = (actualName: string) =>
+                new Error(`sink name mismatch (expected "${name}", got "${actualName}")`)
 
             /*  define abort controller and signal  */
             const abortController = new AbortController()
@@ -213,6 +215,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 this.onResponse.set(`sink-push-chunk:${requestId}`, async (chunkParsed: SinkPushChunk) => {
                     if (streamEnded)
                         return
+                    if (chunkParsed.name !== name) {
+                        streamEnded = true
+                        clearPushTimeout()
+                        readable.destroy(sinkNameMismatchError(chunkParsed.name))
+                        return
+                    }
                     if (chunkParsed.error !== undefined) {
                         streamEnded = true
                         clearPushTimeout()
@@ -427,6 +435,17 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         let pushInitialResolve!: () => void
         let pushInitialReject!:  (reason?: any) => void
         this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
+            if (response.name !== name) {
+                const error = new Error(`sink response name mismatch (expected "${name}", got "${response.name}")`)
+                remoteError = true
+                remoteErrorObject = error
+                abortController.abort(error)
+                if (!pushAcked)
+                    pushInitialReject(error)
+                else
+                    pushFinalizeReject(error)
+                return
+            }
             if (response.error) {
                 const error = new Error(response.error)
                 remoteError = true
@@ -483,6 +502,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const gate = creditGate
                 spool.roll(() => { gate.abort() })
                 this.onResponse.set(`sink-push-credit:${requestId}`, (response: SinkPushCredit) => {
+                    if (response.name !== name) {
+                        const error = new Error(`sink credit name mismatch (expected "${name}", got "${response.name}")`)
+                        remoteError = true
+                        remoteErrorObject = error
+                        abortController.abort(error)
+                        pushFinalizeReject(error)
+                        return
+                    }
                     gate.replenish(response.credit)
                     refreshTimeout()
                 })
