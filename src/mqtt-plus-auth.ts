@@ -102,7 +102,7 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
     }
 
     /*  check whether request is authenticated  */
-    protected async authenticated (clientId: string | undefined, tokens: string[] | undefined, option: AuthOption) {
+    protected async authenticated (clientId: string | undefined, tokens: string[] | undefined, option: AuthOption): Promise<boolean> {
         let authenticated = false
 
         /*  determine authentication configuration  */

@@ -31,6 +31,7 @@ import { type MqttClient,
 
 /*  internal requirements  */
 import type { APISchema, Registration } from "./mqtt-plus-api"
+import type { Message }                 from "./mqtt-plus-msg"
 import type { APIOptions }              from "./mqtt-plus-options"
 import { TraceTrait }                   from "./mqtt-plus-trace"
 import { Spool, ensureError }           from "./mqtt-plus-error"
@@ -120,7 +121,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     }
 
     /*  subscribe to an MQTT topic (Promise-based)  */
-    protected async subscribeTopic (topic: string, options: Partial<IClientSubscribeOptions> = {}) {
+    protected async subscribeTopic (topic: string, options: Partial<IClientSubscribeOptions> = {}): Promise<void> {
         this.log("info", `subscribing to MQTT topic "${topic}"`)
         return new Promise<void>((resolve, reject) => {
             this.mqtt.subscribe(topic, { qos: 2, ...options }, (err: Error | null, _granted: any) => {
@@ -135,7 +136,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     }
 
     /*  unsubscribe from an MQTT topic (Promise-based)  */
-    protected async unsubscribeTopic (topic: string) {
+    protected async unsubscribeTopic (topic: string): Promise<void> {
         this.log("info", `unsubscribing from MQTT topic "${topic}"`)
         return new Promise<void>((resolve, reject) => {
             this.mqtt.unsubscribe(topic, (err?: Error, _packet?: any) => {
@@ -162,8 +163,8 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
             this.log("info", `publishing to MQTT topic "${topic}" (type: buffer, length: ${message.byteLength} bytes)`)
 
         /*  provide decoded message on demand  */
-        const messageOnDemand = new PLazy<any>((resolve, reject) => {
-            let parsed: any
+        const messageOnDemand = new PLazy<Message>((resolve, reject) => {
+            let parsed: Message
             try {
                 const payload = this.codec.decode(message)
                 parsed = this.msg.parse(payload)
@@ -214,7 +215,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
         }
 
         /*  parse payload object into typed MQTT+ message  */
-        let message: any
+        let message: Message
         try {
             message = this.msg.parse(payload)
         }

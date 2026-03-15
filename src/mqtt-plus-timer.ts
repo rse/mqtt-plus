@@ -41,7 +41,7 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
     }
 
     /*  refresh (or start) a named timer  */
-    protected timerRefresh (id: string, onTimeout: () => void | Promise<void>) {
+    protected timerRefresh (id: string, onTimeout: () => void | Promise<void>): void {
         const timer = this.timers.get(id)
         if (timer !== undefined)
             clearTimeout(timer)
@@ -57,7 +57,7 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
     }
 
     /*  clear a named timer  */
-    protected timerClear (id: string) {
+    protected timerClear (id: string): void {
         const timer = this.timers.get(id)
         if (timer !== undefined) {
             clearTimeout(timer)

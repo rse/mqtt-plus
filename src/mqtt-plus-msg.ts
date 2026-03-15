@@ -289,6 +289,20 @@ const SourceFetchCreditSchema = v.strictObject({
     credit:              v.pipe(v.number(), v.integer(), v.minValue(0))
 })
 
+/*  union type of all messages  */
+export type Message =
+    | EventEmission
+    | ServiceCallRequest
+    | ServiceCallResponse
+    | SinkPushRequest
+    | SinkPushResponse
+    | SinkPushChunk
+    | SinkPushCredit
+    | SourceFetchRequest
+    | SourceFetchResponse
+    | SourceFetchChunk
+    | SourceFetchCredit
+
 /*  utility class  */
 class Msg {
     /*  factories for creating objects  */
@@ -408,18 +422,7 @@ class Msg {
     }
 
     /*  parse any object into typed object  */
-    parse (obj: any):
-        EventEmission        |
-        ServiceCallRequest   |
-        ServiceCallResponse  |
-        SinkPushRequest      |
-        SinkPushResponse     |
-        SinkPushChunk        |
-        SinkPushCredit       |
-        SourceFetchRequest   |
-        SourceFetchResponse  |
-        SourceFetchChunk     |
-        SourceFetchCredit {
+    parse (obj: any): Message {
         /*  sanity check input  */
         if (typeof obj !== "object" || obj === null)
             throw new Error("invalid argument: not an object")
