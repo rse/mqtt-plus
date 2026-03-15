@@ -156,6 +156,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             reqSpool.roll(() => { this.pushSpools.delete(requestId) })
 
             /*  check authentication and prepare stream  */
+            let completedNormally = false
             try {
                 if (topicName !== request.name)
                     throw new Error(`sink name mismatch (topic: "${topicName}", payload: "${request.name}")`)
@@ -211,7 +212,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 reqSpool.roll(() => { this.pushStreams.delete(requestId) })
                 readable.once("error", () => {}) /*  prevent unhandled error exception  */
                 reqSpool.roll(() => {
-                    if (!abortSignal.aborted)
+                    if (!completedNormally && !abortSignal.aborted)
                         abortController.abort(new Error("push stream closed"))
                 })
 
@@ -310,6 +311,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  send terminal success response  */
                 try {
                     await sendResponse()
+                    completedNormally = true
                 }
                 catch (err2: unknown) {
                     this.error(ensureError(err2), `sending terminal response for sink "${name}" failed`)
@@ -326,7 +328,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             finally {
                 /*  cleanup resources  */
                 const stream = this.pushStreams.get(requestId)
-                if (stream !== undefined && !stream.destroyed)
+                if (stream !== undefined && !stream.destroyed && !completedNormally)
                     stream.destroy()
                 await reqSpool.unroll()
             }
