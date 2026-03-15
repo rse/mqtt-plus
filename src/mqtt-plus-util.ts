@@ -25,6 +25,7 @@
 /*  built-in requirements  */
 import { Buffer }                       from "node:buffer"
 import { Readable }                     from "node:stream"
+import type { ReadableOptions }         from "node:stream"
 
 /*  external requirements  */
 import PLazyAPI                         from "p-lazy"
@@ -123,21 +124,50 @@ function chunkToBuffer (chunk: unknown): Uint8Array {
     return buffer
 }
 
-/*  utility function for collecting stream chunks into a buffer  */
-export function streamToBuffer (stream: Readable): Promise<Uint8Array> {
-    return new PLazy<Uint8Array>((resolve, reject) => {
-        const chunks: Uint8Array[] = []
-        stream.on("data", (raw: unknown) => {
-            const data = chunkToBuffer(raw)
-            chunks.push(data)
+/*  Readable stream that eagerly tees pushed data into
+    an internal buffer without consuming the readable side  */
+export class ReadableTee extends Readable {
+    private _chunks:    Uint8Array[] = []
+    private _collecting = true
+    private _onRead?:   (size: number) => void
+    private _resolve!:  (value: Uint8Array) => void
+    private _reject!:   (reason: Error) => void
+    readonly buffer:    Promise<Uint8Array>
+    constructor (opts?: ReadableOptions & { read?: (size: number) => void }) {
+        super(opts)
+        this._onRead = opts?.read
+        this.buffer = new Promise<Uint8Array>((resolve, reject) => {
+            this._resolve = resolve
+            this._reject  = reject
         })
-        stream.on("end", () => {
-            resolve(uint8ArrayConcat(chunks))
+        this.on("error", (err: Error) => {
+            if (this._collecting) {
+                this._collecting = false
+                this._reject(err)
+            }
         })
-        stream.on("error", (err: Error) => {
-            reject(err)
-        })
-    })
+    }
+    override push (chunk: any, encoding?: BufferEncoding): boolean {
+        if (this._collecting) {
+            if (chunk === null) {
+                this._collecting = false
+                this._resolve(uint8ArrayConcat(this._chunks))
+            }
+            else if (chunk !== undefined)
+                this._chunks.push(chunkToBuffer(chunk))
+        }
+        return super.push(chunk, encoding)
+    }
+    override read (size?: number): any {
+        this._onRead?.(size ?? 0)
+        return super.read(size)
+    }
+    stopCollecting (): void {
+        if (!this._collecting)
+            return
+        this._collecting = false
+        this._chunks.length = 0
+    }
 }
 
 /*  callback type for sending chunks  */

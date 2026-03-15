@@ -31,9 +31,9 @@ import type { IClientPublishOptions,
 import { nanoid }                                         from "nanoid"
 
 /*  internal requirements  */
-import { CreditGate,
-    streamToBuffer, sendBufferAsChunks,
-    sendStreamAsChunks, makeMutuallyExclusiveFields }     from "./mqtt-plus-util"
+import { CreditGate, ReadableTee,
+    sendBufferAsChunks, sendStreamAsChunks,
+    makeMutuallyExclusiveFields }                         from "./mqtt-plus-util"
 import { run, Spool, ensureError }                        from "./mqtt-plus-error"
 import type { SourceFetchRequest, SourceFetchResponse,
     SourceFetchChunk, SourceFetchCredit }                 from "./mqtt-plus-msg"
@@ -430,7 +430,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  define timer  */
         const timerId = `source-fetch-recv:${requestId}`
-        let stream: Readable | undefined = undefined
+        let stream: ReadableTee | undefined = undefined
         const refreshTimeout = () => {
             if (streamEnded || (stream && stream.destroyed))
                 return
@@ -443,7 +443,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         spool.roll(() => { this.timerClear(timerId) })
 
         /*  establish a readable for buffering received chunks  */
-        stream = new Readable({
+        stream = new ReadableTee({
             highWaterMark: maxBufferedBytes,
             read: (_size) => {
                 if (chunkCredit <= 0 || streamEnded)
@@ -470,9 +470,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         })
         stream.once("error", () => {}) /*  prevent unhandled error exception  */
 
-        /*  create promise for collecting stream chunks
-            (PLazy: stays dormant until consumer accesses buffer)  */
-        const buffer = streamToBuffer(stream)
+        /*  create promise for eagerly collecting stream chunks  */
+        const buffer = stream.buffer
 
         /*  start timeout handler  */
         refreshTimeout()
@@ -607,7 +606,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  produce result  */
         const result = { stream, buffer, meta: metaP }
-        makeMutuallyExclusiveFields(result, "stream", "buffer")
+        makeMutuallyExclusiveFields(result, "stream", "buffer", (field) => {
+            if (field === "stream")
+                stream.stopCollecting()
+            else if (field === "buffer")
+                stream.resume() /*  drain readable side  */
+        })
         return result
     }
 }

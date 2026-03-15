@@ -2,6 +2,11 @@
 ChangeLog
 =========
 
+1.4.16 (2026-03-14)
+-------------------
+
+- BUGFIX: in sink and source traits: do not miss stream data in case the stream is consumed as a buffer
+
 1.4.15 (2026-03-14)
 -------------------
 

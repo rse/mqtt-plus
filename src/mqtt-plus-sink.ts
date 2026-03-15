@@ -31,9 +31,9 @@ import type { IClientPublishOptions,
 import { nanoid }                                         from "nanoid"
 
 /*  internal requirements  */
-import { CreditGate,
-    streamToBuffer, sendBufferAsChunks,
-    sendStreamAsChunks, makeMutuallyExclusiveFields }     from "./mqtt-plus-util"
+import { CreditGate, ReadableTee,
+    sendBufferAsChunks, sendStreamAsChunks,
+    makeMutuallyExclusiveFields }                         from "./mqtt-plus-util"
 import { run, Spool, ensureError }                        from "./mqtt-plus-error"
 import type { SinkPushRequest, SinkPushResponse,
     SinkPushChunk, SinkPushCredit }                       from "./mqtt-plus-msg"
@@ -186,7 +186,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const clearPushTimeout   = () => this.timerClear(pushTimerId)
 
                 /*  create a readable for buffering received chunks  */
-                const readable = new Readable({
+                const readable = new ReadableTee({
                     highWaterMark: maxBufferedBytes,
                     read: (_size) => {
                         if (!creditState || !this.pushSpools.has(requestId))
@@ -261,7 +261,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 reqSpool.roll(() => { clearPushTimeout() })
 
                 /*  prepare info object  */
-                const promise = streamToBuffer(readable)
+                const promise = readable.buffer
                 let streamEndedNormally = false
                 const streamDone = new Promise<void>((resolve, reject) => {
                     readable.once("end", () => {
@@ -287,7 +287,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     info.authenticated = authenticated
                 if (request.meta)
                     info.meta = request.meta
-                makeMutuallyExclusiveFields(info, "stream", "buffer")
+                makeMutuallyExclusiveFields(info, "stream", "buffer", (field) => {
+                    if (field === "stream")
+                        readable.stopCollecting()
+                    else if (field === "buffer")
+                        readable.resume() /*  drain readable side  */
+                })
 
                 /*  send ack response  */
                 await sendResponse(undefined, true)
