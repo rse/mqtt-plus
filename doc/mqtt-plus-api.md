@@ -566,7 +566,7 @@ Source Registration
                 meta?:          Record<string, any>,
                 signal:         AbortSignal,
                 stream?:        Readable,
-                buffer?:        Promise<Uint8Array>
+                buffer?:        Promise<Uint8Array> | Uint8Array
             }
         ) => void | Promise<void>
     ): Promise<Registration>
@@ -581,7 +581,7 @@ Source Registration
                 meta?:          Record<string, any>,
                 signal:         AbortSignal,
                 stream?:        Readable,
-                buffer?:        Promise<Uint8Array>
+                buffer?:        Promise<Uint8Array> | Uint8Array
             }
         ) => void | Promise<void>,
         options?: MQTT::IClientSubscribeOptions,
@@ -595,7 +595,7 @@ Register a source for sending data.
 
 - The `callback` is called with the `params` passed to a remote `fetch()`.
   The `callback` should set `info.stream` to a `Readable` or
-  `info.buffer` to a `Promise<Uint8Array>` containing the data.
+  `info.buffer` to a `Promise<Uint8Array>` or `Uint8Array` containing the data.
   The `info.signal` is aborted when the fetch request is cancelled, times out,
   or is otherwise torn down, allowing the source handler to stop producing data.
   Optionally, the `callback` can set `info.meta` to a `Record<string,

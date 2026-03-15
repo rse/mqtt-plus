@@ -251,9 +251,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 ])
 
                 /*  check for valid data source  */
-                if (!(info.stream instanceof Readable) && !(info.buffer instanceof Promise))
+                if (!(info.stream instanceof Readable) && !(info.buffer instanceof Promise) && !(info.buffer instanceof Uint8Array))
                     throw new Error("handler did not provide data via info.stream or info.buffer fields")
-                if (info.stream instanceof Readable && info.buffer instanceof Promise)
+                if (info.stream instanceof Readable && (info.buffer instanceof Promise || info.buffer instanceof Uint8Array))
                     throw new Error("handler has set both info.stream and info.buffer fields")
 
                 /*  send ack response  */
@@ -264,9 +264,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 if (info.stream instanceof Readable)
                     /*  handle Readable stream result  */
                     await sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk, creditGate, abortSignal)
-                else if (info.buffer instanceof Promise) {
+                else if (info.buffer instanceof Promise || info.buffer instanceof Uint8Array) {
                     /*  handle Buffer result  */
-                    const buffer = await Promise.race([ info.buffer, abortPromise ])
+                    const buffer = (info.buffer instanceof Promise)
+                        ? await Promise.race([ info.buffer, abortPromise ])
+                        : info.buffer
                     await sendBufferAsChunks(buffer, this.options.chunkSize, sendChunk, creditGate, abortSignal)
                 }
             }

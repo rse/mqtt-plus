@@ -49,7 +49,7 @@ describe("MQTT+ Source Fetch", function () {
         /*  establish source  */
         const sourcing = await ctx.apiS.source("example/server/download", async (filename, info) => {
             if (filename === "foo")
-                info.buffer = Promise.resolve(Buffer.from(`the ${filename} content`))
+                info.buffer = Buffer.from(`the ${filename} content`)
             else
                 throw new Error("invalid source")
         })
@@ -118,7 +118,7 @@ describe("MQTT+ Source Fetch", function () {
 
         /*  establish source  */
         const sourcing = await ctx.apiS.source("example/server/download", async (_filename, info) => {
-            info.buffer = Promise.resolve(Buffer.from("data"))
+            info.buffer = Buffer.from("data")
         })
 
         /*  fetch and check meta  */
@@ -144,7 +144,7 @@ describe("MQTT+ Source Fetch", function () {
         /*  establish source providing data via buffer  */
         const sourcing = await ctx.apiS.source("example/server/download", async (filename, info) => {
             if (filename === "large-buf")
-                info.buffer = Promise.resolve(new Uint8Array(data))
+                info.buffer = new Uint8Array(data)
             else
                 throw new Error("invalid source")
         })
