@@ -229,9 +229,16 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  prepare info object  */
                 const promise = streamToBuffer(readable)
+                let streamEndedNormally = false
                 const streamDone = new Promise<void>((resolve, reject) => {
-                    readable.once("end",   () => { resolve() })
-                    readable.once("close", () => { resolve() })
+                    readable.once("end", () => {
+                        streamEndedNormally = true
+                        resolve()
+                    })
+                    readable.once("close", () => {
+                        if (!streamEndedNormally)
+                            reject(new Error("push stream closed before end"))
+                    })
                     readable.once("error", (err) => { reject(err) })
                 })
                 streamDone.catch(() => {}) /*  avoid unhandled promise rejection  */

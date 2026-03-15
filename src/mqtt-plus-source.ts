@@ -352,6 +352,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         let chunksReceived = 0
         let creditGranted  = chunkCredit
         let serverId:        string | undefined
+        let responseAcked  = false
         let streamEnded    = false
 
         /*  create promise for meta (resolved on first chunk)  */
@@ -451,6 +452,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 spool.unroll()
             }
             else {
+                responseAcked = true
                 metaResolve(response.meta)
                 refreshTimeout()
             }
@@ -460,6 +462,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         this.onResponse.set(`source-fetch-chunk:${requestId}`, (response: SourceFetchChunk) => {
             if (streamEnded)
                 return
+            if (!responseAcked) {
+                streamEnded = true
+                const error = new Error("received source chunk before source response acknowledgement")
+                metaReject(error)
+                stream.destroy(error)
+                spool.unroll()
+                return
+            }
             if (response.error) {
                 streamEnded = true
                 const error = new Error(response.error)
