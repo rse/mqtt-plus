@@ -224,7 +224,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 /*  register credit/cancel handler (unconditional for cancel support)  */
                 this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
                     if (creditParsed.name !== name) {
-                        cancelledByFetcher = true
                         abortController.abort(sourceNameMismatchError("source credit", creditParsed.name))
                         return
                     }
