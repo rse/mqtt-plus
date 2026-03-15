@@ -513,6 +513,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             else {
                 refreshTimeout()
                 if (response.chunk !== undefined) {
+                    if (chunkCredit > 0 && chunksReceived >= creditGranted) {
+                        streamEnded = true
+                        const error = new Error("flow control violation")
+                        metaReject(error)
+                        stream.destroy(error)
+                        spool.unroll()
+                        return
+                    }
                     chunksReceived++
                     if (!stream.destroyed)
                         stream.push(response.chunk)

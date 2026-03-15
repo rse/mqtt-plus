@@ -231,8 +231,15 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     else {
                         refreshPushTimeout()
                         if (chunkParsed.chunk !== undefined) {
-                            if (creditState)
+                            if (creditState) {
+                                if (creditState.chunksReceived >= creditState.creditGranted) {
+                                    streamEnded = true
+                                    clearPushTimeout()
+                                    readable.destroy(new Error("flow control violation"))
+                                    return
+                                }
                                 creditState.chunksReceived++
+                            }
                             if (!readable.destroyed)
                                 readable.push(chunkParsed.chunk)
                         }
