@@ -233,6 +233,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         abortController.abort(sourceNameMismatchError("source credit", creditParsed.name))
                         return
                     }
+                    if (creditParsed.sender === undefined || creditParsed.sender === "") {
+                        abortController.abort(new Error(`source credit for "${name}" missing sender`))
+                        return
+                    }
+                    if (creditParsed.sender !== sender)
+                        return
                     if (creditParsed.credit === 0) {
                         /*  cancel signal from fetcher  */
                         cancelledByFetcher = true
@@ -379,9 +385,26 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const maxBufferedBytes = chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024
         let chunksReceived = 0
         let creditGranted  = chunkCredit
-        let serverId:        string | undefined
+        let responderId    = receiver
         let responseAcked  = false
         let streamEnded    = false
+
+        /*  lock the responder for this communication  */
+        const lockResponder = (kind: string, sender?: string): boolean => {
+            if (sender === undefined || sender === "") {
+                streamEnded = true
+                const error = new Error(`received ${kind} without sender`)
+                metaReject(error)
+                stream?.destroy(error)
+                spool.unroll()
+                return false
+            }
+            if (responderId === undefined)
+                responderId = sender
+            else if (sender !== responderId)
+                return false
+            return true
+        }
 
         /*  create promise for meta (resolved on first chunk)  */
         let metaResolve!: (value: Record<string, any> | undefined) => void
@@ -413,7 +436,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             read: (_size) => {
                 if (chunkCredit <= 0 || !this.onResponse.has(`source-fetch-response:${requestId}`))
                     return
-                const targetId = serverId ?? receiver
+                const targetId = responderId
                 if (!targetId)
                     return
                 const outstanding   = creditGranted - chunksReceived
@@ -446,7 +469,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const cancelAndUnroll = () => {
             if (!cancelled && !streamEnded) {
                 cancelled = true
-                const targetId = serverId ?? receiver
+                const targetId = responderId
                 if (targetId) {
                     const cancelMsg = this.msg.makeSourceFetchCredit(requestId,
                         name, 0, this.options.id, targetId)
@@ -474,8 +497,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 spool.unroll()
                 return
             }
-            if (response.sender)
-                serverId = response.sender
+            if (!lockResponder("source response", response.sender))
+                return
             if (response.error) {
                 streamEnded = true
                 const error = new Error(response.error)
@@ -502,6 +525,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 spool.unroll()
                 return
             }
+            if (!lockResponder("source chunk", response.sender))
+                return
             if (!responseAcked) {
                 streamEnded = true
                 const error = new Error("received source chunk before source response acknowledgement")

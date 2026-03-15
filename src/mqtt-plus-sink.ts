@@ -439,6 +439,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         let pushAcked             = false
         let pushFinalized         = false
         let pushDataFinalSent     = false
+        let responderId           = receiver
         let pushFinalizeResolve!: () => void
         let pushFinalizeReject!:  (reason?: any) => void
         const pushFinalize        = new Promise<void>((resolve, reject) => {
@@ -446,6 +447,26 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             pushFinalizeReject    = reject
         })
         pushFinalize.catch(() => {})  /*  avoid unhandled promise rejection  */
+
+        /*  lock the responder for this communication  */
+        const lockResponder = (kind: string, sender?: string): boolean => {
+            if (sender === undefined || sender === "") {
+                const error = new Error(`received ${kind} without sender`)
+                remoteError = true
+                remoteErrorObject = error
+                abortController.abort(error)
+                if (!pushAcked)
+                    pushInitialReject(error)
+                else
+                    pushFinalizeReject(error)
+                return false
+            }
+            if (responderId === undefined)
+                responderId = sender
+            else if (sender !== responderId)
+                return false
+            return true
+        }
 
         /*  register unified response handler (ack/nak + terminal)  */
         let pushInitialResolve!: () => void
@@ -462,6 +483,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     pushFinalizeReject(error)
                 return
             }
+            if (!lockResponder("sink response", response.sender))
+                return
             if (response.error) {
                 const error = new Error(response.error)
                 remoteError = true
@@ -473,8 +496,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     pushFinalizeReject(error)
             }
             else if (!pushAcked) {
-                if (response.sender)
-                    receiver = response.sender
                 initialCredit = response.credit
                 pushAcked = true
                 pushInitialResolve()
@@ -526,6 +547,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         pushFinalizeReject(error)
                         return
                     }
+                    if (!lockResponder("sink credit", response.sender))
+                        return
                     gate.replenish(response.credit)
                     refreshTimeout()
                 })
@@ -533,7 +556,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             }
 
             /*  generate corresponding MQTT topic for chunks (use request topic)  */
-            const chunkTopic = this.options.topicMake(name, "sink-push-request", receiver)
+            const chunkTarget = responderId
+            if (chunkTarget === undefined)
+                throw new Error(`push to sink "${name}" missing responder`)
+            const chunkTopic = this.options.topicMake(name, "sink-push-request", chunkTarget)
 
             /*  callback for creating and sending a chunk message  */
             const sendChunk = async (
@@ -543,7 +569,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             ): Promise<void> => {
                 refreshTimeout()
                 const chunkMsg = this.msg.makeSinkPushChunk(requestId,
-                    name, chunk, error, final, this.options.id, receiver)
+                    name, chunk, error, final, this.options.id, chunkTarget)
                 const message = this.codec.encode(chunkMsg)
                 await this.publishToTopic(chunkTopic, message, { qos: 2, ...options })
                 if (error === undefined && final)
@@ -578,11 +604,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 after final data chunk, no additional terminal chunk should be sent)  */
             if (pushAcked && !remoteError && !pushDataFinalSent) {
                 try {
-                    const chunkTopic = this.options.topicMake(name, "sink-push-request", receiver)
-                    const chunkMsg = this.msg.makeSinkPushChunk(requestId,
-                        name, undefined, error.message, true, this.options.id, receiver)
-                    const message = this.codec.encode(chunkMsg)
-                    await this.publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
+                    const chunkTarget = responderId
+                    if (chunkTarget !== undefined) {
+                        const chunkTopic = this.options.topicMake(name, "sink-push-request", chunkTarget)
+                        const chunkMsg = this.msg.makeSinkPushChunk(requestId,
+                            name, undefined, error.message, true, this.options.id, chunkTarget)
+                        const message = this.codec.encode(chunkMsg)
+                        await this.publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
+                    }
                 }
                 catch {
                     /*  best-effort error notification — do not mask original error  */
