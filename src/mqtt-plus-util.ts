@@ -214,7 +214,8 @@ export async function sendStreamAsChunks (
 export function makeMutuallyExclusiveFields<T extends object>(
     obj: T,
     f1Name: keyof T & string,
-    f2Name: keyof T & string
+    f2Name: keyof T & string,
+    onConsumed?: (field: string) => void
 ): void {
     if (!(typeof obj === "object" && obj !== null))
         throw new Error("invalid object")
@@ -226,6 +227,8 @@ export function makeMutuallyExclusiveFields<T extends object>(
             if (consumed === "f2")
                 throw new Error(`field "${f1Name}" is mutually exclusive with ` +
                     `field "${f2Name}" and "${f2Name}" was already consumed`)
+            if (!consumed)
+                onConsumed?.(f1Name)
             consumed = "f1"
             return f1Value
         },
@@ -237,6 +240,8 @@ export function makeMutuallyExclusiveFields<T extends object>(
             if (consumed === "f1")
                 throw new Error(`field "${f2Name}" is mutually exclusive with ` +
                     `field "${f1Name}" and "${f1Name}" was already consumed`)
+            if (!consumed)
+                onConsumed?.(f2Name)
             consumed = "f2"
             return f2Value
         },
