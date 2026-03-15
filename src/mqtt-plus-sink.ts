@@ -390,6 +390,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         let initialCredit:        number | undefined
         let creditGate:           CreditGate | undefined
         let remoteError           = false
+        let remoteErrorObject:    Error | undefined
         let pushAcked             = false
         let pushFinalized         = false
         let pushDataFinalSent     = false
@@ -438,8 +439,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
                 if (response.error) {
                     remoteError = true
-                    pushFinalizeReject(new Error(response.error))
-                    abortController.abort(new Error(response.error))
+                    remoteErrorObject = new Error(response.error)
+                    pushFinalizeReject(remoteErrorObject)
+                    abortController.abort(remoteErrorObject)
                 }
                 else if (pushAcked && !pushFinalized) {
                     pushFinalized = true
@@ -513,6 +515,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const message = this.codec.encode(chunkMsg)
                 await this.publishToTopic(chunkTopic, message, { qos: 2, ...options }).catch(() => {})
             }
+            if (remoteErrorObject)
+                throw remoteErrorObject
             throw err
         }
         finally {
