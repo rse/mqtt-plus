@@ -50,7 +50,8 @@ chunks as a stream with arguments.
 > In contrast to the regular MQTT message publish/subscribe, this
 > pattern allows to transfer arbitrary amounts of arbitrary data by
 > chunking the data via a stream. Additionally, it supports authentication
-> and meta-data, etc.
+> and meta-data, and provides an `AbortSignal` to the sink handler for
+> cooperative cancellation, etc.
 
 ![Sink Push](mqtt-plus-comm-sink-push.svg)
 
@@ -67,7 +68,7 @@ data chunks as a stream with arguments.
 > In contrast to the regular MQTT message publish/subscribe, this
 > pattern allows to transfer arbitrary amounts of arbitrary data by
 > chunking the data via a stream. Additionally, it supports
-> authentication and meta-data, etc.
+> authentication and meta-data, and provides an `AbortSignal` to the
+> source handler for cooperative cancellation, etc.
 
 ![Source Fetch](mqtt-plus-comm-source-fetch.svg)
-

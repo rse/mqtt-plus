@@ -124,7 +124,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             if (sender === undefined || sender === "")
                 throw new Error("invalid request: missing sender")
             const receiver  = request.receiver
-            const info: InfoSource = { sender }
+            const abortController = new AbortController()
+            this.sourceControllers.set(requestId, abortController)
+            const abortSignal     = abortController.signal
+            const info: InfoSource = { sender, signal: abortSignal }
             if (receiver)
                 info.receiver = receiver
             if (request.meta)
@@ -149,16 +152,19 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 this.sourceControllers.delete(requestId)
             })
 
-            /*  define abort controller and signal  */
-            const abortController = new AbortController()
-            this.sourceControllers.set(requestId, abortController)
-            const abortSignal     = abortController.signal
-
             /*  ensure stream gets destroyed on abort  */
             abortSignal.addEventListener("abort", () => {
                 if (info.stream instanceof Readable && !info.stream.destroyed)
                     info.stream.destroy(ensureError(abortSignal.reason))
             }, { once: true })
+            const abortPromise = new Promise<never>((_resolve, reject) => {
+                const onAbort = () => { reject(ensureError(abortSignal.reason)) }
+                if (abortSignal.aborted)
+                    onAbort()
+                else
+                    abortSignal.addEventListener("abort", onAbort, { once: true })
+                reqSpool.roll(() => { abortSignal.removeEventListener("abort", onAbort) })
+            })
 
             /*  utility functions for timeout management  */
             const sourceTimerId = `source-fetch-send:${requestId}`
@@ -227,7 +233,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     }
                 })
 
-                await callback(...params, info)
+                await Promise.race([
+                    Promise.resolve(callback(...params, info)),
+                    abortPromise
+                ])
 
                 /*  check for valid data source  */
                 if (!(info.stream instanceof Readable) && !(info.buffer instanceof Promise))
@@ -243,9 +252,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 if (info.stream instanceof Readable)
                     /*  handle Readable stream result  */
                     await sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk, creditGate, abortSignal)
-                else if (info.buffer instanceof Promise)
+                else if (info.buffer instanceof Promise) {
                     /*  handle Buffer result  */
-                    await sendBufferAsChunks(await info.buffer, this.options.chunkSize, sendChunk, creditGate, abortSignal)
+                    const buffer = await Promise.race([ info.buffer, abortPromise ])
+                    await sendBufferAsChunks(buffer, this.options.chunkSize, sendChunk, creditGate, abortSignal)
+                }
             }
             catch (err: unknown) {
                 /*  cleanup stream resource (if provided by handler)  */

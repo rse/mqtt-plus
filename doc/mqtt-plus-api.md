@@ -437,6 +437,7 @@ Sink Registration
                 receiver?:      string,
                 authenticated?: boolean,
                 meta?:          Record<string, any>,
+                signal:         AbortSignal,
                 stream:         Readable,
                 buffer:         Promise<Uint8Array>
             }
@@ -451,6 +452,7 @@ Sink Registration
                 receiver?:      string,
                 authenticated?: boolean,
                 meta?:          Record<string, any>,
+                signal:         AbortSignal,
                 stream:         Readable,
                 buffer:         Promise<Uint8Array>
             }
@@ -467,6 +469,8 @@ Register a sink for receiving data.
 - The `callback` is called with the `params` passed to a remote `push()`.
   The `info.stream` provides a Node.js `Readable` stream for consuming the pushed data.
   The `info.buffer` provides a lazy `Promise<Uint8Array>` that resolves to the complete data once the stream ends.
+  The `info.signal` is aborted when the push request is cancelled, times out, or is otherwise torn down,
+  allowing the sink handler to stop any related side work cooperatively.
   The `info.meta` contains optional metadata sent by the pusher via `push()`.
 
 - The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
@@ -530,7 +534,8 @@ Pushes data to all established sinks or a specific sink handler.
   The returned `Promise` resolves when the entire data has been pushed.
 
 - The remote `sink()` `callback` is called with `params` and an `info` object
-  containing `stream` (`Readable`) for consuming the pushed data,
+  containing `signal` (`AbortSignal`) for cooperative cancellation,
+  `stream` (`Readable`) for consuming the pushed data,
   `buffer` (lazy `Promise<Uint8Array>`) that resolves to the complete
   data once the stream ends, and `meta` (`Record<string, any> |
   undefined`) containing the metadata sent by the pusher.
@@ -559,6 +564,7 @@ Source Registration
                 receiver?:      string,
                 authenticated?: boolean,
                 meta?:          Record<string, any>,
+                signal:         AbortSignal,
                 stream?:        Readable,
                 buffer?:        Promise<Uint8Array>
             }
@@ -573,6 +579,7 @@ Source Registration
                 receiver?:      string,
                 authenticated?: boolean,
                 meta?:          Record<string, any>,
+                signal:         AbortSignal,
                 stream?:        Readable,
                 buffer?:        Promise<Uint8Array>
             }
@@ -589,6 +596,8 @@ Register a source for sending data.
 - The `callback` is called with the `params` passed to a remote `fetch()`.
   The `callback` should set `info.stream` to a `Readable` or
   `info.buffer` to a `Promise<Uint8Array>` containing the data.
+  The `info.signal` is aborted when the fetch request is cancelled, times out,
+  or is otherwise torn down, allowing the source handler to stop producing data.
   Optionally, the `callback` can set `info.meta` to a `Record<string,
   any>` to send metadata back with the response.
 
@@ -658,7 +667,8 @@ Fetches data from any source or from a specific source.
   optional metadata sent by the source when the first chunk arrives.
 
 - The remote `source()` `callback` is called with `params` and
-  should set `info.stream` to a `Readable` or `info.buffer` to
+  receives `info.signal` (`AbortSignal`) for cooperative cancellation
+  and should set `info.stream` to a `Readable` or `info.buffer` to
   a `Promise<Uint8Array>` containing the data. Optionally, the
   `callback` can set `info.meta` to send metadata back with the
   response. If the remote `callback` throws an exception, this
@@ -703,4 +713,3 @@ Example:
     const ui8a   = mqttp.arr2buf(buffer)
     const buffer = mqttp.buf2arr(ui8a, Buffer)
     const i8a    = mqttp.buf2arr(ui8a, Int8Array)
-

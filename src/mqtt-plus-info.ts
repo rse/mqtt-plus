@@ -37,10 +37,12 @@ export interface InfoBase {
 export interface InfoEvent   extends InfoBase {}
 export interface InfoService extends InfoBase {}
 export interface InfoSource  extends InfoBase {
+    signal:   AbortSignal
     stream?:  Readable
     buffer?:  Promise<Uint8Array>
 }
 export interface InfoSink    extends InfoBase {
+    signal:   AbortSignal
     stream:   Readable
     buffer:   Promise<Uint8Array>
 }

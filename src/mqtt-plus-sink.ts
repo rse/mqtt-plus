@@ -128,6 +128,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  generate corresponding MQTT topic for response  */
             const responseTopic = this.options.topicMake(name, "sink-push-response", sender)
 
+            /*  define abort controller and signal  */
+            const abortController = new AbortController()
+            const abortSignal     = abortController.signal
+
             /*  callback for sending the ack/nak response  */
             const chunkCredit = this.options.chunkCredit
             const sendResponse = async (error?: string, withCredit: boolean = false) => {
@@ -165,6 +169,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const refreshPushTimeout = () => this.timerRefresh(pushTimerId, () => {
                     if (streamEnded)
                         return
+                    abortController.abort(new Error("push stream timeout"))
                     const stream = this.pushStreams.get(requestId)
                     if (stream !== undefined)
                         stream.destroy(new Error("push stream timeout"))
@@ -198,6 +203,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 this.pushStreams.set(requestId, readable)
                 reqSpool.roll(() => { this.pushStreams.delete(requestId) })
                 readable.once("error", () => {}) /*  prevent unhandled error exception  */
+                reqSpool.roll(() => {
+                    if (!abortSignal.aborted)
+                        abortController.abort(new Error("push stream closed"))
+                })
 
                 /*  register chunk dispatch callback  */
                 let streamEnded = false
@@ -247,6 +256,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 streamDone.catch(() => {}) /*  avoid unhandled promise rejection  */
                 const info: InfoSink = {
                     sender,
+                    signal: abortSignal,
                     stream: readable,
                     buffer: promise
                 }
@@ -281,6 +291,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             }
             catch (err: unknown) {
                 const error = ensureError(err, `handler for sink "${name}" failed`)
+                abortController.abort(error)
 
                 /*  send error as nak response or as mid-stream error response  */
                 this.error(error)
