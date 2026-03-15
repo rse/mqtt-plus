@@ -460,6 +460,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 }
             }
         })
+        stream.once("error", () => {}) /*  prevent unhandled error exception  */
 
         /*  create promise for collecting stream chunks
             (PLazy: stays dormant until consumer accesses buffer)  */
