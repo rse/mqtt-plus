@@ -354,12 +354,23 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         let serverId:        string | undefined
         let streamEnded    = false
 
+        /*  create promise for meta (resolved on first chunk)  */
+        let metaResolve!: (value: Record<string, any> | undefined) => void
+        let metaReject!:  (reason?: any) => void
+        const metaP = new Promise<Record<string, any> | undefined>((resolve, reject) => {
+            metaResolve = resolve
+            metaReject  = reject
+        })
+        spool.roll(() => { metaResolve(undefined) })
+
         /*  define timer  */
         const timerId = `source-fetch-recv:${requestId}`
         let stream: Readable | undefined = undefined
         const refreshTimeout = () => {
             this.timerRefresh(timerId, () => {
-                stream?.destroy(new Error("communication timeout"))
+                const error = new Error("communication timeout")
+                metaReject(error)
+                stream?.destroy(error)
                 spool.unroll()
             })
         }
@@ -393,13 +404,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             (PLazy: stays dormant until consumer accesses buffer)  */
         const buffer = streamToBuffer(stream)
 
-        /*  create promise for meta (resolved on first chunk)  */
-        let metaResolve!: (value: Record<string, any> | undefined) => void
-        const metaP = new Promise<Record<string, any> | undefined>((resolve) => {
-            metaResolve = resolve
-        })
-        spool.roll(() => { metaResolve(undefined) })
-
         /*  start timeout handler  */
         refreshTimeout()
 
@@ -417,6 +421,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     this.publishToTopic(cancelTopic, encoded, { qos: options.qos ?? 2 }).catch(() => {})
                 }
             }
+            if (!streamEnded)
+                metaReject(new Error("stream aborted"))
             spool.unroll()
         }
         stream.once("close", cancelAndUnroll)
@@ -428,7 +434,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 return
             if (response.name !== name) {
                 streamEnded = true
-                stream.destroy(new Error(`source name mismatch (expected "${name}", got "${response.name}")`))
+                const error = new Error(`source name mismatch (expected "${name}", got "${response.name}")`)
+                metaReject(error)
+                stream.destroy(error)
                 spool.unroll()
                 return
             }
@@ -436,7 +444,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 serverId = response.sender
             if (response.error) {
                 streamEnded = true
-                stream.destroy(new Error(response.error))
+                const error = new Error(response.error)
+                metaReject(error)
+                stream.destroy(error)
                 spool.unroll()
             }
             else {
@@ -451,7 +461,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 return
             if (response.error) {
                 streamEnded = true
-                stream.destroy(new Error(response.error))
+                const error = new Error(response.error)
+                metaReject(error)
+                stream.destroy(error)
                 spool.unroll()
             }
             else {
@@ -489,7 +501,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         run(`publish fetch request as MQTT message to topic "${topic}"`, () =>
             this.publishToTopic(topic, message, { qos: 2, ...options })
         ).catch((err: unknown) => {
-            stream.destroy(ensureError(err))
+            const error = ensureError(err)
+            metaReject(error)
+            stream.destroy(error)
         })
 
         /*  produce result  */
