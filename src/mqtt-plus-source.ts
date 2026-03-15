@@ -47,6 +47,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
     /*  source state  */
     private sourceCreditGates = new Map<string, CreditGate>()
     private sourceControllers = new Map<string, AbortController>()
+    private sourceSpools      = new Map<string, Spool>()
 
     /*  destroy source trait  */
     override async destroy () {
@@ -56,6 +57,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         for (const gate of this.sourceCreditGates.values())
             gate.abort()
         this.sourceCreditGates.clear()
+        for (const spool of this.sourceSpools.values())
+            await spool.unroll()
+        this.sourceSpools.clear()
         await super.destroy()
     }
 
@@ -155,6 +159,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
             /*  create a resource spool for request cleanup  */
             const reqSpool = new Spool()
+            if (this.sourceSpools.has(requestId))
+                throw new Error(`source: duplicate request id "${requestId}"`)
+            this.sourceSpools.set(requestId, reqSpool)
+            reqSpool.roll(() => { this.sourceSpools.delete(requestId) })
             reqSpool.roll(() => {
                 this.onResponse.delete(`source-fetch-credit:${requestId}`)
                 this.sourceControllers.delete(requestId)
