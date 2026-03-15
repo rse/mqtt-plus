@@ -470,7 +470,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 refreshTimeout()
                 if (response.chunk !== undefined) {
                     chunksReceived++
-                    stream.push(response.chunk)
+                    if (!stream.destroyed)
+                        stream.push(response.chunk)
                 }
                 if (response.final) {
                     streamEnded = true

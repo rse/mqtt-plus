@@ -211,7 +211,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         if (chunkParsed.chunk !== undefined) {
                             if (creditState)
                                 creditState.chunksReceived++
-                            readable.push(chunkParsed.chunk)
+                            if (!readable.destroyed)
+                                readable.push(chunkParsed.chunk)
                         }
                         if (chunkParsed.final) {
                             streamEnded = true
@@ -230,6 +231,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const promise = streamToBuffer(readable)
                 const streamDone = new Promise<void>((resolve, reject) => {
                     readable.once("end",   () => { resolve() })
+                    readable.once("close", () => { resolve() })
                     readable.once("error", (err) => { reject(err) })
                 })
                 streamDone.catch(() => {}) /*  avoid unhandled promise rejection  */
