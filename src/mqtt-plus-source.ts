@@ -217,7 +217,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
                 /*  handle credit-based flow control (if credit provided in request)  */
                 const initialCredit = request.credit
-                creditGate = (initialCredit !== undefined && initialCredit > 0)
+                creditGate = (initialCredit !== undefined)
                     ? new CreditGate(initialCredit) : undefined
                 if (creditGate) {
                     this.sourceCreditGates.set(requestId, creditGate)

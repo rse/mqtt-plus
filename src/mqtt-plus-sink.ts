@@ -509,7 +509,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             })
 
             /*  create credit gate for flow control (if server granted credit)  */
-            if (initialCredit !== undefined && initialCredit > 0)
+            if (initialCredit !== undefined)
                 creditGate = new CreditGate(initialCredit)
 
             /*  register credit callback for flow control (credit arrives on response topic)  */
