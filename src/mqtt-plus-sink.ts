@@ -117,6 +117,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         /*  react on sink push request  */
         this.onRequest.set(`sink-push-request:${name}`, async (request: SinkPushRequest, topicName: string) => {
+            /*  check receiver  */
+            if (request.receiver && request.receiver !== this.options.id)
+                return
+
             /*  determine information  */
             const requestId = request.id
             const params    = request.params ?? []

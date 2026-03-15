@@ -117,6 +117,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  remember the registration  */
         this.onRequest.set(`source-fetch-request:${name}`, async (request: SourceFetchRequest, topicName: string) => {
+            /*  check receiver  */
+            if (request.receiver && request.receiver !== this.options.id)
+                return
+
             /*  determine information  */
             const requestId = request.id
             const params    = request.params ?? []

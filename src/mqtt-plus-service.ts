@@ -97,6 +97,10 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
         /*  remember the registration  */
         this.onRequest.set(`service-call-request:${name}`, async (request: ServiceCallRequest, topicName: string) => {
+            /*  check receiver  */
+            if (request.receiver && request.receiver !== this.options.id)
+                return
+
             /*  determine request information  */
             const requestId = request.id
             const senderId  = request.sender

@@ -95,6 +95,10 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
 
         /*  remember the registration  */
         this.onRequest.set(`event-emission:${name}`, async (request: EventEmission, topicName: string) => {
+            /*  check receiver  */
+            if (request.receiver && request.receiver !== this.options.id)
+                return
+
             /*  determine event information  */
             const senderId = request.sender
             if (senderId === undefined || senderId === "")
