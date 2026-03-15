@@ -355,7 +355,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         let streamEnded    = false
 
         /*  define timer  */
-        const timerId = `source-fetch:${requestId}`
+        const timerId = `source-fetch-recv:${requestId}`
         let stream: Readable | undefined = undefined
         const refreshTimeout = () => {
             this.timerRefresh(timerId, () => {
