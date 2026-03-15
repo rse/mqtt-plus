@@ -438,7 +438,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         stream = new Readable({
             highWaterMark: maxBufferedBytes,
             read: (_size) => {
-                if (chunkCredit <= 0 || !this.onResponse.has(`source-fetch-response:${requestId}`))
+                if (chunkCredit <= 0 || streamEnded)
                     return
                 const targetId = responderId
                 if (!targetId)
