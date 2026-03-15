@@ -361,6 +361,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             metaResolve = resolve
             metaReject  = reject
         })
+        metaP.catch(() => {}) /*  avoid unhandled promise rejection  */
         spool.roll(() => { metaResolve(undefined) })
 
         /*  define timer  */
