@@ -182,8 +182,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     const stream = this.pushStreams.get(requestId)
                     if (stream !== undefined)
                         stream.destroy(new Error("push stream timeout"))
-                    const spool = this.pushSpools.get(requestId)
-                    spool?.unroll()
                 })
                 const clearPushTimeout   = () => this.timerClear(pushTimerId)
 
@@ -420,11 +418,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         /*  utility function for timeout refresh  */
         const pushTimerId = `sink-push-send:${requestId}`
-        const refreshTimeout = () => this.timerRefresh(pushTimerId, () => {
-            const error = new Error(`push to sink "${name}" timed out`)
-            abortController.abort(error)
-            spool.unroll()
-        })
+        const refreshTimeout = () => {
+            if (abortSignal.aborted)
+                return
+            this.timerRefresh(pushTimerId, () => {
+                const error = new Error(`push to sink "${name}" timed out`)
+                abortController.abort(error)
+            })
+        }
         spool.roll(() => { this.timerClear(pushTimerId) })
 
         /*  start timeout handler  */

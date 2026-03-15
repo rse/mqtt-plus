@@ -397,11 +397,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const timerId = `source-fetch-recv:${requestId}`
         let stream: Readable | undefined = undefined
         const refreshTimeout = () => {
+            if (streamEnded || (stream && stream.destroyed))
+                return
             this.timerRefresh(timerId, () => {
                 const error = new Error("communication timeout")
                 metaReject(error)
                 stream?.destroy(error)
-                spool.unroll()
             })
         }
         spool.roll(() => { this.timerClear(timerId) })
