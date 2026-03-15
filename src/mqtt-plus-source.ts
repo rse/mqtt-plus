@@ -518,7 +518,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 }
                 if (response.final) {
                     streamEnded = true
-                    stream.push(null)
+                    if (!stream.destroyed)
+                        stream.push(null)
                     spool.unroll()
                 }
             }

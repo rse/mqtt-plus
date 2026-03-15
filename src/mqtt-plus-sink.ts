@@ -237,7 +237,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         if (chunkParsed.final) {
                             streamEnded = true
                             clearPushTimeout()
-                            readable.push(null)
+                            if (!readable.destroyed)
+                                readable.push(null)
                         }
                     }
                 })
