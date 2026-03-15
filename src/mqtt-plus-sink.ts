@@ -524,7 +524,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     name, params, this.options.id, receiver, auth, metaStore)
                 const message   = this.codec.encode(request)
                 const requestTopic = this.options.topicMake(name, "sink-push-request", receiver)
-                run(`publish push request as MQTT message to topic "${requestTopic}"`, spool, () =>
+                run(`publish push request as MQTT message to topic "${requestTopic}"`, () =>
                     this.publishToTopic(requestTopic, message, { qos: 2, ...options })).catch((err: Error) => {
                     reject(err)
                 })
