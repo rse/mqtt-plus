@@ -176,16 +176,20 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
             /*  utility functions for timeout management  */
             const sourceTimerId = `source-fetch-send:${requestId}`
-            const refreshSourceTimeout = () => this.timerRefresh(sourceTimerId, () => {
-                const error = new Error(`source fetch "${name}" timed out`)
-                abortController.abort(error)
-                const gate = this.sourceCreditGates.get(requestId)
-                if (gate !== undefined) {
-                    gate.abort()
-                    this.sourceCreditGates.delete(requestId)
-                }
-                reqSpool.unroll()
-            })
+            const refreshSourceTimeout = () => {
+                if (abortSignal.aborted)
+                    return
+                this.timerRefresh(sourceTimerId, () => {
+                    const error = new Error(`source fetch "${name}" timed out`)
+                    abortController.abort(error)
+                    const gate = this.sourceCreditGates.get(requestId)
+                    if (gate !== undefined) {
+                        gate.abort()
+                        this.sourceCreditGates.delete(requestId)
+                    }
+                    reqSpool.unroll()
+                })
+            }
             const clearSourceTimeout   = () => this.timerClear(sourceTimerId)
             refreshSourceTimeout()
             reqSpool.roll(() => { clearSourceTimeout() })
