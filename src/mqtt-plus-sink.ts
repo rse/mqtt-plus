@@ -401,26 +401,44 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             pushFinalizeReject    = reject
         })
         pushFinalize.catch(() => {})  /*  avoid unhandled promise rejection  */
+
+        /*  register unified response handler (ack/nak + terminal)  */
+        let pushInitialResolve!: () => void
+        let pushInitialReject!:  (reason?: any) => void
+        this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
+            if (response.error) {
+                const error = new Error(response.error)
+                remoteError = true
+                remoteErrorObject = error
+                abortController.abort(error)
+                if (!pushAcked)
+                    pushInitialReject(error)
+                else
+                    pushFinalizeReject(error)
+            }
+            else if (!pushAcked) {
+                if (response.sender)
+                    receiver = response.sender
+                initialCredit = response.credit
+                pushAcked = true
+                pushInitialResolve()
+            }
+            else if (!pushFinalized) {
+                pushFinalized = true
+                pushFinalizeResolve()
+            }
+        })
+        spool.roll(() => { this.onResponse.delete(`sink-push-response:${requestId}`) })
+
         try {
             await new Promise<void>((resolve, reject) => {
+                pushInitialResolve = resolve
+                pushInitialReject  = reject
+
                 /*  handle abort signal  */
                 const onAbort = () => { reject(abortSignal.reason) }
                 abortSignal.addEventListener("abort", onAbort, { once: true })
                 spool.roll(() => { abortSignal.removeEventListener("abort", onAbort) })
-
-                /*  register handlers for initial response  */
-                this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
-                    if (response.error)
-                        reject(new Error(response.error))
-                    else {
-                        if (response.sender)
-                            receiver = response.sender
-                        initialCredit = response.credit
-                        pushAcked = true
-                        resolve()
-                    }
-                })
-                spool.roll(() => { this.onResponse.delete(`sink-push-response:${requestId}`) })
 
                 /*  generate and send request message  */
                 const auth      = this.authenticate()
@@ -433,20 +451,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     this.publishToTopic(requestTopic, message, { qos: 2, ...options })).catch((err: Error) => {
                     reject(err)
                 })
-            })
-
-            /*  override handler for mid-stream (error) responses  */
-            this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
-                if (response.error) {
-                    remoteError = true
-                    remoteErrorObject = new Error(response.error)
-                    pushFinalizeReject(remoteErrorObject)
-                    abortController.abort(remoteErrorObject)
-                }
-                else if (pushAcked && !pushFinalized) {
-                    pushFinalized = true
-                    pushFinalizeResolve()
-                }
             })
 
             /*  create credit gate for flow control (if server granted credit)  */
