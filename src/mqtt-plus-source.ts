@@ -125,6 +125,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 throw new Error("invalid request: missing sender")
             const receiver  = request.receiver
             const abortController = new AbortController()
+            if (this.sourceControllers.has(requestId))
+                throw new Error(`source: duplicate request id "${requestId}"`)
             this.sourceControllers.set(requestId, abortController)
             const abortSignal     = abortController.signal
             const info: InfoSource = { sender, signal: abortSignal }

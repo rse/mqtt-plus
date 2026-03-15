@@ -146,6 +146,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  create a resource spool for stream cleanup  */
             const reqSpool = new Spool()
+            if (this.pushSpools.has(requestId))
+                throw new Error(`sink: duplicate request id "${requestId}"`)
             this.pushSpools.set(requestId, reqSpool)
             reqSpool.roll(() => { this.pushSpools.delete(requestId) })
 
