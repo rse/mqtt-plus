@@ -349,6 +349,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  credit-based flow control state  */
         const chunkCredit  = this.options.chunkCredit
+        const maxBufferedBytes = chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024
         let chunksReceived = 0
         let creditGranted  = chunkCredit
         let serverId:        string | undefined
@@ -380,14 +381,17 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  establish a readable for buffering received chunks  */
         stream = new Readable({
-            highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
+            highWaterMark: maxBufferedBytes,
             read: (_size) => {
                 if (chunkCredit <= 0 || !this.onResponse.has(`source-fetch-response:${requestId}`))
                     return
                 const targetId = serverId ?? receiver
                 if (!targetId)
                     return
-                const creditToGrant = Math.max(0, chunksReceived + chunkCredit - creditGranted)
+                const outstanding   = creditGranted - chunksReceived
+                const freeBytes     = Math.max(0, maxBufferedBytes - (stream?.readableLength ?? 0))
+                const freeChunks    = Math.floor(freeBytes / this.options.chunkSize)
+                const creditToGrant = Math.max(0, freeChunks - outstanding)
                 if (creditToGrant > 0) {
                     creditGranted += creditToGrant
                     const creditMsg = this.msg.makeSourceFetchCredit(requestId,

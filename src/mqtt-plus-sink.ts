@@ -158,6 +158,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     chunksReceived: 0,
                     creditGranted:  chunkCredit
                 } : undefined
+                const maxBufferedBytes = chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024
 
                 /*  utility functions for timeout management  */
                 const pushTimerId = `sink-push-recv:${requestId}`
@@ -174,12 +175,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  create a readable for buffering received chunks  */
                 const readable = new Readable({
-                    highWaterMark: chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024,
+                    highWaterMark: maxBufferedBytes,
                     read: (_size) => {
                         if (!creditState || !this.pushSpools.has(requestId))
                             return
-                        const creditToGrant = Math.max(0,
-                            creditState.chunksReceived + chunkCredit - creditState.creditGranted)
+                        const outstanding   = creditState.creditGranted - creditState.chunksReceived
+                        const freeBytes     = Math.max(0, maxBufferedBytes - readable.readableLength)
+                        const freeChunks    = Math.floor(freeBytes / this.options.chunkSize)
+                        const creditToGrant = Math.max(0, freeChunks - outstanding)
                         if (creditToGrant > 0) {
                             creditState.creditGranted += creditToGrant
                             const creditMsg = this.msg.makeSinkPushCredit(requestId,
