@@ -162,6 +162,9 @@ export class ReadableTee extends Readable {
         this._onRead?.(size ?? 0)
         return super.read(size)
     }
+    get collecting (): boolean {
+        return this._collecting
+    }
     stopCollecting (): void {
         if (!this._collecting)
             return
