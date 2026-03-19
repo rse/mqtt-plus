@@ -281,18 +281,31 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  prepare info object  */
                 const promise = readable.buffer
                 let streamEndedNormally = false
-                const streamDone = new Promise<void>((resolve, reject) => {
-                    readable.once("end", () => {
-                        streamEndedNormally = true
-                        resolve()
-                    })
-                    readable.once("close", () => {
-                        if (!streamEndedNormally)
-                            reject(new Error("push stream closed before end"))
-                    })
-                    readable.once("error", (err) => { reject(err) })
+                let resolve: () => void          = () => {}
+                let reject:  (err: Error) => void = () => {}
+                const onEnd   = () => {
+                    streamEndedNormally = true
+                    resolve()
+                }
+                const onClose = () => {
+                    if (!streamEndedNormally)
+                        reject(new Error("push stream closed before end"))
+                }
+                const onError = (err: Error) => {
+                    reject(err)
+                }
+                const streamDone = new Promise<void>((res, rej) => {
+                    resolve = res
+                    reject  = rej
+                    readable.once("end",   onEnd)
+                    readable.once("close", onClose)
+                    readable.once("error", onError)
                 })
-                streamDone.catch(() => {}) /*  avoid unhandled promise rejection  */
+                streamDone.finally(() => {
+                    readable.removeListener("end",   onEnd)
+                    readable.removeListener("close", onClose)
+                    readable.removeListener("error", onError)
+                }).catch(() => {}) /*  avoid unhandled promise rejection  */
                 const info: InfoSink = {
                     sender,
                     signal: abortSignal,
