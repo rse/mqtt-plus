@@ -168,6 +168,7 @@ export class ReadableTee extends Readable {
     stopCollecting (): void {
         if (!this._collecting)
             return
+        this._reject(new Error("collecting stopped"))
         this._collecting = false
         this._chunks.length = 0
     }
