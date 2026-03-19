@@ -44,12 +44,29 @@ import type { AuthOption }                                from "./mqtt-plus-auth
 
 /*  Sink Push Trait  */
 export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
-    /*  sink state  */
-    private pushStreams = new Map<string, Readable>()
-    private pushSpools  = new Map<string, Spool>()
+    /*  sink state (receiver side)  */
+    private pushStreams      = new Map<string, Readable>()
+    private pushSpools       = new Map<string, Spool>()
+
+    /*  sink state (sender side)  */
+    private pushControllers  = new Map<string, AbortController>()
+    private pushCreditGates  = new Map<string, CreditGate>()
+    private pushSenderSpools = new Map<string, Spool>()
 
     /*  destroy trait  */
     override async destroy () {
+        /*  cleanup sender-side state  */
+        for (const controller of this.pushControllers.values())
+            controller.abort(new Error("sink destroyed"))
+        this.pushControllers.clear()
+        for (const gate of this.pushCreditGates.values())
+            gate.abort()
+        this.pushCreditGates.clear()
+        for (const spool of this.pushSenderSpools.values())
+            await spool.unroll()
+        this.pushSenderSpools.clear()
+
+        /*  cleanup receiver-side state  */
         for (const stream of this.pushStreams.values())
             stream.destroy(new Error("sink destroyed"))
         this.pushStreams.clear()
@@ -410,6 +427,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             || this.onResponse.has(`sink-push-credit:${requestId}`))
             requestId = nanoid()
 
+        /*  register spool at instance level  */
+        this.pushSenderSpools.set(requestId, spool)
+        spool.roll(() => { this.pushSenderSpools.delete(requestId) })
+
         /*  subscribe to response topic (for ack/nak)  */
         const responseTopic = this.options.topicMake(name, "sink-push-response", this.options.id)
         await this.subscribeTopicAndSpool(spool, responseTopic, { qos: options.qos ?? 2 })
@@ -417,6 +438,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  define abort controller and signal  */
         const abortController = new AbortController()
         const abortSignal     = abortController.signal
+
+        /*  register abort controller at instance level  */
+        this.pushControllers.set(requestId, abortController)
+        spool.roll(() => { this.pushControllers.delete(requestId) })
 
         /*  ensure stream gets destroyed on abort  */
         if (data instanceof Readable) {
@@ -544,6 +569,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  create credit gate for flow control (if server granted credit)  */
             if (initialCredit !== undefined && initialCredit > 0)
                 creditGate = new CreditGate(initialCredit)
+
+            /*  register credit gate at instance level  */
+            if (creditGate) {
+                this.pushCreditGates.set(requestId, creditGate)
+                spool.roll(() => { this.pushCreditGates.delete(requestId) })
+            }
 
             /*  register credit callback for flow control (credit arrives on response topic)  */
             if (creditGate) {
