@@ -40,6 +40,8 @@ Tests require an MQTT broker under run-time; the test suite starts/stops
 one automatically. If Docker is available, a Mosquitto broker is used;
 otherwise, the Aedes in-process broker serves as the fallback.
 
+For regression testing always use the all-in-one command `npm start build test`.
+
 Build Pipeline
 --------------
 
