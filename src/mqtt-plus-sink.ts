@@ -58,13 +58,13 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  cleanup sender-side state  */
         for (const controller of this.pushControllers.values())
             controller.abort(new Error("sink destroyed"))
-        this.pushControllers.clear()
         for (const gate of this.pushCreditGates.values())
             gate.abort()
-        this.pushCreditGates.clear()
         for (const spool of this.pushSenderSpools.values())
             await spool.unroll()
         this.pushSenderSpools.clear()
+        this.pushControllers.clear()
+        this.pushCreditGates.clear()
 
         /*  cleanup receiver-side state  */
         for (const stream of this.pushStreams.values())

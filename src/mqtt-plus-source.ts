@@ -53,13 +53,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
     override async destroy () {
         for (const controller of this.sourceControllers.values())
             controller.abort(new Error("source destroyed"))
-        this.sourceControllers.clear()
         for (const gate of this.sourceCreditGates.values())
             gate.abort()
-        this.sourceCreditGates.clear()
         for (const spool of this.sourceSpools.values())
             await spool.unroll()
         this.sourceSpools.clear()
+        this.sourceControllers.clear()
+        this.sourceCreditGates.clear()
         await super.destroy()
     }
 
