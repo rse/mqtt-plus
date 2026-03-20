@@ -45,8 +45,9 @@ import type { AuthOption }                                from "./mqtt-plus-auth
 /*  Sink Push Trait  */
 export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     /*  sink state (receiver side)  */
-    private pushStreams      = new Map<string, Readable>()
-    private pushSpools       = new Map<string, Spool>()
+    private pushStreams          = new Map<string, Readable>()
+    private pushSpools           = new Map<string, Spool>()
+    private pushRecvControllers  = new Map<string, AbortController>()
 
     /*  sink state (sender side)  */
     private pushControllers  = new Map<string, AbortController>()
@@ -67,6 +68,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         this.pushCreditGates.clear()
 
         /*  cleanup receiver-side state  */
+        for (const controller of this.pushRecvControllers.values())
+            controller.abort(new Error("sink destroyed"))
+        this.pushRecvControllers.clear()
         for (const stream of this.pushStreams.values())
             stream.destroy(new Error("sink destroyed"))
         this.pushStreams.clear()
@@ -158,6 +162,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  define abort controller and signal  */
             const abortController = new AbortController()
             const abortSignal     = abortController.signal
+            this.pushRecvControllers.set(requestId, abortController)
 
             /*  callback for sending the ack/nak response  */
             const chunkCredit = this.options.chunkCredit
@@ -175,6 +180,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 throw new Error(`sink: duplicate request id "${requestId}"`)
             this.pushSpools.set(requestId, reqSpool)
             reqSpool.roll(() => { this.pushSpools.delete(requestId) })
+            reqSpool.roll(() => { this.pushRecvControllers.delete(requestId) })
 
             /*  check authentication and prepare stream  */
             let completedNormally = false
