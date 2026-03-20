@@ -69,7 +69,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         let options:  Partial<IClientSubscribeOptions> = {}
         let share     = this.options.share
         let auth:     AuthOption | undefined
-        if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
+        if (typeof nameOrConfig === "object" && nameOrConfig !== null && "name" in nameOrConfig) {
             /*  object-based API  */
             name     = nameOrConfig.name
             callback = nameOrConfig.callback
@@ -197,7 +197,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         let receiver:  string | undefined
         let options:   IClientPublishOptions = {}
         let meta:      Record<string, any> | undefined
-        if (typeof nameOrConfig === "object" && nameOrConfig !== null) {
+        if (typeof nameOrConfig === "object" && nameOrConfig !== null && "name" in nameOrConfig) {
             /*  object-based API  */
             name     = nameOrConfig.name
             params   = nameOrConfig.params
