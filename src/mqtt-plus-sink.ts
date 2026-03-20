@@ -612,7 +612,16 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         try {
             /*  handle abort signal  */
-            const onAbort = () => { if (!pushInitialSettled) { pushInitialSettled = true; pushInitialReject(abortSignal.reason) } }
+            const onAbort = () => {
+                if (!pushInitialSettled) {
+                    pushInitialSettled = true
+                    pushInitialReject(abortSignal.reason)
+                }
+                if (!pushFinalized) {
+                    pushFinalized = true
+                    pushFinalizeReject(abortSignal.reason)
+                }
+            }
             abortSignal.addEventListener("abort", onAbort, { once: true })
             spool.roll(() => { abortSignal.removeEventListener("abort", onAbort) })
 
@@ -688,6 +697,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
 
             /*  wait for terminal sink response  */
+            refreshTimeout()
             if (!pushFinalized) {
                 await new Promise<void>((resolve, reject) => {
                     const onAbort = () => { reject(abortSignal.reason) }
