@@ -231,7 +231,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 })
                 this.pushStreams.set(requestId, readable)
                 reqSpool.roll(() => { this.pushStreams.delete(requestId) })
-                readable.once("error", () => {}) /*  prevent unhandled error exception  */
+                const noopError = () => {} /*  prevent unhandled error exception  */
+                readable.on("error", noopError)
                 reqSpool.roll(() => {
                     if (!completedNormally && !abortSignal.aborted)
                         abortController.abort(new Error("push stream closed"))
@@ -301,6 +302,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const streamDone = new Promise<void>((res, rej) => {
                     resolve = res
                     reject  = rej
+                    readable.removeListener("error", noopError)
                     readable.once("end",   onEnd)
                     readable.once("close", onClose)
                     readable.once("error", onError)
