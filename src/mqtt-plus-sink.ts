@@ -303,7 +303,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const onClose = () => {
                     if (!settled) {
                         settled = true
-                        reject(new Error("push stream closed before end"))
+                        if (readable.readableEnded)
+                            resolve()
+                        else
+                            reject(new Error("push stream closed before end"))
                     }
                 }
                 const onError = (err: Error) => {
