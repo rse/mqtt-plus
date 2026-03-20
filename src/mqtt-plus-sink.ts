@@ -520,6 +520,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  register unified response handler (ack/nak + terminal)  */
         let pushInitialResolve!: () => void
         let pushInitialReject!:  (reason?: any) => void
+        const pushInitial        = new Promise<void>((resolve, reject) => {
+            pushInitialResolve   = resolve
+            pushInitialReject    = reject
+        })
+        pushInitial.catch(() => {})  /*  avoid unhandled promise rejection  */
         this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
             if (response.name !== name) {
                 const error = new Error(`sink response name mismatch (expected "${name}", got "${response.name}")`)
@@ -557,27 +562,23 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         spool.roll(() => { this.onResponse.delete(`sink-push-response:${requestId}`) })
 
         try {
-            await new Promise<void>((resolve, reject) => {
-                pushInitialResolve = resolve
-                pushInitialReject  = reject
+            /*  handle abort signal  */
+            const onAbort = () => { pushInitialReject(abortSignal.reason) }
+            abortSignal.addEventListener("abort", onAbort, { once: true })
+            spool.roll(() => { abortSignal.removeEventListener("abort", onAbort) })
 
-                /*  handle abort signal  */
-                const onAbort = () => { reject(abortSignal.reason) }
-                abortSignal.addEventListener("abort", onAbort, { once: true })
-                spool.roll(() => { abortSignal.removeEventListener("abort", onAbort) })
-
-                /*  generate and send request message  */
-                const auth      = this.authenticate()
-                const metaStore = this.metaStore(meta)
-                const request   = this.msg.makeSinkPushRequest(requestId,
-                    name, params, this.options.id, receiver, auth, metaStore)
-                const message   = this.codec.encode(request)
-                const requestTopic = this.options.topicMake(name, "sink-push-request", receiver)
-                run(`publish push request as MQTT message to topic "${requestTopic}"`, () =>
-                    this.publishToTopic(requestTopic, message, { qos: 2, ...options })).catch((err: Error) => {
-                    reject(err)
-                })
+            /*  generate and send request message  */
+            const auth      = this.authenticate()
+            const metaStore = this.metaStore(meta)
+            const request   = this.msg.makeSinkPushRequest(requestId,
+                name, params, this.options.id, receiver, auth, metaStore)
+            const message   = this.codec.encode(request)
+            const requestTopic = this.options.topicMake(name, "sink-push-request", receiver)
+            run(`publish push request as MQTT message to topic "${requestTopic}"`, () =>
+                this.publishToTopic(requestTopic, message, { qos: 2, ...options })).catch((err: Error) => {
+                pushInitialReject(err)
             })
+            await pushInitial
 
             /*  create credit gate for flow control (if server granted credit)  */
             if (initialCredit !== undefined && initialCredit > 0)
