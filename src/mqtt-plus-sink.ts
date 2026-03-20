@@ -184,6 +184,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  check authentication and prepare stream  */
             let completedNormally = false
+            let ackSent           = false
             try {
                 if (topicName !== request.name)
                     throw new Error(`sink name mismatch (topic: "${topicName}", payload: "${request.name}")`)
@@ -351,6 +352,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  send ack response  */
                 await sendResponse(undefined, true)
+                ackSent = true
 
                 /*  call handler  */
                 await callback(...params, info)
@@ -378,6 +380,15 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             catch (err: unknown) {
                 const error = ensureError(err, `handler for sink "${name}" failed`)
                 abortController.abort(error)
+
+                /*  eagerly destroy the push stream if ack was already sent,
+                    so the receiver is in a clean state before the error
+                    response reaches the sender (reduces cross-talk window)  */
+                if (ackSent) {
+                    const stream = this.pushStreams.get(requestId)
+                    if (stream !== undefined && !stream.destroyed)
+                        stream.destroy(error)
+                }
 
                 /*  send error as nak response or as mid-stream error response  */
                 this.error(error)
@@ -694,6 +705,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     /*  best-effort error notification — do not mask original error  */
                 }
             }
+            /*  yield one event-loop tick to allow a pending MQTT error
+                response from the receiver to be processed, making the
+                error outcome deterministic (only when race is possible)  */
+            if (pushAcked && !remoteError)
+                await new Promise<void>((resolve) => { setTimeout(resolve, 0) })
+
             if (remoteErrorObject)
                 throw remoteErrorObject
             throw err
