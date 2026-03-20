@@ -200,6 +200,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 } : undefined
                 const maxBufferedBytes = chunkCredit > 0 ? chunkCredit * this.options.chunkSize : 16 * 1024
 
+                /*  track stream-ended state  */
+                let streamEnded = false
+
                 /*  utility functions for timeout management  */
                 const pushTimerId = `sink-push-recv:${requestId}`
                 const refreshPushTimeout = () => this.timerRefresh(pushTimerId, () => {
@@ -245,7 +248,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 })
 
                 /*  register chunk dispatch callback  */
-                let streamEnded = false
                 this.onResponse.set(`sink-push-chunk:${requestId}`, async (chunkParsed: SinkPushChunk) => {
                     if (streamEnded)
                         return
