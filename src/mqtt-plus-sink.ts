@@ -49,6 +49,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     private pushSpools           = new Map<string, Spool>()
     private pushRecvControllers  = new Map<string, AbortController>()
 
+    /*  sink state (lifecycle)  */
+    private destroying = false
+
     /*  sink state (sender side)  */
     private pushControllers  = new Map<string, AbortController>()
     private pushCreditGates  = new Map<string, CreditGate>()
@@ -56,6 +59,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
     /*  destroy trait  */
     override async destroy () {
+        this.destroying = true
+
         /*  cleanup sender-side state  */
         for (const controller of this.pushControllers.values())
             controller.abort(new Error("sink destroyed"))
@@ -207,7 +212,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  utility functions for timeout management  */
                 const pushTimerId = `sink-push-recv:${requestId}`
                 const refreshPushTimeout = () => this.timerRefresh(pushTimerId, () => {
-                    if (streamEnded)
+                    if (streamEnded || this.destroying)
                         return
                     streamEnded = true
                     abortController.abort(new Error("push stream timeout"))
@@ -244,7 +249,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const noopError = () => {} /*  prevent unhandled error exception  */
                 readable.on("error", noopError)
                 reqSpool.roll(() => {
-                    if (!completedNormally && !abortSignal.aborted)
+                    if (!completedNormally && !abortSignal.aborted && !this.destroying)
                         abortController.abort(new Error("push stream closed"))
                 })
 
@@ -384,7 +389,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  eagerly destroy the push stream if ack was already sent,
                     so the receiver is in a clean state before the error
                     response reaches the sender (reduces cross-talk window)  */
-                if (ackSent) {
+                if (ackSent && !this.destroying) {
                     const stream = this.pushStreams.get(requestId)
                     if (stream !== undefined && !stream.destroyed)
                         stream.destroy(error)
@@ -396,10 +401,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             }
             finally {
                 /*  cleanup resources  */
-                const stream = this.pushStreams.get(requestId)
-                if (stream !== undefined && !stream.destroyed && !completedNormally)
-                    stream.destroy()
-                await reqSpool.unroll()
+                if (!this.destroying) {
+                    const stream = this.pushStreams.get(requestId)
+                    if (stream !== undefined && !stream.destroyed && !completedNormally)
+                        stream.destroy()
+                    await reqSpool.unroll()
+                }
             }
         })
         spool.roll(() => { this.onRequest.delete(`sink-push-request:${name}`) })
