@@ -521,6 +521,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         let remoteError           = false
         let remoteErrorObject:    Error | undefined
         let pushAcked             = false
+        let pushInitialSettled    = false
         let pushFinalized         = false
         let pushDataFinalSent     = false
         let responderId           = receiver
@@ -539,8 +540,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 remoteError = true
                 remoteErrorObject = error
                 abortController.abort(error)
-                if (!pushAcked)
+                if (!pushAcked) {
+                    pushInitialSettled = true
                     pushInitialReject(error)
+                }
                 else
                     pushFinalizeReject(error)
                 return false
@@ -565,8 +568,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 remoteError = true
                 remoteErrorObject = error
                 abortController.abort(error)
-                if (!pushAcked)
+                if (!pushAcked) {
+                    pushInitialSettled = true
                     pushInitialReject(error)
+                }
                 else
                     pushFinalizeReject(error)
                 return
@@ -578,14 +583,17 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 remoteError = true
                 remoteErrorObject = error
                 abortController.abort(error)
-                if (!pushAcked)
+                if (!pushAcked) {
+                    pushInitialSettled = true
                     pushInitialReject(error)
+                }
                 else
                     pushFinalizeReject(error)
             }
             else if (!pushAcked) {
                 initialCredit = response.credit
                 pushAcked = true
+                pushInitialSettled = true
                 pushInitialResolve()
             }
             else if (!pushFinalized) {
@@ -597,7 +605,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         try {
             /*  handle abort signal  */
-            const onAbort = () => { pushInitialReject(abortSignal.reason) }
+            const onAbort = () => { if (!pushInitialSettled) { pushInitialSettled = true; pushInitialReject(abortSignal.reason) } }
             abortSignal.addEventListener("abort", onAbort, { once: true })
             spool.roll(() => { abortSignal.removeEventListener("abort", onAbort) })
 
