@@ -107,6 +107,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             callback = args[0]
         }
 
+        /*  sanity check callback  */
+        if (typeof callback !== "function")
+            throw new Error("source: callback argument is required and must be a function")
+
         /*  create a resource spool  */
         const spool = new Spool()
 

@@ -83,6 +83,10 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             callback = args[0]
         }
 
+        /*  sanity check callback  */
+        if (typeof callback !== "function")
+            throw new Error("service: callback argument is required and must be a function")
+
         /*  create a resource spool  */
         const spool = new Spool()
 

@@ -120,6 +120,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             callback   = args[0]
         }
 
+        /*  sanity check callback  */
+        if (typeof callback !== "function")
+            throw new Error("sink: callback argument is required and must be a function")
+
         /*  create a resource spool  */
         const spool = new Spool()
 

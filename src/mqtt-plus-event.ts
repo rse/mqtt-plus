@@ -81,6 +81,10 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             callback = args[0]
         }
 
+        /*  sanity check callback  */
+        if (typeof callback !== "function")
+            throw new Error("event: callback argument is required and must be a function")
+
         /*  create resource spool  */
         const spool = new Spool()
 
