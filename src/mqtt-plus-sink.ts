@@ -285,19 +285,26 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  prepare info object  */
                 const promise = readable.buffer
-                let streamEndedNormally = false
+                let settled = false
                 let resolve: () => void          = () => {}
                 let reject:  (err: Error) => void = () => {}
                 const onEnd   = () => {
-                    streamEndedNormally = true
-                    resolve()
+                    if (!settled) {
+                        settled = true
+                        resolve()
+                    }
                 }
                 const onClose = () => {
-                    if (!streamEndedNormally)
+                    if (!settled) {
+                        settled = true
                         reject(new Error("push stream closed before end"))
+                    }
                 }
                 const onError = (err: Error) => {
-                    reject(err)
+                    if (!settled) {
+                        settled = true
+                        reject(err)
+                    }
                 }
                 const streamDone = new Promise<void>((res, rej) => {
                     resolve = res
