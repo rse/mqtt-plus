@@ -311,7 +311,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const onClose = () => {
                     if (!settled) {
                         settled = true
-                        if (readable.readableEnded)
+                        if (streamEnded || readable.readableEnded)
                             resolve()
                         else
                             reject(new Error("push stream closed before end"))
@@ -366,8 +366,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 if (readable.readableFlowing !== true && !readable.destroyed)
                     readable.resume()
 
-                /*  await full stream consumption before confirming success  */
-                await streamDone
+                /*  await full stream consumption before confirming success
+                    (post-callback stream errors are non-fatal warnings)  */
+                await streamDone.catch((err: unknown) => {
+                    this.error(ensureError(err), `stream drain after sink "${name}" callback failed (non-fatal)`)
+                })
 
                 /*  ensure collecting is stopped if callback ignored stream/buffer  */
                 if (readable.collecting)
