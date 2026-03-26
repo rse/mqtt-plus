@@ -52,7 +52,8 @@
         "patch-package",
         "c8",
         "source-map-support",
-        "open-cli"
+        "open-cli",
+        "cross-env"
     ]
 }
 
