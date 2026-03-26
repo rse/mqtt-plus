@@ -1,8 +1,8 @@
 diff --git a/node_modules/vite/dist/node/chunks/node.js b/node_modules/vite/dist/node/chunks/node.js
-index 8901df3..1f0f344 100644
+index 4224827..347f6c1 100644
 --- a/node_modules/vite/dist/node/chunks/node.js
 +++ b/node_modules/vite/dist/node/chunks/node.js
-@@ -34548,7 +34548,6 @@ async function runConfigHook(config, plugins, configEnv) {
+@@ -34603,7 +34603,6 @@ async function runConfigHook(config, plugins, configEnv) {
  		const res = await getHookHandler(hook).call(context, conf, configEnv);
  		if (res && res !== conf) {
  			if (hasBothRollupOptionsAndRolldownOptions(res)) context.warn(`Both \`rollupOptions\` and \`rolldownOptions\` were specified by ${JSON.stringify(p.name)} plugin. \`rollupOptions\` specified by that plugin will be ignored.`);

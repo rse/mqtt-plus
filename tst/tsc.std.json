@@ -10,16 +10,14 @@
         "strictFunctionTypes":     true,
         "resolveJsonModule":       false,
         "isolatedModules":         false,
-        "esModuleInterop":         false,
         "lib":                     [ "es2022" ],
         "skipLibCheck":            true,
         "declaration":             true,
         "noEmit":                  true,
         "allowImportingTsExtensions": true,
         "rootDir":                 "..",
-        "baseUrl":                 "..",
         "paths": {
-            "mqtt-plus": [ "dst-stage1/mqtt-plus" ]
+            "mqtt-plus": [ "../dst-stage1/mqtt-plus" ]
         }
     },
     "include": [
