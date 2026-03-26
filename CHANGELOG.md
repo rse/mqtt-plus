@@ -2,7 +2,7 @@
 ChangeLog
 =========
 
-1.4.16 (2026-03-15)
+1.4.16 (2026-03-27)
 -------------------
 
 - IMPROVEMENT: allow source/sink operations to be aborted via a signal
