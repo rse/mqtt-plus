@@ -15,6 +15,7 @@ ChangeLog
 - IMPROVEMENT: improve meta handling
 - IMPROVEMENT: improve typing
 - IMPROVEMENT: use cross-env for better script portability
+- IMPROVEMENT: switch "npm start test" procedure to individual tasks for portability
 - BUGFIX: in sink and source traits: do not miss stream data in case the stream is consumed as a buffer
 - BUGFIX: fix error handling and prevent unhandled exceptions in sink and source traits
 - BUGFIX: fix message name mismatch and cancellation handling
