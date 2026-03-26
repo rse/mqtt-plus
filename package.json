@@ -18,15 +18,15 @@
     "type":                           "module",
     "types":                          "./dst-stage1/mqtt-plus.d.ts",
     "module":                         "./dst-stage2/mqtt-plus.esm.js",
-    "main":                           "./dst-stage2/mqtt-plus.cjs.js",
+    "main":                           "./dst-stage2/mqtt-plus.cjs.cjs",
     "browser":                        "./dst-stage2/mqtt-plus.umd.js",
     "exports": {
         ".": {
             "import":                 { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.esm.js" },
-            "require":                { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.cjs.js" }
+            "require":                { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.cjs.cjs" }
         },
         "./esm":                      { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.esm.js" },
-        "./cjs":                      { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.cjs.js" },
+        "./cjs":                      { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.cjs.cjs" },
         "./umd":                      { "types": "./dst-stage1/mqtt-plus.d.ts", "default": "./dst-stage2/mqtt-plus.umd.js" }
     },
     "devDependencies": {

@@ -75,7 +75,8 @@ export default Vite.defineConfig(({ command, mode }) => ({
             entry:    "dst-stage1/mqtt-plus.js",
             formats:  formats.split(","),
             name:     "MQTTp",
-            fileName: (format, entryName) => `mqtt-plus.${format === "es" ? "esm" : format}.js`
+            fileName: (format, entryName) =>
+                `mqtt-plus.${format === "es" ? "esm" : format}.${format === "cjs" ? "cjs" : "js" }`
         },
         target:                 formats === "umd" ? "es2022" : "node20",
         outDir:                 "dst-stage2",

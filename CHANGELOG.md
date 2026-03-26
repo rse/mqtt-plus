@@ -20,6 +20,7 @@ ChangeLog
 - BUGFIX: fix error handling and prevent unhandled exceptions in sink and source traits
 - BUGFIX: fix message name mismatch and cancellation handling
 - BUGFIX: guard for already destroyed streams
+- BUGFIX: use .cjs for file extension of CJS variant
 - CLEANUP: align and track spool handling in source trait
 - CLEANUP: align and guard timer handling
 - CLEANUP: merge handlers into one
