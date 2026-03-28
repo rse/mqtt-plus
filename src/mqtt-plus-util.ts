@@ -66,6 +66,13 @@ export class CreditGate {
                 }
                 if (abortSignal)
                     abortSignal.addEventListener("abort", onAbort, { once: true })
+
+                /*  re-check after registration to close time-of-check/time-of-use race  */
+                if (abortSignal?.aborted) {
+                    abortSignal.removeEventListener("abort", onAbort)
+                    reject(abortSignal.reason ?? new Error("aborted"))
+                    return
+                }
                 const waiter = (aborted: boolean) => {
                     if (abortSignal)
                         abortSignal.removeEventListener("abort", onAbort)
