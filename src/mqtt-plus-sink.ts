@@ -413,12 +413,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             }
             finally {
                 /*  cleanup resources  */
-                if (!this.destroying) {
-                    const stream = this.pushStreams.get(requestId)
-                    if (stream !== undefined && !stream.destroyed && !completedNormally)
-                        stream.destroy()
-                    await reqSpool.unroll()
-                }
+                const stream = this.pushStreams.get(requestId)
+                if (stream !== undefined && !stream.destroyed && !completedNormally)
+                    stream.destroy()
+                await reqSpool.unroll()
             }
         })
         spool.roll(() => { this.onRequest.delete(`sink-push-request:${name}`) })
