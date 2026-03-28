@@ -73,17 +73,17 @@ class RefCountedSubscription {
         /*  increment count first to reserve our interest  */
         const count = this.incrementCount(topic)
 
-        /*  optionally just cancel a pending linger unsubscription
-            (subscription is still kept active on the broker)  */
-        const linger = this.lingers.get(topic)
-        if (linger) {
-            clearTimeout(linger)
-            this.lingers.delete(topic)
-            return
-        }
-
         /*  if we are the first, we must perform the actual subscription  */
         if (count === 0) {
+            /*  optionally just cancel a pending linger unsubscription
+                (subscription is still kept active on the broker)  */
+            const linger = this.lingers.get(topic)
+            if (linger) {
+                clearTimeout(linger)
+                this.lingers.delete(topic)
+                return
+            }
+
             /*  create a deferred promise and store it in pending immediately,
                 so concurrent subscribers arriving during the await below
                 will find and await it instead of returning prematurely  */
