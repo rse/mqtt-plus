@@ -98,8 +98,8 @@ describe("MQTT+ Spool", function () {
         expect(order).to.deep.equal([ 4, 3, 1 ])
     })
 
-    /*  test case: Spool: async rejection re-throws first error with suppress=false  */
-    it("MQTT+ Spool: async rejection re-throws first error with suppress=false", async function () {
+    /*  test case: Spool: async rejection re-throws all errors with suppress=false  */
+    it("MQTT+ Spool: async rejection re-throws all errors with suppress=false", async function () {
         const order: number[] = []
         const spool = new Spool()
         spool.roll(() => { order.push(1) })
@@ -111,7 +111,10 @@ describe("MQTT+ Spool", function () {
             expect.fail("should have thrown")
         }
         catch (err: any) {
-            expect(err.message).to.equal("second")
+            expect(err).to.be.an.instanceOf(AggregateError)
+            expect(err.errors).to.have.lengthOf(2)
+            expect(err.errors[0].message).to.equal("second")
+            expect(err.errors[1].message).to.equal("first")
         }
         expect(order).to.deep.equal([ 4, 1 ])
     })
@@ -127,8 +130,8 @@ describe("MQTT+ Spool", function () {
         expect(order).to.deep.equal([ 3, 1 ])
     })
 
-    /*  test case: Spool: sync throw re-throws first error with suppress=false  */
-    it("MQTT+ Spool: sync throw re-throws first error with suppress=false", function () {
+    /*  test case: Spool: sync throw re-throws all errors with suppress=false  */
+    it("MQTT+ Spool: sync throw re-throws all errors with suppress=false", function () {
         const order: number[] = []
         const spool = new Spool()
         spool.roll(() => { order.push(1) })
@@ -140,7 +143,10 @@ describe("MQTT+ Spool", function () {
             expect.fail("should have thrown")
         }
         catch (err: any) {
-            expect(err.message).to.equal("second")
+            expect(err).to.be.an.instanceOf(AggregateError)
+            expect(err.errors).to.have.lengthOf(2)
+            expect(err.errors[0].message).to.equal("second")
+            expect(err.errors[1].message).to.equal("first")
         }
         expect(order).to.deep.equal([ 4, 1 ])
     })

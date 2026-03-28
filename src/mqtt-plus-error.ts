@@ -71,7 +71,7 @@ export class Spool {
             cleanup procedure returns a Promise. Then we continue
             asynchronously, regardless of whether the following
             cleanup procedures return a Promise or not!  */
-        let firstError: unknown
+        const errors: unknown[] = []
         let promise: Promise<void> | undefined
         while (this.resources.length > 0) {
             const entry    = this.resources.pop()!
@@ -82,10 +82,10 @@ export class Spool {
                     does not prevent remaining cleanups from executing  */
                 if (resource instanceof Spool)
                     promise = promise.then(() => resource.unroll() /* RECURSION */)
-                        .catch((err: unknown) => { firstError ??= err })
+                        .catch((err: unknown) => { errors.push(err) })
                 else
                     promise = promise.then(() => cleanup(resource))
-                        .catch((err: unknown) => { firstError ??= err })
+                        .catch((err: unknown) => { errors.push(err) })
             }
             else {
                 /*  sync start: wrap individually so a throw
@@ -100,7 +100,7 @@ export class Spool {
                         promise = result
                 }
                 catch (err: unknown) {
-                    firstError ??= err
+                    errors.push(err)
                 }
             }
         }
@@ -108,13 +108,17 @@ export class Spool {
             if (suppress)
                 return promise.catch(() => {})
             return promise.then(() => {
-                if (firstError)
-                    throw firstError
+                if (errors.length === 1)
+                    throw errors[0]
+                else if (errors.length > 1)
+                    throw new AggregateError(errors, "multiple cleanup failures")
             })
         }
         else {
-            if (!suppress && firstError)
-                throw firstError
+            if (!suppress && errors.length === 1)
+                throw errors[0]
+            else if (!suppress && errors.length > 1)
+                throw new AggregateError(errors, "multiple cleanup failures")
             return
         }
     }
