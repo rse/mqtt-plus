@@ -86,6 +86,65 @@ describe("MQTT+ Spool", function () {
         }
     })
 
+    /*  test case: Spool: async rejection does not skip remaining cleanups  */
+    it("MQTT+ Spool: async rejection does not skip remaining cleanups", async function () {
+        const order: number[] = []
+        const spool = new Spool()
+        spool.roll(() => { order.push(1) })
+        spool.roll(() => Promise.reject(new Error("boom")))
+        spool.roll(() => { order.push(3) })
+        spool.roll(() => Promise.resolve().then(() => { order.push(4) }))
+        await spool.unroll()
+        expect(order).to.deep.equal([ 4, 3, 1 ])
+    })
+
+    /*  test case: Spool: async rejection re-throws first error with suppress=false  */
+    it("MQTT+ Spool: async rejection re-throws first error with suppress=false", async function () {
+        const order: number[] = []
+        const spool = new Spool()
+        spool.roll(() => { order.push(1) })
+        spool.roll(() => Promise.reject(new Error("first")))
+        spool.roll(() => Promise.reject(new Error("second")))
+        spool.roll(() => Promise.resolve().then(() => { order.push(4) }))
+        try {
+            await spool.unroll(false)
+            expect.fail("should have thrown")
+        }
+        catch (err: any) {
+            expect(err.message).to.equal("second")
+        }
+        expect(order).to.deep.equal([ 4, 1 ])
+    })
+
+    /*  test case: Spool: sync throw does not skip remaining cleanups  */
+    it("MQTT+ Spool: sync throw does not skip remaining cleanups", function () {
+        const order: number[] = []
+        const spool = new Spool()
+        spool.roll(() => { order.push(1) })
+        spool.roll(() => { throw new Error("boom") })
+        spool.roll(() => { order.push(3) })
+        spool.unroll()
+        expect(order).to.deep.equal([ 3, 1 ])
+    })
+
+    /*  test case: Spool: sync throw re-throws first error with suppress=false  */
+    it("MQTT+ Spool: sync throw re-throws first error with suppress=false", function () {
+        const order: number[] = []
+        const spool = new Spool()
+        spool.roll(() => { order.push(1) })
+        spool.roll(() => { throw new Error("first") })
+        spool.roll(() => { throw new Error("second") })
+        spool.roll(() => { order.push(4) })
+        try {
+            spool.unroll(false)
+            expect.fail("should have thrown")
+        }
+        catch (err: any) {
+            expect(err.message).to.equal("second")
+        }
+        expect(order).to.deep.equal([ 4, 1 ])
+    })
+
     /*  test case: Spool: sub-spool is unrolled recursively  */
     it("MQTT+ Spool: sub-spool is unrolled recursively", async function () {
         const order: string[] = []

@@ -5,6 +5,7 @@ ChangeLog
 1.4.17 (2026-03-28)
 -------------------
 
+- BUGFIX: Spool.unroll() silently skipped remaining cleanups on first async failure
 - UPDATE: upgrade NPM dependencies
 
 1.4.16 (2026-03-27)

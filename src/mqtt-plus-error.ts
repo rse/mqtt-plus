@@ -71,19 +71,26 @@ export class Spool {
             cleanup procedure returns a Promise. Then we continue
             asynchronously, regardless of whether the following
             cleanup procedures return a Promise or not!  */
-        try {
-            let promise: Promise<void> | undefined
-            while (this.resources.length > 0) {
-                const entry    = this.resources.pop()!
-                const resource = entry.resource
-                const cleanup  = entry.cleanup
-                if (promise) {
-                    if (resource instanceof Spool)
-                        promise = promise.then(() => resource.unroll() /* RECURSION */)
-                    else
-                        promise = promise.then(() => cleanup(resource))
-                }
-                else {
+        let firstError: unknown
+        let promise: Promise<void> | undefined
+        while (this.resources.length > 0) {
+            const entry    = this.resources.pop()!
+            const resource = entry.resource
+            const cleanup  = entry.cleanup
+            if (promise) {
+                /*  async continuation: isolate each cleanup so one rejection
+                    does not prevent remaining cleanups from executing  */
+                if (resource instanceof Spool)
+                    promise = promise.then(() => resource.unroll() /* RECURSION */)
+                        .catch((err: unknown) => { firstError ??= err })
+                else
+                    promise = promise.then(() => cleanup(resource))
+                        .catch((err: unknown) => { firstError ??= err })
+            }
+            else {
+                /*  sync start: wrap individually so a throw
+                    does not exit the while loop  */
+                try {
                     let result: Promise<void> | void
                     if (resource instanceof Spool)
                         result = resource.unroll() /* RECURSION */
@@ -92,16 +99,23 @@ export class Spool {
                     if (result instanceof Promise)
                         promise = result
                 }
+                catch (err: unknown) {
+                    firstError ??= err
+                }
             }
-            if (promise)
-                return suppress ? promise.catch(() => {}) : promise
-            else
-                return
         }
-        catch (error: unknown) {
+        if (promise) {
             if (suppress)
-                return
-            throw error
+                return promise.catch(() => {})
+            return promise.then(() => {
+                if (firstError)
+                    throw firstError
+            })
+        }
+        else {
+            if (!suppress && firstError)
+                throw firstError
+            return
         }
     }
 }
