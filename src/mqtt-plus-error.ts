@@ -145,9 +145,9 @@ export function ensureError (error: unknown, prefix?: string, debug = false): Er
 }
 
 /*  helper function for running the finally code of "run"  */
-function runFinally (isAsync: false,   onfinally?: () => void): void
-function runFinally (isAsync: true,    onfinally?: () => Promise<void> | void): Promise<void>
-function runFinally (isAsync: boolean, onfinally?: () => Promise<void> | void): Promise<void> | void {
+function runFinally (isAsync: false,   onfinally?: () => void,                  description?: string): void
+function runFinally (isAsync: true,    onfinally?: () => Promise<void> | void,  description?: string): Promise<void>
+function runFinally (isAsync: boolean, onfinally?: () => Promise<void> | void,  description?: string): Promise<void> | void {
     if (!onfinally) {
         if (isAsync)
             return Promise.resolve()
@@ -160,14 +160,16 @@ function runFinally (isAsync: boolean, onfinally?: () => Promise<void> | void): 
     }
     catch (error: unknown) {
         if (isAsync)
-            return Promise.reject(error)
+            return Promise.reject(ensureError(error, description))
         else
-            throw error
+            throw ensureError(error, description)
     }
     if (!isAsync && result instanceof Promise)
         throw new Error("onfinally callback returned Promise in non-async context")
     if (isAsync && !(result instanceof Promise))
         result = Promise.resolve(result)
+    if (isAsync && result instanceof Promise)
+        return result.catch((error: unknown) => { throw ensureError(error, description) })
     return result
 }
 
@@ -336,21 +338,21 @@ export function run<T> (
             }
             catch (arg: unknown) {
                 error = ensureError(arg, description)
-                runFinally(false, onfinally)
+                runFinally(false, onfinally, description)
                 runUnroll(false, spool)
                 throw error
             }
-            runFinally(false, onfinally)
+            runFinally(false, onfinally, description)
             return result
         }
-        runFinally(false, onfinally)
+        runFinally(false, onfinally, description)
         runUnroll(false, spool)
         throw error
     }
     if (result instanceof Promise) {
         /*  asynchronous case (result or error branch)  */
         return result.then(async (result) => {
-            await runFinally(true, onfinally)
+            await runFinally(true, onfinally, description)
             if (spool && oncleanup)
                 spool.roll(result, oncleanup as SpoolCleanup<unknown>)
             return result
@@ -360,24 +362,24 @@ export function run<T> (
             if (oncatch) {
                 try {
                     const result = oncatch(error)
-                    await runFinally(true, onfinally)
+                    await runFinally(true, onfinally, description)
                     return result
                 }
                 catch (arg: unknown) {
                     error = ensureError(arg, description)
-                    await runFinally(true, onfinally)
+                    await runFinally(true, onfinally, description)
                     await runUnroll(true, spool)
                     throw error
                 }
             }
-            await runFinally(true, onfinally)
+            await runFinally(true, onfinally, description)
             await runUnroll(true, spool)
             throw error
         })
     }
     else {
         /*  synchronous case (result branch)  */
-        runFinally(false, onfinally)
+        runFinally(false, onfinally, description)
         if (spool && oncleanup)
             spool.roll(result, oncleanup as SpoolCleanup<unknown>)
         return result
