@@ -8,6 +8,7 @@ ChangeLog
 - BUGFIX: Spool.unroll() silently skipped remaining cleanups on first async failure
 - BUGFIX: improve semantics of info.authenticated field for event/service/sink/source in case of optional authentication
 - BUGFIX: in the ReadableTee class, do not run read() twice: once ourself and once via the base class
+- IMPROVEMENT: support cancelling push operations with a credit of zero
 - UPDATE: upgrade NPM dependencies
 
 1.4.16 (2026-03-27)

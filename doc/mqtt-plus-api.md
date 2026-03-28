@@ -473,6 +473,9 @@ Register a sink for receiving data.
   The `info.buffer` provides a lazy `Promise<Uint8Array>` that resolves to the complete data once the stream ends.
   The `info.signal` is aborted when the push request is cancelled, times out, or is otherwise torn down,
   allowing the sink handler to stop any related side work cooperatively.
+  When the sink handler's stream closes abnormally (before normal completion),
+  a cancel signal (`credit=0`) is automatically sent to the pusher to abort
+  the data transfer on the sender side.
   The `info.meta` contains optional metadata sent by the pusher via `push()`.
 
 - The optional `options` allows setting MQTT.js `subscribe()` options like `qos`.
@@ -535,6 +538,8 @@ Pushes data to all established sinks or a specific sink handler.
   configurable via `chunkSize` option) and sent over MQTT until the
   stream is closed or the buffer is fully transferred.
   The returned `Promise` resolves when the entire data has been pushed.
+  If the receiver cancels the push (via a cancel signal with `credit=0`),
+  the returned `Promise` rejects with a cancellation error.
 
 - The remote `sink()` `callback` is called with `params` and an `info` object
   containing `signal` (`AbortSignal`) for cooperative cancellation,

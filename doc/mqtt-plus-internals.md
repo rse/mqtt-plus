@@ -138,7 +138,7 @@ Exactly one of `result` or `error` is present.
 | Field    | Type      | Required | Description                         |
 |----------|-----------|----------|-------------------------------------|
 | `name`   | `string`  | yes      | Sink endpoint name                  |
-| `credit` | `integer` | yes      | Number of additional credits (min 1)|
+| `credit` | `integer` | yes      | Number of additional credits (min 0). A value of `0` is a **cancel signal**, indicating that the receiver wants to abort the push stream. |
 
 ### `source-fetch-request`
 
@@ -271,6 +271,16 @@ Setting `chunkCredit` to `0` disables flow control entirely.
 |--------------|---------------|-----------------|-------------------------|
 | Sink Push    | Sink          | Pusher          | `sink-push-credit`      |
 | Source Fetch | Fetcher       | Source          | `source-fetch-credit`   |
+
+### Receiver-Initiated Cancellation (Sink Push)
+
+The sink (receiver) can cancel an in-progress push by sending a
+`sink-push-credit` message with `credit` set to `0`. This acts as
+a **cancel signal**: the pusher aborts the data transfer immediately
+and does not send an error chunk back to the receiver (since the
+cancellation originated from the receiver itself). On the receiver
+side, the `AbortSignal` provided to the sink callback is triggered
+when the push stream closes abnormally.
 
 Authentication
 --------------

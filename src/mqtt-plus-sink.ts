@@ -252,6 +252,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 reqSpool.roll(() => {
                     if (!completedNormally && !abortSignal.aborted && !this.destroying)
                         abortController.abort(new Error("push stream closed"))
+
+                    /*  send cancel signal (credit=0) to push sender  */
+                    if (!completedNormally && !this.destroying && sender) {
+                        const cancelMsg = this.msg.makeSinkPushCredit(requestId,
+                            name, 0, this.options.id, sender)
+                        const encoded = this.codec.encode(cancelMsg)
+                        this.publishToTopic(responseTopic, encoded, { qos: options.qos ?? 2 }).catch(() => {})
+                    }
                 })
 
                 /*  register chunk dispatch callback  */
@@ -531,6 +539,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         let creditGate:           CreditGate | undefined
         let remoteError           = false
         let remoteErrorObject:    Error | undefined
+        let cancelledByReceiver   = false
         let pushAcked             = false
         let pushInitialSettled    = false
         let pushFinalized         = false
@@ -665,6 +674,13 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     }
                     if (!lockResponder("sink credit", response.sender))
                         return
+                    if (response.credit === 0) {
+                        /*  cancel signal from receiver  */
+                        cancelledByReceiver = true
+                        abortController.abort(new Error(`push to sink "${name}" cancelled by receiver`))
+                        pushFinalizeReject(new Error(`push to sink "${name}" cancelled by receiver`))
+                        return
+                    }
                     gate.replenish(response.credit)
                     refreshTimeout()
                 })
@@ -719,7 +735,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  send error chunk only if push was acked and error did not originate from receiver
                 (before ack, the sink has no chunk handler yet and will time out on its own;
                 after final data chunk, no additional terminal chunk should be sent)  */
-            if (pushAcked && !remoteError && !pushDataFinalSent) {
+            if (pushAcked && !remoteError && !cancelledByReceiver && !pushDataFinalSent) {
                 try {
                     const chunkTarget = responderId
                     if (chunkTarget !== undefined) {

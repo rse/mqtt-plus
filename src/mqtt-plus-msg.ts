@@ -206,7 +206,7 @@ const SinkPushCreditSchema = v.strictObject({
     ...BaseSchema,
     type:                v.literal("sink-push-credit"),
     name:                v.string(),
-    credit:              v.pipe(v.number(), v.integer(), v.minValue(1))
+    credit:              v.pipe(v.number(), v.integer(), v.minValue(0))
 })
 
 /*  source fetch request  */
