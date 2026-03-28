@@ -97,7 +97,7 @@ export class Spool {
                     else
                         result = cleanup(resource)
                     if (result instanceof Promise)
-                        promise = result
+                        promise = result.catch((err: unknown) => { errors.push(err) })
                 }
                 catch (err: unknown) {
                     errors.push(err)
