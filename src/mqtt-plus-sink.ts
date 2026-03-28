@@ -544,6 +544,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         let pushInitialSettled    = false
         let pushFinalized         = false
         let pushDataFinalSent     = false
+        let pushDataComplete      = false
+        let pushTerminalReceived  = false
         let responderId           = receiver
         let pushFinalizeResolve!: () => void
         let pushFinalizeReject!:  (reason?: any) => void
@@ -617,8 +619,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 pushInitialResolve()
             }
             else if (!pushFinalized) {
-                pushFinalized = true
-                pushFinalizeResolve()
+                if (pushDataComplete) {
+                    pushFinalized = true
+                    pushFinalizeResolve()
+                }
+                else
+                    pushTerminalReceived = true
             }
         })
         spool.roll(() => { this.onResponse.delete(`sink-push-response:${requestId}`) })
@@ -715,6 +721,13 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             else if (data instanceof Uint8Array)
                 /*  split buffer into chunks and send them  */
                 await sendBufferAsChunks(data, this.options.chunkSize, sendChunk, creditGate, abortSignal)
+
+            /*  mark data phase complete and resolve buffered terminal  */
+            pushDataComplete = true
+            if (pushTerminalReceived && !pushFinalized) {
+                pushFinalized = true
+                pushFinalizeResolve()
+            }
 
             /*  wait for terminal sink response  */
             refreshTimeout()
