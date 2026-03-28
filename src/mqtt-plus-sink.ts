@@ -189,6 +189,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  check authentication and prepare stream  */
             let completedNormally = false
+            let dataCompleted     = false
             let ackSent           = false
             try {
                 if (topicName !== request.name)
@@ -250,11 +251,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const noopError = () => {} /*  prevent unhandled error exception  */
                 readable.on("error", noopError)
                 reqSpool.roll(() => {
-                    if (!completedNormally && !abortSignal.aborted && !this.destroying)
+                    if (!dataCompleted && !abortSignal.aborted && !this.destroying)
                         abortController.abort(new Error("push stream closed"))
 
                     /*  send cancel signal (credit=0) to push sender  */
-                    if (!completedNormally && !this.destroying && sender) {
+                    if (!dataCompleted && !this.destroying && sender) {
                         const cancelMsg = this.msg.makeSinkPushCredit(requestId,
                             name, 0, this.options.id, sender)
                         const encoded = this.codec.encode(cancelMsg)
@@ -387,6 +388,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  send terminal success response  */
                 try {
+                    dataCompleted = true
                     await sendResponse()
                     completedNormally = true
                 }
