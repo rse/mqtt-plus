@@ -6,6 +6,7 @@ ChangeLog
 -------------------
 
 - BUGFIX: Spool.unroll() silently skipped remaining cleanups on first async failure
+- BUGFIX: improve semantics of info.authenticated field for event/service/sink/source in case of optional authentication
 - UPDATE: upgrade NPM dependencies
 
 1.4.16 (2026-03-27)

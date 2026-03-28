@@ -106,16 +106,8 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
         let authenticated = false
 
         /*  determine authentication configuration  */
-        let mode:  AuthMode
-        let roles: string[]
-        if (typeof option === "string") {
-            mode  = "require"
-            roles = [ option ]
-        }
-        else {
-            mode  = option.mode
-            roles = option.roles
-        }
+        const roles: string[] = typeof option === "string"
+            ? [ option ] : option.roles
 
         /*  iterate over all roles and try to authenticate token (first-match, max 8)  */
         if (tokens !== undefined) {
@@ -141,10 +133,6 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
                     break
             }
         }
-
-        /*  handle optional case  */
-        if (!authenticated && mode === "optional")
-            authenticated = true
 
         return authenticated
     }

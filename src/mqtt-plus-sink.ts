@@ -194,10 +194,11 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 if (topicName !== request.name)
                     throw new Error(`sink name mismatch (topic: "${topicName}", payload: "${request.name}")`)
                 let authenticated: boolean | undefined = undefined
-                if (auth)
+                if (auth) {
                     authenticated = await this.authenticated(sender, request.auth, auth)
-                if (authenticated !== undefined && !authenticated)
-                    throw new Error(`sink "${name}" failed authentication`)
+                    if (!authenticated && (typeof auth === "string" || auth.mode === "require"))
+                        throw new Error(`sink "${name}" failed authentication`)
+                }
 
                 /*  initialize credit-based flow control state  */
                 const creditState = chunkCredit > 0 ? {

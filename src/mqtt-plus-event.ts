@@ -120,10 +120,11 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             try {
                 if (topicName !== request.name)
                     throw new Error(`event name mismatch (topic: "${topicName}", payload: "${request.name}")`)
-                if (auth)
+                if (auth) {
                     info.authenticated = await this.authenticated(senderId, request.auth, auth)
-                if (info.authenticated !== undefined && !info.authenticated)
-                    throw new Error(`event "${name}" failed authentication`)
+                    if (!info.authenticated && (typeof auth === "string" || auth.mode === "require"))
+                        throw new Error(`event "${name}" failed authentication`)
+                }
                 await callback(...params, info)
             }
             catch (result: unknown) {

@@ -123,10 +123,11 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             try {
                 if (topicName !== request.name)
                     throw new Error(`service name mismatch (topic: "${topicName}", payload: "${request.name}")`)
-                if (auth)
+                if (auth) {
                     info.authenticated = await this.authenticated(senderId, request.auth, auth)
-                if (info.authenticated !== undefined && !info.authenticated)
-                    throw new Error(`service "${name}" failed authentication`)
+                    if (!info.authenticated && (typeof auth === "string" || auth.mode === "require"))
+                        throw new Error(`service "${name}" failed authentication`)
+                }
                 const result = await callback(...params, info)
 
                 /*  create success response message  */
