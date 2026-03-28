@@ -48,6 +48,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
     private sourceCreditGates = new Map<string, CreditGate>()
     private sourceControllers = new Map<string, AbortController>()
     private sourceSpools      = new Map<string, Spool>()
+    private sourceRequests    = new Map<string, Set<string>>()
 
     /*  destroy source trait  */
     override async destroy () {
@@ -60,6 +61,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         this.sourceSpools.clear()
         this.sourceControllers.clear()
         this.sourceCreditGates.clear()
+        this.sourceRequests.clear()
         await super.destroy()
     }
 
@@ -167,6 +169,16 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 throw new Error(`source: duplicate request id "${requestId}"`)
             this.sourceSpools.set(requestId, reqSpool)
             reqSpool.roll(() => { this.sourceSpools.delete(requestId) })
+
+            /*  track request id under source name for cascading cleanup  */
+            let reqSet = this.sourceRequests.get(name)
+            if (!reqSet) {
+                reqSet = new Set<string>()
+                this.sourceRequests.set(name, reqSet)
+            }
+            reqSet.add(requestId)
+            reqSpool.roll(() => { reqSet.delete(requestId) })
+
             reqSpool.roll(() => {
                 this.onResponse.delete(`source-fetch-credit:${requestId}`)
                 this.sourceControllers.delete(requestId)
@@ -316,6 +328,18 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             }
         })
         spool.roll(() => { this.onRequest.delete(`source-fetch-request:${name}`) })
+
+        /*  on source destruction, abort all in-flight requests for cascading cleanup  */
+        spool.roll(() => {
+            const reqSet = this.sourceRequests.get(name)
+            if (reqSet) {
+                for (const rid of reqSet) {
+                    const ctrl = this.sourceControllers.get(rid)
+                    if (ctrl)
+                        ctrl.abort(new Error(`source "${name}" destroyed`))
+                }
+            }
+        })
 
         /*  subscribe to MQTT topics  */
         await this.subscribeTopicAndSpool(spool, topicReqB, options)

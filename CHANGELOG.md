@@ -9,6 +9,7 @@ ChangeLog
 - BUGFIX: improve semantics of info.authenticated field for event/service/sink/source in case of optional authentication
 - BUGFIX: in the ReadableTee class, do not run read() twice: once ourself and once via the base class
 - BUGFIX: correctly propate description in run() also to finally callback
+- BUGFIX: fix resource handling in source trait
 - IMPROVEMENT: support cancelling push operations with a credit of zero
 - UPDATE: upgrade NPM dependencies
 
