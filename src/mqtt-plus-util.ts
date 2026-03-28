@@ -134,8 +134,9 @@ export class ReadableTee extends Readable {
     private _reject!:   (reason: Error) => void
     readonly buffer:    Promise<Uint8Array>
     constructor (opts?: ReadableOptions & { read?: (size: number) => void }) {
-        super(opts)
-        this._onRead = opts?.read
+        const onRead = opts?.read
+        super({ ...opts, read: () => {} })
+        this._onRead = onRead
         this.buffer = new Promise<Uint8Array>((resolve, reject) => {
             this._resolve = resolve
             this._reject  = reject
