@@ -81,7 +81,7 @@ export default Vite.defineConfig(({ command, mode }) => ({
         target:                 formats === "umd" ? "es2022" : "node20",
         outDir:                 "dst-stage2",
         assetsDir:              "",
-        emptyOutDir:            (mode === "production") && formats !== "umd",
+        emptyOutDir:            false,
         chunkSizeWarningLimit:  5000,
         assetsInlineLimit:      0,
         sourcemap:              (mode === "development"),
