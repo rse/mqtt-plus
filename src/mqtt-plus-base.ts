@@ -42,6 +42,9 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     private mqtt: MqttClient
     private messageHandler: OnMessageCallback
 
+    /*  lifecycle state  */
+    protected destroyed = false
+
     /*  central message callback registries  */
     protected onRequest  = new Map<string, (message: any, topicName: string) => void | Promise<void>>()
     protected onResponse = new Map<string, (message: any, topicName: string) => void | Promise<void>>()
@@ -99,6 +102,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
 
     /*  destroy API class  */
     async destroy () {
+        this.destroyed = true
         this.log("info", "un-hooking from MQTT client")
         this.mqtt.off("message", this.messageHandler)
         this.onRequest.clear()

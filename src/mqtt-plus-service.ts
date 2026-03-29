@@ -63,6 +63,10 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         },
         ...args:       any[]
     ): Promise<Registration> {
+        /*  sanity check lifecycle  */
+        if (this.destroyed)
+            throw new Error("service: instance already destroyed")
+
         /*  determine actual parameters  */
         let name:     K
         let callback: WithInfo<T[K], InfoService>
@@ -192,6 +196,10 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         },
         ...args:       any[]
     ): Promise<ReturnType<T[K]>> {
+        /*  sanity check lifecycle  */
+        if (this.destroyed)
+            throw new Error("call: instance already destroyed")
+
         /*  determine actual parameters  */
         let name:      K
         let params:    Parameters<T[K]>

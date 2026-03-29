@@ -61,6 +61,10 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         },
         ...args:       any[]
     ): Promise<Registration> {
+        /*  sanity check lifecycle  */
+        if (this.destroyed)
+            throw new Error("event: instance already destroyed")
+
         /*  determine actual parameters  */
         let name:     K
         let callback: WithInfo<T[K], InfoEvent>
@@ -177,6 +181,10 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         },
         ...args:       any[]
     ): void | { topic: string, payload: string | Uint8Array, options: IClientPublishOptions } {
+        /*  sanity check lifecycle  */
+        if (this.destroyed)
+            throw new Error("emit: instance already destroyed")
+
         /*  determine actual parameters  */
         let name:      K
         let params:    Parameters<T[K]>
