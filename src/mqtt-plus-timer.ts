@@ -34,7 +34,6 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
 
     /*  destroy timer trait  */
     override async destroy () {
-        this.destroyed = true
         for (const timer of this.timers.values())
             clearTimeout(timer)
         this.timers.clear()
