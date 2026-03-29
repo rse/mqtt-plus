@@ -566,8 +566,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     pushInitialSettled = true
                     pushInitialReject(error)
                 }
-                else
+                else if (!pushFinalized) {
+                    pushFinalized = true
                     pushFinalizeReject(error)
+                }
                 return false
             }
             if (responderId === undefined)
@@ -594,8 +596,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     pushInitialSettled = true
                     pushInitialReject(error)
                 }
-                else
+                else if (!pushFinalized) {
+                    pushFinalized = true
                     pushFinalizeReject(error)
+                }
                 return
             }
             if (!lockResponder("sink response", response.sender))
@@ -609,8 +613,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     pushInitialSettled = true
                     pushInitialReject(error)
                 }
-                else
+                else if (!pushFinalized) {
+                    pushFinalized = true
                     pushFinalizeReject(error)
+                }
             }
             else if (!pushAcked) {
                 initialCredit = response.credit
@@ -675,7 +681,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         remoteError = true
                         remoteErrorObject = error
                         abortController.abort(error)
-                        pushFinalizeReject(error)
+                        if (!pushFinalized) {
+                            pushFinalized = true
+                            pushFinalizeReject(error)
+                        }
                         return
                     }
                     if (!lockResponder("sink credit", response.sender))
@@ -684,7 +693,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         /*  cancel signal from receiver  */
                         cancelledByReceiver = true
                         abortController.abort(new Error(`push to sink "${name}" cancelled by receiver`))
-                        pushFinalizeReject(new Error(`push to sink "${name}" cancelled by receiver`))
+                        if (!pushFinalized) {
+                            pushFinalized = true
+                            pushFinalizeReject(new Error(`push to sink "${name}" cancelled by receiver`))
+                        }
                         return
                     }
                     gate.replenish(response.credit)

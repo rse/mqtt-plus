@@ -197,6 +197,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     abortSignal.addEventListener("abort", onAbort, { once: true })
                 reqSpool.roll(() => { abortSignal.removeEventListener("abort", onAbort) })
             })
+            abortPromise.catch(() => {})
 
             /*  utility functions for timeout management  */
             const sourceTimerId = `source-fetch-send:${requestId}`
