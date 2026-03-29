@@ -87,8 +87,7 @@ export class Spool {
                 /*  sync start: wrap individually so a throw
                     does not exit the while loop  */
                 try {
-                    let result: Promise<void> | void
-                    result = cleanup(resource)
+                    const result = cleanup(resource)
                     if (result instanceof Promise)
                         promise = result.catch((err: unknown) => { errors.push(err) })
                 }
