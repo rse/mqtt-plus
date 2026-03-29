@@ -161,8 +161,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             const requestId = request.id
             const params    = request.params ?? []
             const sender    = request.sender
-            if (sender === undefined || sender === "")
-                throw new Error("invalid request: missing sender")
+            if (sender === undefined || sender === "") {
+                this.error(new Error("invalid request: missing sender"))
+                return
+            }
             const receiver  = request.receiver
 
             /*  generate corresponding MQTT topic for response  */

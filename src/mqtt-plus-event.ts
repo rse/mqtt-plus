@@ -109,8 +109,10 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
 
             /*  determine event information  */
             const senderId = request.sender
-            if (senderId === undefined || senderId === "")
-                throw new Error("invalid request: missing sender")
+            if (senderId === undefined || senderId === "") {
+                this.error(new Error("invalid request: missing sender"))
+                return
+            }
             const params   = request.params ?? []
 
             /*  create information object  */
