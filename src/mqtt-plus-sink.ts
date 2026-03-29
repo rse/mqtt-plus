@@ -307,6 +307,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                                 }
                                 creditState.chunksReceived++
                             }
+
+                            /*  push chunk into readable (intentionally ignoring the backpressure
+                                return value: credit-based flow control already bounds the buffer,
+                                and when credits are disabled there is no way to pause the MQTT sender)  */
                             if (!readable.destroyed)
                                 readable.push(chunkParsed.chunk)
                         }

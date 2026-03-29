@@ -609,6 +609,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         return
                     }
                     chunksReceived++
+
+                    /*  push chunk into readable (intentionally ignoring the backpressure
+                        return value: credit-based flow control already bounds the buffer,
+                        and when credits are disabled there is no way to pause the MQTT sender)  */
                     if (!stream.destroyed)
                         stream.push(response.chunk)
                 }
