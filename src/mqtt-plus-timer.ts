@@ -31,9 +31,11 @@ import { ensureError }        from "./mqtt-plus-error"
 export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTrait<T> {
     /*  internal state  */
     private timers = new Map<string, ReturnType<typeof setTimeout>>()
+    private destroyed = false
 
     /*  destroy timer trait  */
     override async destroy () {
+        this.destroyed = true
         for (const timer of this.timers.values())
             clearTimeout(timer)
         this.timers.clear()
@@ -46,6 +48,8 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
         if (timer !== undefined)
             clearTimeout(timer)
         this.timers.set(id, setTimeout(async () => {
+            if (this.destroyed)
+                return
             this.timers.delete(id)
             try {
                 await onTimeout()
