@@ -90,7 +90,7 @@
         "@stablelib/sha256":          "2.0.1"
     },
     "engines": {
-        "node":                       ">=16.0.0"
+        "node":                       ">=20.0.0"
     },
     "scripts": {
         "postinstall":                "npm start patch-apply",
