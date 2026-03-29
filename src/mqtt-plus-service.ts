@@ -250,15 +250,18 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         }
         const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {
             rejectPromise = reject
-            this.timerRefresh(timerId, async () => {
+            const onTimeout = async () => {
                 if (!await settle())
                     return
                 reject(new Error("communication timeout"))
-            })
+            }
+            this.timerRefresh(timerId, onTimeout)
             spool.roll(() => { this.timerClear(timerId) })
             this.onResponse.set(`service-call-response:${requestId}`, async (response: ServiceCallResponse) => {
-                if (receiver !== undefined && response.sender !== receiver)
+                if (receiver !== undefined && response.sender !== receiver) {
+                    this.timerRefresh(timerId, onTimeout)
                     return
+                }
                 if (response.sender === undefined || response.sender === "")
                     return
                 if (response.name !== name)
