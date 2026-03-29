@@ -247,6 +247,11 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             if (settled)
                 return false
             settled = true
+
+            /*  unroll fire-and-forget: the "settled" boolean guard is the
+                primary protection against concurrent/duplicate responses,
+                while cleanup errors are suppressed and the async MQTT
+                unsubscription is handled by reference-counting/linger  */
             spool.unroll()
             return true
         }
