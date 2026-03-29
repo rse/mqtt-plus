@@ -437,7 +437,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const error = new Error(`received ${kind} without sender`)
                 metaReject(error)
                 stream?.destroy(error)
-                spool.unroll()
+                spool.unroll()?.catch(() => {})
                 return false
             }
             if (responderId === undefined)
@@ -521,7 +521,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             }
             if (!streamEnded)
                 metaReject(new Error("stream aborted"))
-            spool.unroll()
+            spool.unroll()?.catch(() => {})
         }
         stream.once("close", cancelAndUnroll)
         stream.once("error", cancelAndUnroll)
@@ -535,7 +535,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const error = sourceNameMismatchError("source response", response.name)
                 metaReject(error)
                 stream.destroy(error)
-                spool.unroll()
+                spool.unroll()?.catch(() => {})
                 return
             }
             if (!lockResponder("source response", response.sender))
@@ -545,7 +545,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const error = new Error(response.error)
                 metaReject(error)
                 stream.destroy(error)
-                spool.unroll()
+                spool.unroll()?.catch(() => {})
             }
             else {
                 responseAcked = true
@@ -563,7 +563,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const error = sourceNameMismatchError("source chunk", response.name)
                 metaReject(error)
                 stream.destroy(error)
-                spool.unroll()
+                spool.unroll()?.catch(() => {})
                 return
             }
             if (!lockResponder("source chunk", response.sender))
@@ -573,7 +573,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const error = new Error("received source chunk before source response acknowledgement")
                 metaReject(error)
                 stream.destroy(error)
-                spool.unroll()
+                spool.unroll()?.catch(() => {})
                 return
             }
             if (response.error) {
@@ -581,7 +581,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const error = new Error(response.error)
                 metaReject(error)
                 stream.destroy(error)
-                spool.unroll()
+                spool.unroll()?.catch(() => {})
             }
             else {
                 refreshTimeout()
@@ -591,7 +591,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         const error = new Error("flow control violation")
                         metaReject(error)
                         stream.destroy(error)
-                        spool.unroll()
+                        spool.unroll()?.catch(() => {})
                         return
                     }
                     chunksReceived++
@@ -602,7 +602,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     streamEnded = true
                     if (!stream.destroyed)
                         stream.push(null)
-                    spool.unroll()
+                    spool.unroll()?.catch(() => {})
                 }
             }
         })
