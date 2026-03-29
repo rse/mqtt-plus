@@ -250,9 +250,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                             const creditMsg = this.msg.makeSinkPushCredit(requestId,
                                 name, creditToGrant, this.options.id, sender)
                             const encoded = this.codec.encode(creditMsg)
-                            this.publishToTopic(responseTopic, encoded, { qos: options.qos ?? 2 }).catch((err: Error) => {
-                                this.error(err, `sending credit for push "${name}" failed`)
-                            })
+                            this.publishToTopic(responseTopic, encoded, { qos: options.qos ?? 2 }).catch(() => {})
                             refreshPushTimeout()
                         }
                     }

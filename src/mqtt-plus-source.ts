@@ -504,9 +504,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         name, creditToGrant, this.options.id, targetId)
                     const encoded = this.codec.encode(creditMsg)
                     const creditTopic = this.options.topicMake(name, "source-fetch-request", targetId)
-                    this.publishToTopic(creditTopic, encoded, { qos: options.qos ?? 2 }).catch((err: Error) => {
-                        this.error(err, `sending credit for fetch "${name}" failed`)
-                    })
+                    this.publishToTopic(creditTopic, encoded, { qos: options.qos ?? 2 }).catch(() => {})
                     refreshTimeout()
                 }
             }
