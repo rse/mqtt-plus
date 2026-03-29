@@ -259,16 +259,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             this.onResponse.set(`service-call-response:${requestId}`, async (response: ServiceCallResponse) => {
                 if (receiver !== undefined && response.sender !== receiver)
                     return
+                if (response.sender === undefined || response.sender === "")
+                    return
+                if (response.name !== name)
+                    return
                 if (!await settle())
                     return
-                if (response.sender === undefined || response.sender === "") {
-                    reject(new Error("received service-call-response without sender"))
-                    return
-                }
-                if (response.name !== name) {
-                    reject(new Error(`service response name mismatch (expected "${name}", got "${response.name}")`))
-                    return
-                }
                 if (response.error !== undefined)
                     reject(new Error(response.error))
                 else
