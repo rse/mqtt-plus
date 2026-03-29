@@ -249,6 +249,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             this.onResponse.set(`service-call-response:${requestId}`, async (response: ServiceCallResponse) => {
                 if (settled)
                     return
+                if (response.id !== requestId) {
+                    settled = true
+                    await spool.unroll()
+                    reject(new Error(`service response id mismatch (expected "${requestId}", got "${response.id}")`))
+                    return
+                }
                 if (response.sender === undefined || response.sender === "") {
                     settled = true
                     await spool.unroll()
