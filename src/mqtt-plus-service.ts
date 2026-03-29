@@ -291,11 +291,15 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
         /*  publish message to MQTT topic  */
         try {
-            await run(`publish service request as MQTT message to topic "${topic}"`, spool, () =>
+            await run(`publish service request as MQTT message to topic "${topic}"`, () =>
                 this.publishToTopic(topic, message, { qos: 2, ...options }))
         }
         catch (err: unknown) {
-            rejectPromise(err)
+            if (!settled) {
+                settled = true
+                await spool.unroll()
+                rejectPromise(err)
+            }
             return promise
         }
 
