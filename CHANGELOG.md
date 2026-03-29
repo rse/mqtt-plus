@@ -12,6 +12,7 @@ ChangeLog
 - BUGFIX: fix resource handling in source trait
 - IMPROVEMENT: support cancelling push operations with a credit of zero
 - IMPROVEMENT: let Spool.unroll() always execute the cleanup callback
+- IMPROVEMENT: perform a minimum version check in the protocol
 - UPDATE: upgrade NPM dependencies
 
 1.4.16 (2026-03-27)

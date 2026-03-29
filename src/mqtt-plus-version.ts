@@ -36,5 +36,9 @@ export const versionToNum = (str: string) => {
 /*  package version (string format, overridden)  */
 export const VERSION = "0.0"
 
+/*  minimum compatible version (string format, overridden)  */
+export const MIN_VERSION = "0.0"
+
 /*  package version (numeric format)  */
-export const version = versionToNum(VERSION)
+export const version    = versionToNum(VERSION)
+export const minVersion = versionToNum(MIN_VERSION)
