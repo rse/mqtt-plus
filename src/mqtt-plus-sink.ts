@@ -393,10 +393,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 if (readable.readableFlowing !== true && !readable.destroyed)
                     readable.resume()
 
-                /*  await full stream consumption before confirming success
-                    (post-callback stream errors are non-fatal warnings)  */
+                /*  await full stream consumption before confirming success  */
                 await streamDone.catch((err: unknown) => {
-                    this.error(ensureError(err), `stream drain after sink "${name}" callback failed (non-fatal)`)
+                    this.error(ensureError(err), `stream drain after sink "${name}" callback failed`)
+                    throw err
                 })
 
                 /*  ensure collecting is stopped if callback ignored stream/buffer  */
