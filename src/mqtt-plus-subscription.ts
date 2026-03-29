@@ -109,6 +109,9 @@ class RefCountedSubscription {
             }).catch((err: Error) => {
                 this.pending.delete(topic)
                 this.decrementCount(topic)
+
+                /*  reject the deferred for concurrent subscribers,
+                    then re-throw for the first subscriber's chain promise (both are required)  */
                 reject(err)
                 throw err
             })
