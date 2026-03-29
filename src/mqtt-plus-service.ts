@@ -228,7 +228,10 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         while (this.onResponse.has(`service-call-response:${requestId}`))
             requestId = nanoid()
 
-        /*  subscribe to MQTT response topic  */
+        /*  subscribe to MQTT response topic
+            (NOTICE: concurrent calls to the same service name share this topic,
+            which is safe because subscribeTopicAndSpool uses reference-counted
+            subscriptions and responses are dispatched by unique requestId)  */
         const responseTopic = this.options.topicMake(name, "service-call-response", this.options.id)
         await this.subscribeTopicAndSpool(spool, responseTopic, { qos: options.qos ?? 2 })
 
