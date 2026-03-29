@@ -61,6 +61,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
     override async destroy () {
         this.destroying = true
 
+        /*  eagerly clear all push timers before any await points  */
+        for (const id of this.pushSenderSpools.keys())
+            this.timerClear(`sink-push-send:${id}`)
+        for (const id of this.pushSpools.keys())
+            this.timerClear(`sink-push-recv:${id}`)
+
         /*  cleanup sender-side state  */
         for (const controller of this.pushControllers.values())
             controller.abort(new Error("sink destroyed"))
