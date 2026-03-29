@@ -148,6 +148,7 @@ export class ReadableTee extends Readable {
             this._resolve = resolve
             this._reject  = reject
         })
+        this.buffer.catch(() => {})  /*  prevent unhandled promise rejection  */
         this.on("error", (err: Error) => {
             if (this._collecting) {
                 this._collecting = false
