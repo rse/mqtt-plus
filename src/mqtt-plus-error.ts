@@ -59,7 +59,7 @@ export class Spool {
         const spool = new Spool()
 
         /*  roll sub-spool onto spool  */
-        this.roll(spool, () => {})
+        this.roll(spool, (s) => s.unroll())
 
         /*  return new spool  */
         return spool
@@ -80,22 +80,15 @@ export class Spool {
             if (promise) {
                 /*  async continuation: isolate each cleanup so one rejection
                     does not prevent remaining cleanups from executing  */
-                if (resource instanceof Spool)
-                    promise = promise.then(() => resource.unroll() /* RECURSION */)
-                        .catch((err: unknown) => { errors.push(err) })
-                else
-                    promise = promise.then(() => cleanup(resource))
-                        .catch((err: unknown) => { errors.push(err) })
+                promise = promise.then(() => cleanup(resource))
+                    .catch((err: unknown) => { errors.push(err) })
             }
             else {
                 /*  sync start: wrap individually so a throw
                     does not exit the while loop  */
                 try {
                     let result: Promise<void> | void
-                    if (resource instanceof Spool)
-                        result = resource.unroll() /* RECURSION */
-                    else
-                        result = cleanup(resource)
+                    result = cleanup(resource)
                     if (result instanceof Promise)
                         promise = result.catch((err: unknown) => { errors.push(err) })
                 }

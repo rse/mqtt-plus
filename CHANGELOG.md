@@ -11,6 +11,7 @@ ChangeLog
 - BUGFIX: correctly propate description in run() also to finally callback
 - BUGFIX: fix resource handling in source trait
 - IMPROVEMENT: support cancelling push operations with a credit of zero
+- IMPROVEMENT: let Spool.unroll() always execute the cleanup callback
 - UPDATE: upgrade NPM dependencies
 
 1.4.16 (2026-03-27)
