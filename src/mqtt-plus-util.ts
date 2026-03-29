@@ -223,34 +223,42 @@ export async function sendStreamAsChunks (
     abortSignal?: AbortSignal
 ): Promise<void> {
     let pending: Uint8Array | undefined
-    for await (const raw of readable) {
-        if (abortSignal?.aborted)
-            throw abortSignal.reason ?? new Error("aborted")
-        const buffer = chunkToBuffer(raw)
-        if (buffer.byteLength === 0)
-            continue
-        for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+    try {
+        for await (const raw of readable) {
             if (abortSignal?.aborted)
                 throw abortSignal.reason ?? new Error("aborted")
-            const size  = Math.min(buffer.byteLength - i, chunkSize)
-            const chunk = buffer.subarray(i, i + size)
-            if (pending !== undefined) {
-                if (creditGate)
-                    await creditGate.acquire(abortSignal)
-                await sendChunk(pending, undefined, false)
+            const buffer = chunkToBuffer(raw)
+            if (buffer.byteLength === 0)
+                continue
+            for (let i = 0; i < buffer.byteLength; i += chunkSize) {
+                if (abortSignal?.aborted)
+                    throw abortSignal.reason ?? new Error("aborted")
+                const size  = Math.min(buffer.byteLength - i, chunkSize)
+                const chunk = buffer.subarray(i, i + size)
+                if (pending !== undefined) {
+                    if (creditGate)
+                        await creditGate.acquire(abortSignal)
+                    await sendChunk(pending, undefined, false)
+                }
+                pending = chunk
             }
-            pending = chunk
         }
+        if (abortSignal?.aborted)
+            throw abortSignal.reason ?? new Error("aborted")
+        if (pending !== undefined) {
+            if (creditGate)
+                await creditGate.acquire(abortSignal)
+            await sendChunk(pending, undefined, true)
+        }
+        else
+            await sendChunk(undefined, undefined, true)
     }
-    if (abortSignal?.aborted)
-        throw abortSignal.reason ?? new Error("aborted")
-    if (pending !== undefined) {
-        if (creditGate)
-            await creditGate.acquire(abortSignal)
-        await sendChunk(pending, undefined, true)
+    catch (error: unknown) {
+        /*  best-effort: notify remote peer about the error before re-throwing  */
+        const message = (error instanceof Error ? error.message : String(error))
+        await sendChunk(undefined, message, true).catch(() => {})
+        throw error
     }
-    else
-        await sendChunk(undefined, undefined, true)
 }
 
 /*  utility function for making two object fields mutually exclusive  */
