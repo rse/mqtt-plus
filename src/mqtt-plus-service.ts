@@ -255,6 +255,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             })
             spool.roll(() => { this.timerClear(timerId) })
             this.onResponse.set(`service-call-response:${requestId}`, async (response: ServiceCallResponse) => {
+                if (receiver !== undefined && response.sender !== receiver)
+                    return
                 if (!await settle())
                     return
                 if (response.sender === undefined || response.sender === "") {
@@ -265,8 +267,6 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     reject(new Error(`service response name mismatch (expected "${name}", got "${response.name}")`))
                     return
                 }
-                if (receiver !== undefined && response.sender !== receiver)
-                    return
                 if (response.error !== undefined)
                     reject(new Error(response.error))
                 else
