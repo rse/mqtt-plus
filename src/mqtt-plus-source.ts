@@ -139,8 +139,16 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 throw new Error("invalid request: missing sender")
             const receiver  = request.receiver
             const abortController = new AbortController()
-            if (this.sourceControllers.has(requestId))
-                throw new Error(`source: duplicate request id "${requestId}"`)
+            if (this.sourceControllers.has(requestId)) {
+                const error = new Error(`source: duplicate request id "${requestId}"`)
+                this.error(error)
+                const responseTopic = this.options.topicMake(name, "source-fetch-response", sender)
+                const response = this.msg.makeSourceFetchResponse(requestId,
+                    name, error.message, this.options.id, sender)
+                const message = this.codec.encode(response)
+                await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 }).catch(() => {})
+                return
+            }
             this.sourceControllers.set(requestId, abortController)
             const abortSignal     = abortController.signal
             const info: InfoSource = { sender, signal: abortSignal }
@@ -165,8 +173,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
             /*  create a resource spool for request cleanup  */
             const reqSpool = new Spool()
-            if (this.sourceSpools.has(requestId))
-                throw new Error(`source: duplicate request id "${requestId}"`)
+            if (this.sourceSpools.has(requestId)) {
+                const error = new Error(`source: duplicate request id "${requestId}"`)
+                this.error(error)
+                this.sourceControllers.delete(requestId)
+                await sendResponse(error.message).catch(() => {})
+                return
+            }
             this.sourceSpools.set(requestId, reqSpool)
             reqSpool.roll(() => { this.sourceSpools.delete(requestId) })
 
