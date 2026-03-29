@@ -513,9 +513,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
         /*  generate unique request id  */
         let requestId = nanoid()
-        while (this.onResponse.has(`sink-push-response:${requestId}`)
-            || this.onResponse.has(`sink-push-credit:${requestId}`))
+        for (let i = 0; i < 10 && (this.onResponse.has(`sink-push-response:${requestId}`)
+            || this.onResponse.has(`sink-push-credit:${requestId}`)); i++)
             requestId = nanoid()
+        if (this.onResponse.has(`sink-push-response:${requestId}`)
+            || this.onResponse.has(`sink-push-credit:${requestId}`))
+            throw new Error("failed to generate unique request id")
 
         /*  register spool at instance level  */
         this.pushSenderSpools.set(requestId, spool)

@@ -225,8 +225,10 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
         /*  generate unique request id  */
         let requestId = nanoid()
-        while (this.onResponse.has(`service-call-response:${requestId}`))
+        for (let i = 0; i < 10 && this.onResponse.has(`service-call-response:${requestId}`); i++)
             requestId = nanoid()
+        if (this.onResponse.has(`service-call-response:${requestId}`))
+            throw new Error("failed to generate unique request id")
 
         /*  subscribe to MQTT response topic
             (NOTICE: concurrent calls to the same service name share this topic,

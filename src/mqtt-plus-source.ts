@@ -424,10 +424,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  generate unique request id  */
         let requestId = nanoid()
-        while (
+        for (let i = 0; i < 10 && (
             this.onResponse.has(`source-fetch-response:${requestId}`)
-            || this.onResponse.has(`source-fetch-chunk:${requestId}`))
+            || this.onResponse.has(`source-fetch-chunk:${requestId}`)); i++)
             requestId = nanoid()
+        if (this.onResponse.has(`source-fetch-response:${requestId}`)
+            || this.onResponse.has(`source-fetch-chunk:${requestId}`))
+            throw new Error("failed to generate unique request id")
 
         /*  subscribe to single response topic (for ack/nak and data chunks)  */
         const responseTopic = this.options.topicMake(name, "source-fetch-response", this.options.id)
