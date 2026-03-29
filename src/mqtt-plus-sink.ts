@@ -278,6 +278,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         readable.destroy(sinkNameMismatchError(chunkParsed.name))
                         return
                     }
+                    if (chunkParsed.sender === undefined || chunkParsed.sender === "") {
+                        streamEnded = true
+                        clearPushTimeout()
+                        readable.destroy(new Error(`sink chunk for "${name}" missing sender`))
+                        return
+                    }
+                    if (chunkParsed.sender !== sender)
+                        return
                     if (chunkParsed.error !== undefined) {
                         streamEnded = true
                         clearPushTimeout()

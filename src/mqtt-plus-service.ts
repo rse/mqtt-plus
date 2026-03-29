@@ -235,6 +235,13 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             })
             spool.roll(() => { this.timerClear(timerId) })
             this.onResponse.set(`service-call-response:${requestId}`, async (response: ServiceCallResponse) => {
+                if (response.sender === undefined || response.sender === "") {
+                    await spool.unroll()
+                    reject(new Error("received service-call-response without sender"))
+                    return
+                }
+                if (receiver !== undefined && response.sender !== receiver)
+                    return
                 await spool.unroll()
                 if (response.error !== undefined)
                     reject(new Error(response.error))
