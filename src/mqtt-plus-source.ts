@@ -640,10 +640,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         /*  generate corresponding MQTT topic  */
         const topic = this.options.topicMake(name, "source-fetch-request", receiver)
 
-        /*  publish message to MQTT topic
-            (no spool passed to run() — on failure, stream.destroy() triggers
-            cleanup via the stream's "close"/"error" handlers above)  */
-        run(`publish fetch request as MQTT message to topic "${topic}"`, () =>
+        /*  publish message to MQTT topic  */
+        await run(`publish fetch request as MQTT message to topic "${topic}"`, () =>
             this.publishToTopic(topic, message, { qos: 2, ...options })
         ).catch((err: unknown) => {
             const error = ensureError(err)
