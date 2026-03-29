@@ -404,13 +404,15 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     readable.stopCollecting()
 
                 /*  send terminal success response  */
-                try {
-                    dataCompleted = true
-                    await sendResponse()
-                    completedNormally = true
-                }
-                catch (err2: unknown) {
-                    this.error(ensureError(err2), `sending terminal response for sink "${name}" failed`)
+                if (!abortSignal.aborted) {
+                    try {
+                        dataCompleted = true
+                        await sendResponse()
+                        completedNormally = true
+                    }
+                    catch (err2: unknown) {
+                        this.error(ensureError(err2), `sending terminal response for sink "${name}" failed`)
+                    }
                 }
             }
             catch (err: unknown) {
