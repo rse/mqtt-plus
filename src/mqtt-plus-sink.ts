@@ -451,7 +451,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         await this.subscribeTopicAndSpool(spool, topicReqD, options)
 
         /*  provide a registration for subsequent destruction  */
-        return this.makeRegistration(spool, "sink", name, `sink-push-request:${name}`)
+        return this.makeRegistration(spool, "sink", name)
     }
 
     /*  push to sink ("chunked content")  */

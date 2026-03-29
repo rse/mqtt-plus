@@ -169,7 +169,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         await this.subscribeTopicAndSpool(spool, topicD, options)
 
         /*  provide a registration for subsequent destruction  */
-        return this.makeRegistration(spool, "service", name, `service-call-request:${name}`)
+        return this.makeRegistration(spool, "service", name)
     }
 
     /*  call service ("request and response")  */

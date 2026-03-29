@@ -110,11 +110,13 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     }
 
     /*  create a registration for subsequent destruction  */
-    protected makeRegistration (spool: Spool, kind: string, name: string, key: string): Registration {
+    protected makeRegistration (spool: Spool, kind: string, name: string): Registration {
+        let destroyed = false
         return {
             destroy: async (): Promise<void> => {
-                if (!this.onRequest.has(key))
+                if (destroyed)
                     return
+                destroyed = true
                 await spool.unroll(false)?.catch((err: unknown) => {
                     const error = ensureError(err, `destroy: ${kind} "${name}" failed to cleanup`)
                     this.error(error)

@@ -143,7 +143,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         await this.subscribeTopicAndSpool(spool, topicD, options)
 
         /*  provide a registration for subsequent destruction  */
-        return this.makeRegistration(spool, "event", name, `event-emission:${name}`)
+        return this.makeRegistration(spool, "event", name)
     }
 
     /*  emit event ("fire and forget")  */

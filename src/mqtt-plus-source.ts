@@ -360,7 +360,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         await this.subscribeTopicAndSpool(spool, topicReqD, options)
 
         /*  provide a registration for subsequent destruction  */
-        return this.makeRegistration(spool, "source", name, `source-fetch-request:${name}`)
+        return this.makeRegistration(spool, "source", name)
     }
 
     /*  fetch source  */
