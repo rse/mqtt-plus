@@ -131,7 +131,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 const result = await callback(...params, info)
 
                 /*  create success response message  */
-                const rpcResponse = this.msg.makeServiceCallResponse(requestId, result,
+                const rpcResponse = this.msg.makeServiceCallResponse(requestId, name, result,
                     undefined, this.options.id, senderId)
 
                 /*  send response message  */
@@ -144,7 +144,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
                 /*  create error response message  */
                 this.error(error, `handler for service "${name}" failed`)
-                const rpcResponse = this.msg.makeServiceCallResponse(requestId, undefined,
+                const rpcResponse = this.msg.makeServiceCallResponse(requestId, name, undefined,
                     error.message, this.options.id, senderId)
 
                 /*  send response message  */
@@ -238,6 +238,11 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 if (response.sender === undefined || response.sender === "") {
                     await spool.unroll()
                     reject(new Error("received service-call-response without sender"))
+                    return
+                }
+                if (response.name !== name) {
+                    await spool.unroll()
+                    reject(new Error(`service response name mismatch (expected "${name}", got "${response.name}")`))
                     return
                 }
                 if (receiver !== undefined && response.sender !== receiver)

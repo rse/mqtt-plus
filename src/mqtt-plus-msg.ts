@@ -118,6 +118,7 @@ const ServiceCallRequestSchema = v.strictObject({
 export class ServiceCallResponse extends Base {
     constructor (
         id:             string,
+        public name:    string,
         public result?: any,
         public error?:  string,
         sender?:        string,
@@ -127,6 +128,7 @@ export class ServiceCallResponse extends Base {
 const ServiceCallResponseSchema = v.strictObject({
     ...BaseSchema,
     type:               v.literal("service-call-response"),
+    name:               v.string(),
     result:             v.optional(v.unknown()),
     error:              v.optional(v.string())
 })
@@ -330,12 +332,13 @@ class Msg {
     }
     makeServiceCallResponse (
         id:             string,
+        name:           string,
         result?:        any,
         error?:         string,
         sender?:        string,
         receiver?:      string
     ) {
-        return new ServiceCallResponse(id, result, error, sender, receiver)
+        return new ServiceCallResponse(id, name, result, error, sender, receiver)
     }
     makeSinkPushRequest (
         id:             string,
@@ -460,7 +463,7 @@ class Msg {
         }
         else if (obj.type === "service-call-response") {
             const out = parseObject<ServiceCallResponse>(obj, "ServiceCallResponse", ServiceCallResponseSchema)
-            return this.makeServiceCallResponse(out.id, out.result, out.error, out.sender, out.receiver)
+            return this.makeServiceCallResponse(out.id, out.name, out.result, out.error, out.sender, out.receiver)
         }
         else if (obj.type === "sink-push-request") {
             const out = parseObject<SinkPushRequest>(obj, "SinkPushRequest", SinkPushRequestSchema)
