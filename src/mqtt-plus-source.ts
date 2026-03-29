@@ -56,7 +56,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             controller.abort(new Error("source destroyed"))
         for (const gate of this.sourceCreditGates.values())
             gate.abort()
-        for (const spool of this.sourceSpools.values())
+        for (const spool of [ ...this.sourceSpools.values() ])
             await spool.unroll()
         this.sourceSpools.clear()
         this.sourceControllers.clear()
