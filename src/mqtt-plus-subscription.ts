@@ -153,6 +153,11 @@ class RefCountedSubscription {
                 await promise
             }
         }
+
+        /*  NOTICE: if decrementCount returned undefined (topic was never
+            subscribed or already fully decremented), we intentionally
+            ignore it -- this legitimately occurs when flush() clears
+            all counts before spool cleanup callbacks still unroll  */
     }
 
     /*  flush all pending linger timers and unsubscribe  */
