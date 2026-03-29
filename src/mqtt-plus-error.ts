@@ -36,6 +36,7 @@ type SpoolResource<T = unknown> = {
 export class Spool {
     /*  internal state  */
     private resources: SpoolResource<unknown>[] = []
+    private pending:   Promise<void> | null = null
 
     /*  roll cleanup procedure onto spool  */
     roll (cleanup: SpoolCleanup): void
@@ -67,6 +68,15 @@ export class Spool {
 
     /*  unroll all cleanup procedures from spool  */
     unroll (suppress = true): Promise<void> | void {
+        /*  guard against concurrent unroll: if an unroll is already
+            in progress, return the existing promise so all callers
+            wait for the same completion  */
+        if (this.pending !== null) {
+            if (suppress)
+                return this.pending.catch(() => {})
+            return this.pending
+        }
+
         /*  NOTICE: we operate synchronously until the first
             cleanup procedure returns a Promise. Then we continue
             asynchronously, regardless of whether the following
@@ -97,14 +107,20 @@ export class Spool {
             }
         }
         if (promise) {
-            if (suppress)
-                return promise.catch(() => {})
-            return promise.then(() => {
+            /*  store the pending promise for concurrent-caller guard  */
+            this.pending = promise.then(() => {
                 if (errors.length === 1)
                     throw errors[0]
                 else if (errors.length > 1)
                     throw new AggregateError(errors, "multiple cleanup failures")
             })
+            this.pending.then(
+                () => { this.pending = null },
+                () => { this.pending = null }
+            )
+            if (suppress)
+                return this.pending.catch(() => {})
+            return this.pending
         }
         else {
             if (!suppress && errors.length === 1)
