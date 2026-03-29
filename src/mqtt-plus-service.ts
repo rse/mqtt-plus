@@ -241,23 +241,23 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const timerId = `service-call:${requestId}`
         let rejectPromise!: (reason?: any) => void
         let settled = false
-        const settle = async () => {
+        const settle = () => {
             if (settled)
                 return false
             settled = true
-            await spool.unroll()
+            spool.unroll()
             return true
         }
         const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {
             rejectPromise = reject
-            const onTimeout = async () => {
-                if (!await settle())
+            const onTimeout = () => {
+                if (!settle())
                     return
                 reject(new Error("communication timeout"))
             }
             this.timerRefresh(timerId, onTimeout)
             spool.roll(() => { this.timerClear(timerId) })
-            this.onResponse.set(`service-call-response:${requestId}`, async (response: ServiceCallResponse) => {
+            this.onResponse.set(`service-call-response:${requestId}`, (response: ServiceCallResponse) => {
                 if (receiver !== undefined && response.sender !== receiver) {
                     this.timerRefresh(timerId, onTimeout)
                     return
@@ -266,7 +266,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     return
                 if (response.name !== name)
                     return
-                if (!await settle())
+                if (!settle())
                     return
                 if (response.error !== undefined)
                     reject(new Error(response.error))
@@ -292,7 +292,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 this.publishToTopic(topic, message, { qos: 2, ...options }))
         }
         catch (err: unknown) {
-            if (await settle())
+            if (settle())
                 rejectPromise(err)
             return promise
         }
