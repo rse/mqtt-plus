@@ -110,7 +110,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
         return {
             destroy: async (): Promise<void> => {
                 if (!this.onRequest.has(key))
-                    throw new Error(`destroy: ${kind} "${name}" not registered`)
+                    return
                 await spool.unroll(false)?.catch((err: unknown) => {
                     const error = ensureError(err, `destroy: ${kind} "${name}" failed to cleanup`)
                     this.error(error)
