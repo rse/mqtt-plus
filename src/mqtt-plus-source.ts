@@ -562,6 +562,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 spool.unroll()?.catch(() => {})
             }
             else {
+                if (responseAcked)
+                    return
                 responseAcked = true
                 metaResolve(response.meta)
                 refreshTimeout()
