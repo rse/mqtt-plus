@@ -227,26 +227,35 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         /*  create promise for MQTT response handling  */
         const timerId = `service-call:${requestId}`
         let rejectPromise!: (reason?: any) => void
+        let settled = false
         const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {
             rejectPromise = reject
             this.timerRefresh(timerId, async () => {
+                if (settled)
+                    return
+                settled = true
                 await spool.unroll()
                 reject(new Error("communication timeout"))
             })
             spool.roll(() => { this.timerClear(timerId) })
             this.onResponse.set(`service-call-response:${requestId}`, async (response: ServiceCallResponse) => {
+                if (settled)
+                    return
                 if (response.sender === undefined || response.sender === "") {
+                    settled = true
                     await spool.unroll()
                     reject(new Error("received service-call-response without sender"))
                     return
                 }
                 if (response.name !== name) {
+                    settled = true
                     await spool.unroll()
                     reject(new Error(`service response name mismatch (expected "${name}", got "${response.name}")`))
                     return
                 }
                 if (receiver !== undefined && response.sender !== receiver)
                     return
+                settled = true
                 await spool.unroll()
                 if (response.error !== undefined)
                     reject(new Error(response.error))
