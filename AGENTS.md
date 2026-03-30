@@ -131,19 +131,19 @@ Regenerate diagrams with `npm start build-doc` (requires the `etc/d2.mts` helper
 
 Test files live in `tst/`:
 
-| File                              | Role |
-|-----------------------------------|------|
-| `tst/mqtt-plus-0-fixture.ts`      | Shared test fixture setup (broker, MQTTp instances, etc.) |
-| `tst/mqtt-plus-0-broker.ts`       | Broker dispatch: creates Aedes or Mosquitto broker based on env |
-| `tst/mqtt-plus-0-broker-aedes.ts` | Helper for starting/stopping the Aedes MQTT broker |
+| File                                  | Role                                                            |
+|---------------------------------------|-----------------------------------------------------------------|
+| `tst/mqtt-plus-0-fixture.ts`          | Shared test fixture setup (broker, MQTTp instances, etc.) |
+| `tst/mqtt-plus-0-broker.ts`           | Broker dispatch: creates Aedes or Mosquitto broker based on env |
+| `tst/mqtt-plus-0-broker-aedes.ts`     | Helper for starting/stopping the Aedes MQTT broker |
 | `tst/mqtt-plus-0-broker-mosquitto.ts` | Helper for starting/stopping the Mosquitto MQTT broker |
-| `tst/mqtt-plus-1-api.spec.ts`     | API type and endpoint definition tests |
-| `tst/mqtt-plus-2-event.spec.ts`   | Event Emission pattern tests |
-| `tst/mqtt-plus-3-service.spec.ts` | Service Call / RPC pattern tests |
-| `tst/mqtt-plus-4-sink.spec.ts`    | Sink Push pattern tests |
-| `tst/mqtt-plus-5-source.spec.ts`  | Source Fetch pattern tests |
-| `tst/mqtt-plus-6-misc.spec.ts`    | Miscellaneous / edge-case tests |
-| `tst/tsc.json`                    | TypeScript configuration for the test directory |
+| `tst/mqtt-plus-1-api.spec.ts`         | API type and endpoint definition tests |
+| `tst/mqtt-plus-2-event.spec.ts`       | Event Emission pattern tests |
+| `tst/mqtt-plus-3-service.spec.ts`     | Service Call / RPC pattern tests |
+| `tst/mqtt-plus-4-sink.spec.ts`        | Sink Push pattern tests |
+| `tst/mqtt-plus-5-source.spec.ts`      | Source Fetch pattern tests |
+| `tst/mqtt-plus-6-misc.spec.ts`        | Miscellaneous / edge-case tests |
+| `tst/tsc.json`                        | TypeScript configuration for the test directory |
 
 ### Type System
 
