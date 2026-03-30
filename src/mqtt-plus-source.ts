@@ -522,6 +522,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         /*  start timeout handler  */
         refreshTimeout()
 
+        /*  helper for terminating fetch with error  */
+        const endWithError = (error: Error) => {
+            streamEnded = true
+            metaReject(error)
+            stream.destroy(error)
+            spool.unroll()?.catch(() => {})
+        }
+
         /*  ensure resources are released if consumer aborts stream early  */
         let cancelled = false
         const cancelAndUnroll = () => {
@@ -548,22 +556,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             if (streamEnded)
                 return
             if (response.name !== name) {
-                streamEnded = true
-                const error = sourceNameMismatchError("source response", response.name)
-                metaReject(error)
-                stream.destroy(error)
-                spool.unroll()?.catch(() => {})
+                endWithError(sourceNameMismatchError("source response", response.name))
                 return
             }
             if (!lockResponder("source response", response.sender))
                 return
-            if (response.error) {
-                streamEnded = true
-                const error = new Error(response.error)
-                metaReject(error)
-                stream.destroy(error)
-                spool.unroll()?.catch(() => {})
-            }
+            if (response.error)
+                endWithError(new Error(response.error))
             else {
                 if (responseAcked)
                     return
@@ -578,39 +577,22 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             if (streamEnded)
                 return
             if (response.name !== name) {
-                streamEnded = true
-                const error = sourceNameMismatchError("source chunk", response.name)
-                metaReject(error)
-                stream.destroy(error)
-                spool.unroll()?.catch(() => {})
+                endWithError(sourceNameMismatchError("source chunk", response.name))
                 return
             }
             if (!lockResponder("source chunk", response.sender))
                 return
             if (!responseAcked) {
-                streamEnded = true
-                const error = new Error("received source chunk before source response acknowledgement")
-                metaReject(error)
-                stream.destroy(error)
-                spool.unroll()?.catch(() => {})
+                endWithError(new Error("received source chunk before source response acknowledgement"))
                 return
             }
-            if (response.error) {
-                streamEnded = true
-                const error = new Error(response.error)
-                metaReject(error)
-                stream.destroy(error)
-                spool.unroll()?.catch(() => {})
-            }
+            if (response.error)
+                endWithError(new Error(response.error))
             else {
                 refreshTimeout()
                 if (response.chunk !== undefined) {
                     if (chunkCredit > 0 && chunksReceived >= creditGranted) {
-                        streamEnded = true
-                        const error = new Error("flow control violation")
-                        metaReject(error)
-                        stream.destroy(error)
-                        spool.unroll()?.catch(() => {})
+                        endWithError(new Error("flow control violation"))
                         return
                     }
                     chunksReceived++
