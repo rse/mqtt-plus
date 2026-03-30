@@ -2,18 +2,28 @@
 ChangeLog
 =========
 
-1.4.17 (2026-03-28)
+1.4.17 (2026-03-30)
 -------------------
 
-- BUGFIX: Spool.unroll() silently skipped remaining cleanups on first async failure
-- BUGFIX: improve semantics of info.authenticated field for event/service/sink/source in case of optional authentication
-- BUGFIX: in the ReadableTee class, do not run read() twice: once ourself and once via the base class
-- BUGFIX: correctly propate description in run() also to finally callback
-- BUGFIX: fix resource handling in source trait
 - IMPROVEMENT: support cancelling push operations with a credit of zero
 - IMPROVEMENT: let Spool.unroll() always execute the cleanup callback
 - IMPROVEMENT: perform a minimum version check in the protocol
+- IMPROVEMENT: log invalid requests with missing senders
+- IMPROVEMENT: add upper bound for the nanoid iteration
+- IMPROVEMENT: perform topic receiver matching and validate service response names
+- IMPROVEMENT: move the destroyed flag to the base class and protect other methods
+- IMPROVEMENT: send errors to peer and provide AggregateError to not lose errors
+- IMPROVEMENT: bump minimum Node version to 20 for ES2022
+- BUGFIX: Spool.unroll() silently skipped remaining cleanups on first async failure
+- BUGFIX: improve semantics of info.authenticated field for event/service/sink/source in case of optional authentication
+- BUGFIX: in the ReadableTee class, do not run read() twice: once ourself and once via the base class
+- BUGFIX: correctly propagate description in run() also to finally callback
+- BUGFIX: fix resource handling in source trait
+- BUGFIX: avoid race conditions and unhandled promise rejections in async processing
+- BUGFIX: fix cleanup and error handling across sink/source traits
 - UPDATE: upgrade NPM dependencies
+- CLEANUP: various code cleanups (callback handling, settle code, destroy handling, termination, subscriptions)
+- CLEANUP: align with ensureError code and fix typos
 
 1.4.16 (2026-03-27)
 -------------------
