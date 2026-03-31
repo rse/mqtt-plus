@@ -275,8 +275,10 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     reject(new Error("received service response without sender"))
                     return
                 }
-                if (response.name !== name)
+                if (response.name !== name) {
+                    this.timerRefresh(timerId, onTimeout)
                     return
+                }
                 if (!settle())
                     return
                 if (response.error !== undefined)
