@@ -118,7 +118,10 @@ Each trait lives in its own file: `src/mqtt-plus-<trait>.ts`.
 - `tst/mqtt-plus-4-sink.spec.ts`: Sink Push pattern tests
 - `tst/mqtt-plus-5-source.spec.ts`: Source Fetch pattern tests
 - `tst/mqtt-plus-6-misc.spec.ts`: Miscellaneous / edge-case tests
-- `tst/tsc.json`: TypeScript configuration for the test directory
+- `tst/mqtt-plus-7-spool.spec.ts`: Spool (resource cleanup) utility tests
+- `tst/mqtt-plus-8-run.spec.ts`: Run (error handling) utility tests
+- `tst/tsc.std.json`: TypeScript configuration for the test directory (standard)
+- `tst/tsc.cov.json`: TypeScript configuration for the test directory (coverage)
 
 ### Key Documentation Files
 
