@@ -1,18 +1,15 @@
 
-AGENTS
-======
+# AGENTS
 
 This file provides guidance to Agentic AI Coding Tools when working with code in this repository.
 
-Project Overview
-----------------
+## Project Overview
 
 MQTT+ (`mqtt-plus`) is a TypeScript library implementing four MQTT communication patterns
 with full type safety: Event Emission, Service Call (RPC), Source Fetch, and Sink Push.
 It uses `mqtt` as a peer dependency and builds to ESM, CJS, and UMD formats.
 
-Commands
---------
+## Commands
 
 MQTT+ plus uses NPM:
 
@@ -42,8 +39,7 @@ otherwise, the Aedes in-process broker serves as the fallback.
 
 For regression testing always use the all-in-one command `npm start build test`.
 
-Build Pipeline
---------------
+## Build Pipeline
 
 Two-stage build:
 
@@ -54,10 +50,11 @@ Two-stage build:
    `mqtt-plus.esm.js`, `mqtt-plus.cjs.js`, `mqtt-plus.umd.js`.
    UMD build includes Node polyfills (events, stream, buffer).
 
-Configuration lives in `etc/`: `tsc.json`, `vite.mts`, `eslint.mts`, `knip.jsonc`, `stx.conf`, `d2.mts`, `d2.theme.d2`, `logo.ai`, `logo.svg`.
+Configuration lives in `etc/`: `tsc.json`, `vite.mts`, `eslint.mts`,
+`knip.jsonc`, `stx.conf`, `d2.mts`, `d2.theme.d2`, `logo.ai`,
+`logo.svg`.
 
-Architecture
-------------
+## Architecture
 
 ### Trait-Based Mixin Tower
 
@@ -152,8 +149,7 @@ The API uses branded types (`Event<...>`, `Service<...>`, `Source<...>`,
 type parameter threads through the trait tower, enabling full type
 inference for pattern names and parameter types.
 
-Coding Style
-------------
+## Coding Style
 
 - 4-space indentation, double quotes, no semicolons
 - Stroustrup brace style (`else`/`catch`/`finally` on new line after closing brace)
