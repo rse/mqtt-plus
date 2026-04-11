@@ -41,12 +41,17 @@ import type { AuthOption }            from "./mqtt-plus-auth"
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
     /*  service state  */
     private serviceControllers = new Map<string, AbortController>()
+    private pendingCalls       = new Map<string, (error: Error) => void>()
 
     /*  destroy trait  */
     override async destroy () {
         for (const controller of this.serviceControllers.values())
             controller.abort(new Error("service destroyed"))
         this.serviceControllers.clear()
+        const rejecters = [ ...this.pendingCalls.values() ]
+        this.pendingCalls.clear()
+        for (const reject of rejecters)
+            reject(new Error("instance destroyed"))
         await super.destroy()
     }
 
@@ -329,6 +334,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             }
             this.timerRefresh(timerId, onTimeout)
             spool.roll(() => { this.timerClear(timerId) })
+            this.pendingCalls.set(requestId, (error: Error) => {
+                if (!settle())
+                    return
+                reject(error)
+            })
+            spool.roll(() => { this.pendingCalls.delete(requestId) })
             this.onResponse.set(`service-call-response:${requestId}`, (response: ServiceCallResponse) => {
                 if (receiver !== undefined && response.sender !== receiver) {
                     this.timerRefresh(timerId, onTimeout)
