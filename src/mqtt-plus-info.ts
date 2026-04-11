@@ -34,8 +34,12 @@ export interface InfoBase {
 }
 
 /*  specialized info types  */
-export interface InfoEvent   extends InfoBase {}
-export interface InfoService extends InfoBase {}
+export interface InfoEvent   extends InfoBase {
+    signal:   AbortSignal
+}
+export interface InfoService extends InfoBase {
+    signal:   AbortSignal
+}
 export interface InfoSource  extends InfoBase {
     signal:   AbortSignal
     stream?:  Readable

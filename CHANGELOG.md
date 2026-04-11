@@ -14,6 +14,8 @@ ChangeLog
 - IMPROVEMENT: move the destroyed flag to the base class and protect other methods
 - IMPROVEMENT: send errors to peer and provide AggregateError to not lose errors
 - IMPROVEMENT: bump minimum Node version to 20 for ES2022
+- IMPROVEMENT: add "signal" field to info of service callback for signalling abortion
+- IMPROVEMENT: add "signal" field to info of event callback for signalling abortion
 - BUGFIX: Spool.unroll() silently skipped remaining cleanups on first async failure
 - BUGFIX: improve semantics of info.authenticated field for event/service/sink/source in case of optional authentication
 - BUGFIX: in the ReadableTee class, do not run read() twice: once ourself and once via the base class

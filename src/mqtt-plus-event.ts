@@ -37,6 +37,17 @@ import { Spool, ensureError }         from "./mqtt-plus-error"
 
 /*  Event Emission Trait  */
 export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
+    /*  event state  */
+    private eventControllers = new Map<string, AbortController>()
+
+    /*  destroy trait  */
+    override async destroy () {
+        for (const controller of this.eventControllers.values())
+            controller.abort(new Error("event destroyed"))
+        this.eventControllers.clear()
+        await super.destroy()
+    }
+
     /*  register an event handler  */
     async event<K extends EventKeys<T> & string> (
         name:     K,
@@ -96,6 +107,16 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
         if (this.onRequest.has(`event-emission:${name}`))
             throw new Error(`event: event "${name}" already registered`)
 
+        /*  create per-event controller tracking  */
+        const requestIds = new Set<string>()
+        spool.roll(() => {
+            for (const requestId of requestIds) {
+                this.eventControllers.get(requestId)?.abort(new Error(`event "${name}" destroyed`))
+                this.eventControllers.delete(requestId)
+            }
+            requestIds.clear()
+        })
+
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
         const topicS = share !== "" ? `$share/${share}/${name}` : name
         const topicB = this.options.topicMake(topicS, "event-emission")
@@ -108,15 +129,25 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
                 return
 
             /*  determine event information  */
-            const senderId = request.sender
+            const requestId = request.id
+            const senderId  = request.sender
             if (senderId === undefined || senderId === "") {
                 this.error(new Error("invalid request: missing sender"))
                 return
             }
             const params   = request.params ?? []
 
+            /*  define abort controller and signal  */
+            const abortController = new AbortController()
+            const abortSignal     = abortController.signal
+            requestIds.add(requestId)
+            this.eventControllers.set(requestId, abortController)
+
             /*  create information object  */
-            const info: InfoEvent = { sender: senderId }
+            const info: InfoEvent = {
+                sender: senderId,
+                signal: abortSignal
+            }
             if (request.receiver)
                 info.receiver = request.receiver
             if (request.meta)
@@ -136,6 +167,11 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             catch (result: unknown) {
                 const error = ensureError(result)
                 this.error(error, `handler for event "${name}" failed`)
+            }
+            finally {
+                abortController.abort()
+                requestIds.delete(requestId)
+                this.eventControllers.delete(requestId)
             }
         })
         spool.roll(() => { this.onRequest.delete(`event-emission:${name}`) })

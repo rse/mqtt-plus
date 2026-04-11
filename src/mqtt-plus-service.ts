@@ -39,6 +39,17 @@ import type { AuthOption }            from "./mqtt-plus-auth"
 
 /*  Service Call Trait  */
 export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T> {
+    /*  service state  */
+    private serviceControllers = new Map<string, AbortController>()
+
+    /*  destroy trait  */
+    override async destroy () {
+        for (const controller of this.serviceControllers.values())
+            controller.abort(new Error("service destroyed"))
+        this.serviceControllers.clear()
+        await super.destroy()
+    }
+
     /*  register a service call handler  */
     async service<K extends ServiceKeys<T> & string> (
         name:     K,
@@ -98,6 +109,16 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         if (this.onRequest.has(`service-call-request:${name}`))
             throw new Error(`service: service "${name}" already registered`)
 
+        /*  create per-service controller tracking  */
+        const requestIds = new Set<string>()
+        spool.roll(() => {
+            for (const requestId of requestIds) {
+                this.serviceControllers.get(requestId)?.abort(new Error(`service "${name}" destroyed`))
+                this.serviceControllers.delete(requestId)
+            }
+            requestIds.clear()
+        })
+
         /*  generate the corresponding MQTT topics for broadcast and direct use  */
         const topicS = share !== "" ? `$share/${share}/${name}` : name
         const topicB = this.options.topicMake(topicS, "service-call-request")
@@ -118,12 +139,31 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             }
             const params = request.params ?? []
 
+            /*  define abort controller and signal  */
+            const abortController = new AbortController()
+            const abortSignal     = abortController.signal
+            requestIds.add(requestId)
+            this.serviceControllers.set(requestId, abortController)
+
             /*  create information object  */
-            const info: InfoService = { sender: senderId }
+            const info: InfoService = {
+                sender: senderId,
+                signal: abortSignal
+            }
             if (request.receiver)
                 info.receiver = request.receiver
             if (request.meta)
                 info.meta = request.meta
+
+            /*  utility functions for timeout management  */
+            const serviceTimerId = `service-call-handler:${requestId}`
+            const refreshServiceTimeout = () => {
+                this.timerRefresh(serviceTimerId, () => {
+                    abortController.abort(new Error(`service "${name}" handler timeout`))
+                })
+            }
+            const clearServiceTimeout = () => this.timerClear(serviceTimerId)
+            refreshServiceTimeout()
 
             /*  execute handler and send response  */
             try {
@@ -134,7 +174,20 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     if (!info.authenticated && (typeof auth === "string" || auth.mode === "require"))
                         throw new Error(`service "${name}" failed authentication`)
                 }
-                const result = await callback(...params, info)
+                const abortPromise = new Promise<never>((_resolve, reject) => {
+                    const onAbort = () => {
+                        reject(ensureError(abortSignal.reason))
+                    }
+                    if (abortSignal.aborted)
+                        onAbort()
+                    else
+                        abortSignal.addEventListener("abort", onAbort, { once: true })
+                })
+                abortPromise.catch(() => {})
+                const result = await Promise.race([
+                    callback(...params, info),
+                    abortPromise
+                ])
 
                 /*  create success response message  */
                 const rpcResponse = this.msg.makeServiceCallResponse(requestId, name, result,
@@ -162,6 +215,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 catch (err2: unknown) {
                     this.error(ensureError(err2), `sending error response for service "${name}" failed`)
                 }
+            }
+            finally {
+                clearServiceTimeout()
+                abortController.abort()
+                requestIds.delete(requestId)
+                this.serviceControllers.delete(requestId)
             }
         })
         spool.roll(() => { this.onRequest.delete(`service-call-request:${name}`) })
