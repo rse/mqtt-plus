@@ -2,7 +2,7 @@
 ChangeLog
 =========
 
-1.4.17 (2026-03-30)
+1.4.17 (2026-04-11)
 -------------------
 
 - IMPROVEMENT: support cancelling push operations with a credit of zero
