@@ -138,15 +138,22 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             /*  determine request information  */
             const requestId = request.id
             const senderId  = request.sender
+            const params    = request.params ?? []
             if (senderId === undefined || senderId === "") {
                 this.error(new Error("invalid request: missing sender"))
                 return
             }
-            const params = request.params ?? []
 
-            /*  deduplicate concurrent deliveries of the same request id  */
+            /*  sanity check topic/payload name  */
+            if (topicName !== request.name) {
+                this.log("warning", `service name mismatch -- dropped request for "${name}"` +
+                    ` (topic: "${topicName}", payload: "${request.name}")`, { requestId })
+                return
+            }
+
+            /*  sanity check request id  */
             if (this.serviceControllers.has(requestId)) {
-                this.log("info", `duplicate service request dropped for "${name}"`, { requestId })
+                this.log("warning", `duplicate service request id -- dropped request for "${name}"`, { requestId })
                 return
             }
 
@@ -178,8 +185,6 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
             /*  execute handler and send response  */
             try {
-                if (topicName !== request.name)
-                    throw new Error(`service name mismatch (topic: "${topicName}", payload: "${request.name}")`)
                 if (auth) {
                     info.authenticated = await this.authenticated(senderId, request.auth, auth)
                     if (!info.authenticated && (typeof auth === "string" || auth.mode === "require"))
