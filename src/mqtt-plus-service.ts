@@ -139,6 +139,12 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             }
             const params = request.params ?? []
 
+            /*  deduplicate concurrent deliveries of the same request id  */
+            if (this.serviceControllers.has(requestId)) {
+                this.log("info", `duplicate service request dropped for "${name}"`, { requestId })
+                return
+            }
+
             /*  define abort controller and signal  */
             const abortController = new AbortController()
             const abortSignal     = abortController.signal

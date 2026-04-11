@@ -6,6 +6,7 @@ ChangeLog
 -------------------
 
 - UPDATE: upgrade NPM dependencies
+- IMPROVEMENT: detect concurrent deliveries of the same request id in service trait
 
 1.4.17 (2026-04-11)
 -------------------
