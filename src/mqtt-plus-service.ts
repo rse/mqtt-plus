@@ -341,7 +341,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     return
                 }
                 if (response.name !== name) {
-                    this.timerRefresh(timerId, onTimeout)
+                    if (!settle())
+                        return
+                    reject(new Error(`received service response with name mismatch (expected: "${name}", received: "${response.name}")`))
                     return
                 }
                 if (!settle())
