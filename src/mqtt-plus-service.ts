@@ -157,13 +157,13 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
 
             /*  utility functions for timeout management  */
             const serviceTimerId = `service-call-handler:${requestId}`
-            const refreshServiceTimeout = () => {
+            const armServiceTimeout = () => {
                 this.timerRefresh(serviceTimerId, () => {
                     abortController.abort(new Error(`service "${name}" handler timeout`))
                 })
             }
             const clearServiceTimeout = () => this.timerClear(serviceTimerId)
-            refreshServiceTimeout()
+            armServiceTimeout()
 
             /*  execute handler and send response  */
             try {
