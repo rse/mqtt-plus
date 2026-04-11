@@ -135,6 +135,13 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
                 this.error(new Error("invalid request: missing sender"))
                 return
             }
+
+            /*  sanity check topic/payload name  */
+            if (topicName !== request.name) {
+                this.log("warning", `event name mismatch -- dropped request for "${name}"` +
+                    ` (topic: "${topicName}", payload: "${request.name}")`, { requestId })
+                return
+            }
             const params   = request.params ?? []
 
             /*  sanity check request id  */
@@ -161,8 +168,6 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
 
             /*  asynchronously execute handler  */
             try {
-                if (topicName !== request.name)
-                    throw new Error(`event name mismatch (topic: "${topicName}", payload: "${request.name}")`)
                 if (auth) {
                     info.authenticated = await this.authenticated(senderId, request.auth, auth)
                     if (!info.authenticated && (typeof auth === "string" || auth.mode === "require"))
