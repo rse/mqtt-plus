@@ -66,4 +66,54 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
             this.timers.delete(id)
         }
     }
+
+    /*  sleep: wait a duration of time and then resolve  */
+    protected sleep (durationMs: number, signal?: AbortSignal): Promise<void> {
+        return new Promise<void>((resolve) => {
+            const ac: AbortController | undefined =
+                signal !== undefined ? new AbortController() : undefined
+            let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+                timer = null
+                if (signal !== undefined)
+                    ac!.abort()
+                resolve()
+            }, durationMs)
+            timer.unref()
+            if (signal !== undefined) {
+                if (signal.aborted)
+                    resolve()
+                else
+                    signal.addEventListener("abort", () => {
+                        if (timer !== null)
+                            clearTimeout(timer)
+                        resolve()
+                    }, { once: true, signal: ac!.signal })
+            }
+        })
+    }
+
+    /*  timeout: wait a duration of time and then reject  */
+    protected timeout (durationMs: number, info = "timeout", signal?: AbortSignal): Promise<never> {
+        return new Promise<never>((resolve, reject) => {
+            const ac: AbortController | undefined =
+                signal !== undefined ? new AbortController() : undefined
+            let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+                timer = null
+                if (signal !== undefined)
+                    ac!.abort()
+                reject(new Error(info))
+            }, durationMs)
+            timer.unref()
+            if (signal !== undefined) {
+                if (signal.aborted)
+                    resolve(undefined as never)
+                else
+                    signal.addEventListener("abort", () => {
+                        if (timer !== null)
+                            clearTimeout(timer)
+                        resolve(undefined as never)
+                    }, { once: true, signal: ac!.signal })
+            }
+        })
+    }
 }
