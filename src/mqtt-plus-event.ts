@@ -137,6 +137,12 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             }
             const params   = request.params ?? []
 
+            /*  sanity check request id  */
+            if (this.eventControllers.has(requestId)) {
+                this.log("warning", `duplicate event request id -- dropped event "${name}"`, { requestId })
+                return
+            }
+
             /*  define abort controller and signal  */
             const abortController = new AbortController()
             const abortSignal     = abortController.signal
