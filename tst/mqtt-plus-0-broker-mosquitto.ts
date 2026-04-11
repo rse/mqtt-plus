@@ -52,7 +52,7 @@ const ACL = textframe(`
 
     topic   read      example/client/+/service-call-request/any
     pattern read      example/client/+/service-call-request/%c
-    pattern write     example/client/+/service-call-response/%c
+    pattern write     example/client/+/service-call-response/+
 
     #   ---- source fetch ----
 
@@ -70,7 +70,7 @@ const ACL = textframe(`
 
     topic   read      example/client/+/sink-push-request/any
     pattern read      example/client/+/sink-push-request/%c
-    pattern write     example/client/+/sink-push-response/%c
+    pattern write     example/client/+/sink-push-response/+
 
     #   ==== server/authenticated ACL ====
 

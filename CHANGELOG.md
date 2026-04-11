@@ -21,6 +21,7 @@ ChangeLog
 - BUGFIX: fix resource handling in source trait
 - BUGFIX: avoid race conditions and unhandled promise rejections in async processing
 - BUGFIX: fix cleanup and error handling across sink/source traits
+- BUGFIX: fix Mosqitto ACL
 - UPDATE: upgrade NPM dependencies
 - CLEANUP: various code cleanups (callback handling, settle code, destroy handling, termination, subscriptions)
 - CLEANUP: align with ensureError code and fix typos
