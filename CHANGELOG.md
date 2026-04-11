@@ -2,11 +2,13 @@
 ChangeLog
 =========
 
-1.4.18 (2026-04-11)
+1.4.18 (2026-04-12)
 -------------------
 
-- UPDATE: upgrade NPM dependencies
 - IMPROVEMENT: detect concurrent deliveries of the same request id in service trait
+- IMPROVEMENT: improve error handling and reject pending calls on destroy
+- UPDATE: upgrade NPM dependencies
+- CLEANUP: use a better name for an internal symbol
 
 1.4.17 (2026-04-11)
 -------------------
