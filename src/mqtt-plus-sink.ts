@@ -115,6 +115,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         },
         ...args:       any[]
     ): Promise<Registration> {
+        /*  sanity check lifecycle  */
+        if (this.destroyed)
+            throw new Error("sink: instance already destroyed")
+
         /*  determine actual parameters  */
         let name:      K
         let callback:  WithInfo<T[K], InfoSink>
@@ -483,6 +487,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         },
         ...args:       any[]
     ): Promise<void> {
+        /*  sanity check lifecycle  */
+        if (this.destroyed)
+            throw new Error("push: instance already destroyed")
+
         /*  determine actual parameters  */
         let name:      K
         let data:      Readable | Uint8Array

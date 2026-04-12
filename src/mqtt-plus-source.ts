@@ -89,6 +89,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         },
         ...args:       any[]
     ): Promise<Registration> {
+        /*  sanity check lifecycle  */
+        if (this.destroyed)
+            throw new Error("source: instance already destroyed")
+
         /*  determine actual parameters  */
         let name:     K
         let callback: WithInfo<T[K], InfoSource>
@@ -401,6 +405,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         buffer:        Promise<Uint8Array>,
         meta:          Promise<Record<string, any> | undefined>
     }> {
+        /*  sanity check lifecycle  */
+        if (this.destroyed)
+            throw new Error("fetch: instance already destroyed")
+
         /*  determine actual parameters  */
         let name:      K
         let params:    Parameters<T[K]>
