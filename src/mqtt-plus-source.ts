@@ -149,6 +149,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             /*  sanity check sender  */
             if (sender === undefined || sender === "") {
                 this.error(new Error("invalid request: missing sender"))
+                await reqSpool.unroll()
                 return
             }
 
@@ -173,6 +174,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const error = new Error(`source: duplicate request id "${requestId}"`)
                 this.error(error)
                 await sendResponse(error.message).catch(() => {})
+                await reqSpool.unroll()
                 return
             }
             this.sourceControllers.set(requestId, abortController)
