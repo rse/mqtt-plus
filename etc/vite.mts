@@ -30,7 +30,7 @@ import pkg                   from "../package.json"
 
 const formats = process.env.VITE_BUILD_FORMATS ?? "es"
 
-export default Vite.defineConfig(({ command, mode }) => ({
+export default Vite.defineConfig(({ mode }) => ({
     logLevel: "info",
     appType:  "custom",
     base:     "",
