@@ -146,7 +146,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
 
             /*  sanity check request id  */
             if (this.eventControllers.has(requestId)) {
-                this.log("warning", `duplicate event request id -- dropped event "${name}"`, { requestId })
+                this.log("warning", `duplicate event request id -- dropped request for event "${name}"`, { requestId })
                 return
             }
 
