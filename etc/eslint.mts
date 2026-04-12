@@ -53,7 +53,7 @@ export default [
             },
             globals: {
                 ...globals.browser,
-                ...Object.fromEntries(Object.entries(globals.node).map(([key]) => [key, "off"])),
+                ...Object.fromEntries(Object.keys(globals.node).map((key) => [ key, "off" ])),
                 ...globals.commonjs,
                 ...globals.worker,
                 ...globals.serviceworker,
