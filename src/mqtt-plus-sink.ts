@@ -175,6 +175,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  sanity check sender  */
             if (sender === undefined || sender === "") {
                 this.error(new Error("invalid request: missing sender"))
+                await reqSpool.unroll()
                 return
             }
 
@@ -200,6 +201,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const error = new Error(`sink: duplicate request id "${requestId}"`)
                 this.error(error)
                 await sendResponse(error.message).catch(() => {})
+                await reqSpool.unroll()
                 return
             }
             this.pushRecvControllers.set(requestId, abortController)

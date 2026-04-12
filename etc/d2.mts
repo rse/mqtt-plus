@@ -43,8 +43,8 @@ try {
     fs.writeFileSync(process.argv[4], svg, "utf8")
     process.exit(0)
 }
-catch (error: any) {
-    process.stderr.write(`d2: ERROR: ${error.message}\n`)
+catch (error: unknown) {
+    process.stderr.write(`d2: ERROR: ${error instanceof Error ? error.message : String(error)}\n`)
     process.exit(1)
 }
 
