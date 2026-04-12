@@ -139,29 +139,18 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             const requestId = request.id
             const params    = request.params ?? []
             const sender    = request.sender
+            const receiver  = request.receiver
+
+            /*  create a resource spool for request cleanup  */
+            const reqSpool = new Spool()
+            this.sourceSpools.set(requestId, reqSpool)
+            reqSpool.roll(() => { this.sourceSpools.delete(requestId) })
+
+            /*  sanity check sender  */
             if (sender === undefined || sender === "") {
                 this.error(new Error("invalid request: missing sender"))
                 return
             }
-            const receiver  = request.receiver
-            const abortController = new AbortController()
-            if (this.sourceControllers.has(requestId)) {
-                const error = new Error(`source: duplicate request id "${requestId}"`)
-                this.error(error)
-                const responseTopic = this.options.topicMake(name, "source-fetch-response", sender)
-                const response = this.msg.makeSourceFetchResponse(requestId,
-                    name, error.message, this.options.id, sender)
-                const message = this.codec.encode(response)
-                await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 }).catch(() => {})
-                return
-            }
-            this.sourceControllers.set(requestId, abortController)
-            const abortSignal     = abortController.signal
-            const info: InfoSource = { sender, signal: abortSignal }
-            if (receiver)
-                info.receiver = receiver
-            if (request.meta)
-                info.meta = request.meta
 
             /*  generate corresponding MQTT topic (single topic for all responses)  */
             const responseTopic = this.options.topicMake(name, "source-fetch-response", sender)
@@ -169,25 +158,32 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 new Error(`${kind} name mismatch (expected "${name}", got "${actualName}")`)
 
             /*  callback for sending the ack/nak response  */
-            const sendResponse = async (error?: string) => {
-                const metaStore = this.metaStore(info.meta)
+            const sendResponse = async (error?: string, meta?: Record<string, any>) => {
+                const metaStore = this.metaStore(meta)
                 const response = this.msg.makeSourceFetchResponse(requestId,
                     name, error, this.options.id, sender, metaStore)
                 const message = this.codec.encode(response)
                 await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 })
             }
 
-            /*  create a resource spool for request cleanup  */
-            const reqSpool = new Spool()
-            if (this.sourceSpools.has(requestId)) {
+            /*  create abort controller  */
+            const abortController = new AbortController()
+            const abortSignal     = abortController.signal
+            if (this.sourceControllers.has(requestId)) {
                 const error = new Error(`source: duplicate request id "${requestId}"`)
                 this.error(error)
-                this.sourceControllers.delete(requestId)
                 await sendResponse(error.message).catch(() => {})
                 return
             }
-            this.sourceSpools.set(requestId, reqSpool)
-            reqSpool.roll(() => { this.sourceSpools.delete(requestId) })
+            this.sourceControllers.set(requestId, abortController)
+            reqSpool.roll(() => { this.sourceControllers.delete(requestId) })
+
+            /*  provide info object  */
+            const info: InfoSource = { sender, signal: abortSignal }
+            if (receiver)
+                info.receiver = receiver
+            if (request.meta)
+                info.meta = request.meta
 
             /*  track request id under source name for cascading cleanup  */
             let reqSet = this.sourceRequests.get(name)
@@ -197,11 +193,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             }
             reqSet.add(requestId)
             reqSpool.roll(() => { reqSet.delete(requestId) })
-
-            reqSpool.roll(() => {
-                this.onResponse.delete(`source-fetch-credit:${requestId}`)
-                this.sourceControllers.delete(requestId)
-            })
 
             /*  ensure stream gets destroyed on abort  */
             abortSignal.addEventListener("abort", () => {
@@ -234,7 +225,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     await reqSpool.unroll()
                 })
             }
-            const clearSourceTimeout   = () => this.timerClear(sourceTimerId)
+            const clearSourceTimeout = () => this.timerClear(sourceTimerId)
             refreshSourceTimeout()
             reqSpool.roll(() => { clearSourceTimeout() })
 
@@ -299,6 +290,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         refreshSourceTimeout()
                     }
                 })
+                reqSpool.roll(() => {
+                    this.onResponse.delete(`source-fetch-credit:${requestId}`)
+                })
 
                 await Promise.race([
                     Promise.resolve(callback(...params, info)),
@@ -312,7 +306,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     throw new Error("handler has set both info.stream and info.buffer fields")
 
                 /*  send ack response  */
-                await sendResponse()
+                await sendResponse(undefined, info.meta)
                 ackSent = true
 
                 /*  dispatch according to data type  */

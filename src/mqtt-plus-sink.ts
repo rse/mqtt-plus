@@ -165,21 +165,23 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             const requestId = request.id
             const params    = request.params ?? []
             const sender    = request.sender
+            const receiver  = request.receiver
+
+            /*  create a resource spool for request cleanup  */
+            const reqSpool = new Spool()
+            this.pushSpools.set(requestId, reqSpool)
+            reqSpool.roll(() => { this.pushSpools.delete(requestId) })
+
+            /*  sanity check sender  */
             if (sender === undefined || sender === "") {
                 this.error(new Error("invalid request: missing sender"))
                 return
             }
-            const receiver  = request.receiver
 
             /*  generate corresponding MQTT topic for response  */
             const responseTopic = this.options.topicMake(name, "sink-push-response", sender)
             const sinkNameMismatchError = (actualName: string) =>
                 new Error(`sink name mismatch (expected "${name}", got "${actualName}")`)
-
-            /*  define abort controller and signal  */
-            const abortController = new AbortController()
-            const abortSignal     = abortController.signal
-            this.pushRecvControllers.set(requestId, abortController)
 
             /*  callback for sending the ack/nak response  */
             const chunkCredit = this.options.chunkCredit
@@ -191,17 +193,16 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 })
             }
 
-            /*  create a resource spool for stream cleanup  */
-            const reqSpool = new Spool()
-            if (this.pushSpools.has(requestId)) {
+            /*  create abort controller  */
+            const abortController = new AbortController()
+            const abortSignal     = abortController.signal
+            if (this.pushRecvControllers.has(requestId)) {
                 const error = new Error(`sink: duplicate request id "${requestId}"`)
                 this.error(error)
-                this.pushRecvControllers.delete(requestId)
                 await sendResponse(error.message).catch(() => {})
                 return
             }
-            this.pushSpools.set(requestId, reqSpool)
-            reqSpool.roll(() => { this.pushSpools.delete(requestId) })
+            this.pushRecvControllers.set(requestId, abortController)
             reqSpool.roll(() => { this.pushRecvControllers.delete(requestId) })
 
             /*  check authentication and prepare stream  */
