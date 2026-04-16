@@ -210,6 +210,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  check authentication and prepare stream  */
             let dataCompleted     = false
             let ackSent           = false
+            let errorResponseSent = false
             try {
                 if (topicName !== request.name)
                     throw new Error(`sink name mismatch (topic: "${topicName}", payload: "${request.name}")`)
@@ -271,8 +272,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     if (!dataCompleted && !abortSignal.aborted && !this.destroying)
                         abortController.abort(new Error("push stream closed"))
 
-                    /*  send cancel signal (credit=0) to push sender  */
-                    if (!dataCompleted && !this.destroying && sender) {
+                    /*  send cancel signal (credit=0) to push sender
+                        (suppress when an explicit error response was already published,
+                        to avoid emitting two terminal signals for the same outcome)  */
+                    if (!dataCompleted && !this.destroying && !errorResponseSent && sender) {
                         const cancelMsg = this.msg.makeSinkPushCredit(requestId,
                             name, 0, this.options.id, sender)
                         const encoded = this.codec.encode(cancelMsg)
@@ -441,6 +444,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
                 /*  send error as nak response or as mid-stream error response  */
                 this.error(error)
+                errorResponseSent = true
                 await sendResponse(error.message).catch(() => {})
             }
             finally {
