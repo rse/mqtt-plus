@@ -340,8 +340,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  prepare info object  */
                 const promise = readable.buffer
                 let settled = false
-                let resolve: () => void          = () => {}
-                let reject:  (err: Error) => void = () => {}
+                let resolve!: () => void
+                let reject!:  (err: Error) => void
                 const onEnd   = () => {
                     if (!settled) {
                         settled = true
