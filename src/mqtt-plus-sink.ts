@@ -451,7 +451,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  cleanup resources  */
                 const stream = this.pushStreams.get(requestId)
                 if (stream !== undefined && !stream.destroyed && !dataCompleted)
-                    stream.destroy()
+                    stream.destroy(abortSignal.aborted
+                        ? ensureError(abortSignal.reason)
+                        : new Error("sink push aborted without cause"))
                 await reqSpool.unroll()
             }
         })
