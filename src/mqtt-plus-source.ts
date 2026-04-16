@@ -263,19 +263,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         throw new Error(`source "${name}" failed authentication`)
                 }
 
-                /*  handle credit-based flow control (if credit provided in request)  */
-                const initialCredit = request.credit
-                creditGate = (initialCredit !== undefined && initialCredit > 0)
-                    ? new CreditGate(initialCredit) : undefined
-                if (creditGate) {
-                    const gate = creditGate
-                    this.sourceCreditGates.set(requestId, gate)
-                    reqSpool.roll(() => {
-                        gate.abort()
-                        this.sourceCreditGates.delete(requestId)
-                    })
-                }
-
                 /*  register credit/cancel handler (unconditional for cancel support)  */
                 this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
                     if (abortSignal.aborted)
@@ -315,6 +302,19 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     throw new Error("handler did not provide data via info.stream or info.buffer fields")
                 if (info.stream instanceof Readable && (info.buffer instanceof Promise || info.buffer instanceof Uint8Array))
                     throw new Error("handler has set both info.stream and info.buffer fields")
+
+                /*  handle credit-based flow control (if credit provided in request)  */
+                const initialCredit = request.credit
+                creditGate = (initialCredit !== undefined && initialCredit > 0)
+                    ? new CreditGate(initialCredit) : undefined
+                if (creditGate) {
+                    const gate = creditGate
+                    this.sourceCreditGates.set(requestId, gate)
+                    reqSpool.roll(() => {
+                        gate.abort()
+                        this.sourceCreditGates.delete(requestId)
+                    })
+                }
 
                 /*  send ack response  */
                 await sendResponse(undefined, info.meta)
