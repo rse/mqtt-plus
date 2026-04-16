@@ -540,7 +540,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
         /*  ensure resources are released if consumer aborts stream early  */
         let cancelled = false
-        const cancelAndUnroll = () => {
+        const cancelAndUnroll = (reason?: unknown) => {
             if (!cancelled && !streamEnded) {
                 cancelled = true
                 const targetId = responderId
@@ -553,11 +553,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 }
             }
             if (!streamEnded)
-                metaReject(new Error("stream aborted"))
+                metaReject(reason !== undefined
+                    ? ensureError(reason)
+                    : new Error("stream aborted"))
             spool.unroll()?.catch(() => {})
         }
-        stream.once("close", cancelAndUnroll)
-        stream.once("error", cancelAndUnroll)
+        stream.once("close", () => cancelAndUnroll())
+        stream.once("error", (err) => cancelAndUnroll(err))
 
         /*  register response dispatch callback (ack/nak)  */
         this.onResponse.set(`source-fetch-response:${requestId}`, (response: SourceFetchResponse) => {
