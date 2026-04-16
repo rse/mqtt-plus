@@ -10,6 +10,7 @@ ChangeLog
 - IMPROVEMENT: add sanity checks for message validation
 - CLEANUP: add license headers
 - CLEANUP: various code cleanups (naming, simplification, resource handling, messages)
+- CLEANUP: various cleanups to the source trait
 - UPDATE: upgrade NPM dependencies
 
 1.4.17 (2026-04-11)
