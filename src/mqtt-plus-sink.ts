@@ -574,6 +574,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  send request and wait for response before sending chunks  */
         let initialCredit:        number | undefined
         let creditGate:           CreditGate | undefined
+        let pendingCredit         = 0
         let remoteErrorObject:    Error | undefined
         let cancelledByReceiver   = false
         let pushAcked             = false
@@ -668,6 +669,50 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         })
         spool.roll(() => { this.onResponse.delete(`sink-push-response:${requestId}`) })
 
+        /*  register credit callback eagerly (before awaiting ack) so that
+            credit-replenishment or early cancel messages arriving on the
+            response topic right after ack are not silently dropped  */
+        this.onResponse.set(`sink-push-credit:${requestId}`, (response: SinkPushCredit) => {
+            if (response.name !== name) {
+                const error = new Error(`sink credit name mismatch (expected "${name}", got "${response.name}")`)
+                remoteErrorObject = error
+                abortController.abort(error)
+                if (!pushAcked) {
+                    pushInitialSettled = true
+                    pushInitialReject(error)
+                }
+                else if (!pushFinalized) {
+                    pushFinalized = true
+                    pushFinalizeReject(error)
+                }
+                return
+            }
+            if (!lockResponder("sink credit", response.sender))
+                return
+            if (response.credit === 0) {
+                /*  cancel signal from receiver  */
+                cancelledByReceiver = true
+                const error = new Error(`push to sink "${name}" cancelled by receiver`)
+                abortController.abort(error)
+                if (!pushAcked) {
+                    pushInitialSettled = true
+                    pushInitialReject(error)
+                }
+                else if (!pushFinalized) {
+                    pushFinalized = true
+                    pushFinalizeReject(error)
+                }
+                return
+            }
+            if (creditGate !== undefined) {
+                creditGate.replenish(response.credit)
+                refreshTimeout()
+            }
+            else
+                pendingCredit += response.credit
+        })
+        spool.roll(() => { this.onResponse.delete(`sink-push-credit:${requestId}`) })
+
         try {
             /*  handle abort signal  */
             const onAbort = () => {
@@ -694,9 +739,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 this.publishToTopic(requestTopic, message, { qos: 2, ...options }))
             await pushInitial
 
-            /*  create credit gate for flow control (if server granted credit)  */
-            if (initialCredit !== undefined && initialCredit > 0)
-                creditGate = new CreditGate(initialCredit)
+            /*  create credit gate for flow control (if server granted credit),
+                folding in any credits that arrived before the gate existed  */
+            if (initialCredit !== undefined && initialCredit > 0) {
+                creditGate = new CreditGate(initialCredit + pendingCredit)
+                if (pendingCredit > 0)
+                    refreshTimeout()
+                pendingCredit = 0
+            }
 
             /*  register credit gate at instance level  */
             if (creditGate) {
@@ -704,37 +754,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 spool.roll(() => { this.pushCreditGates.delete(requestId) })
             }
 
-            /*  register credit callback for flow control (credit arrives on response topic)  */
+            /*  arrange credit-gate abort on cleanup  */
             if (creditGate) {
                 const gate = creditGate
                 spool.roll(() => { gate.abort() })
-                this.onResponse.set(`sink-push-credit:${requestId}`, (response: SinkPushCredit) => {
-                    if (response.name !== name) {
-                        const error = new Error(`sink credit name mismatch (expected "${name}", got "${response.name}")`)
-                        remoteErrorObject = error
-                        abortController.abort(error)
-                        if (!pushFinalized) {
-                            pushFinalized = true
-                            pushFinalizeReject(error)
-                        }
-                        return
-                    }
-                    if (!lockResponder("sink credit", response.sender))
-                        return
-                    if (response.credit === 0) {
-                        /*  cancel signal from receiver  */
-                        cancelledByReceiver = true
-                        abortController.abort(new Error(`push to sink "${name}" cancelled by receiver`))
-                        if (!pushFinalized) {
-                            pushFinalized = true
-                            pushFinalizeReject(new Error(`push to sink "${name}" cancelled by receiver`))
-                        }
-                        return
-                    }
-                    gate.replenish(response.credit)
-                    refreshTimeout()
-                })
-                spool.roll(() => { this.onResponse.delete(`sink-push-credit:${requestId}`) })
             }
 
             /*  generate corresponding MQTT topic for chunks (use request topic)  */
