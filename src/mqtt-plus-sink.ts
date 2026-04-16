@@ -780,15 +780,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  wait for terminal sink response  */
             refreshTimeout()
-            if (!pushFinalized) {
-                await new Promise<void>((resolve, reject) => {
-                    const onAbort = () => { reject(abortSignal.reason) }
-                    abortSignal.addEventListener("abort", onAbort, { once: true })
-                    pushFinalize.then(resolve, reject).finally(() => {
-                        abortSignal.removeEventListener("abort", onAbort)
-                    })
-                })
-            }
+            if (!pushFinalized)
+                await pushFinalize
         }
         catch (err: unknown) {
             const error = ensureError(err)
