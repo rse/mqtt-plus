@@ -194,7 +194,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 this.sourceRequests.set(name, reqSet)
             }
             reqSet.add(requestId)
-            reqSpool.roll(() => { reqSet.delete(requestId) })
+            reqSpool.roll(() => {
+                reqSet.delete(requestId)
+                if (reqSet.size === 0)
+                    this.sourceRequests.delete(name)
+            })
 
             /*  ensure stream gets destroyed on abort  */
             abortSignal.addEventListener("abort", () => {
