@@ -208,7 +208,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             reqSpool.roll(() => { this.pushRecvControllers.delete(requestId) })
 
             /*  check authentication and prepare stream  */
-            let completedNormally = false
             let dataCompleted     = false
             let ackSent           = false
             try {
@@ -421,7 +420,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     try {
                         dataCompleted = true
                         await sendResponse()
-                        completedNormally = true
                     }
                     catch (err2: unknown) {
                         this.error(ensureError(err2), `sending terminal response for sink "${name}" failed`)
@@ -448,7 +446,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             finally {
                 /*  cleanup resources  */
                 const stream = this.pushStreams.get(requestId)
-                if (stream !== undefined && !stream.destroyed && !completedNormally)
+                if (stream !== undefined && !stream.destroyed && !dataCompleted)
                     stream.destroy()
                 await reqSpool.unroll()
             }

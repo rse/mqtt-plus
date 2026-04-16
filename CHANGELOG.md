@@ -12,6 +12,7 @@ ChangeLog
 - CLEANUP: various code cleanups (naming, simplification, resource handling, messages)
 - CLEANUP: various cleanups to the source trait
 - CLEANUP: pass-through specific error on cancelAndUnroll in service trait
+- CLEANUP: simplify error handling in sink trait
 - UPDATE: upgrade NPM dependencies
 
 1.4.17 (2026-04-11)
