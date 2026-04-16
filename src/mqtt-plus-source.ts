@@ -465,6 +465,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         let responderId    = receiver
         let responseAcked  = false
         let streamEnded    = false
+        const pendingChunks: SourceFetchChunk[] = []
 
         /*  lock the responder for this communication  */
         const lockResponder = (kind: string, sender?: string): boolean => {
@@ -570,41 +571,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         stream.once("close", () => cancelAndUnroll())
         stream.once("error", (err) => cancelAndUnroll(err))
 
-        /*  register response dispatch callback (ack/nak)  */
-        this.onResponse.set(`source-fetch-response:${requestId}`, (response: SourceFetchResponse) => {
-            if (streamEnded)
-                return
-            if (response.name !== name) {
-                endWithError(sourceNameMismatchError("source response", response.name))
-                return
-            }
-            if (!lockResponder("source response", response.sender))
-                return
-            if (response.error)
-                endWithError(new Error(response.error))
-            else {
-                if (responseAcked)
-                    return
-                responseAcked = true
-                metaResolve(response.meta)
-                refreshTimeout()
-            }
-        })
-
-        /*  register chunk dispatch callback (data chunks)  */
-        this.onResponse.set(`source-fetch-chunk:${requestId}`, (response: SourceFetchChunk) => {
-            if (streamEnded)
-                return
-            if (response.name !== name) {
-                endWithError(sourceNameMismatchError("source chunk", response.name))
-                return
-            }
-            if (!lockResponder("source chunk", response.sender))
-                return
-            if (!responseAcked) {
-                endWithError(new Error("received source chunk before source response acknowledgement"))
-                return
-            }
+        /*  process a single chunk message (shared by live dispatch and buffered drain,
+            so chunks observed before the ack response can be replayed once it arrives)  */
+        const processChunk = (response: SourceFetchChunk) => {
             if (response.error)
                 endWithError(new Error(response.error))
             else {
@@ -629,6 +598,53 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     spool.unroll()?.catch(() => {})
                 }
             }
+        }
+
+        /*  register response dispatch callback (ack/nak)  */
+        this.onResponse.set(`source-fetch-response:${requestId}`, (response: SourceFetchResponse) => {
+            if (streamEnded)
+                return
+            if (response.name !== name) {
+                endWithError(sourceNameMismatchError("source response", response.name))
+                return
+            }
+            if (!lockResponder("source response", response.sender))
+                return
+            if (response.error)
+                endWithError(new Error(response.error))
+            else {
+                if (responseAcked)
+                    return
+                responseAcked = true
+                metaResolve(response.meta)
+                refreshTimeout()
+
+                /*  drain any chunks that arrived before the ack (dispatch-layer reorder tolerance)  */
+                for (const msg of pendingChunks) {
+                    if (streamEnded)
+                        break
+                    processChunk(msg)
+                }
+                pendingChunks.length = 0
+            }
+        })
+
+        /*  register chunk dispatch callback (data chunks)  */
+        this.onResponse.set(`source-fetch-chunk:${requestId}`, (response: SourceFetchChunk) => {
+            if (streamEnded)
+                return
+            if (response.name !== name) {
+                endWithError(sourceNameMismatchError("source chunk", response.name))
+                return
+            }
+            if (!lockResponder("source chunk", response.sender))
+                return
+            if (!responseAcked) {
+                /*  buffer until the ack response flips responseAcked  */
+                pendingChunks.push(response)
+                return
+            }
+            processChunk(response)
         })
         spool.roll(() => {
             this.onResponse.delete(`source-fetch-response:${requestId}`)
