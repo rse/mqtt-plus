@@ -8,9 +8,9 @@ ChangeLog
 - IMPROVEMENT: detect concurrent deliveries and duplicate request ids across service and event traits
 - IMPROVEMENT: improve error handling and reject pending calls on destroy
 - IMPROVEMENT: add sanity checks for message validation
-- UPDATE: upgrade NPM dependencies
 - CLEANUP: add license headers
 - CLEANUP: various code cleanups (naming, simplification, resource handling, messages)
+- UPDATE: upgrade NPM dependencies
 
 1.4.17 (2026-04-11)
 -------------------
