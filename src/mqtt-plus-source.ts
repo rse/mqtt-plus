@@ -329,6 +329,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     const buffer = (info.buffer instanceof Promise)
                         ? await Promise.race([ info.buffer, abortPromise ])
                         : info.buffer
+
+                    /*  re-check abort: a late info.buffer resolution could win the race  */
+                    /*  by a microtask margin even after abort fired -- discard silently  */
+                    if (abortSignal.aborted)
+                        throw ensureError(abortSignal.reason)
                     await sendBufferAsChunks(buffer, this.options.chunkSize, sendChunk, creditGate, abortSignal)
                 }
             }
