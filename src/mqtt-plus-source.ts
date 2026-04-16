@@ -201,15 +201,17 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 if (info.stream instanceof Readable && !info.stream.destroyed)
                     info.stream.destroy(ensureError(abortSignal.reason))
             }, { once: true })
+            let abortReject!: (reason?: any) => void
             const abortPromise = new Promise<never>((_resolve, reject) => {
-                const onAbort = () => { reject(ensureError(abortSignal.reason)) }
-                if (abortSignal.aborted)
-                    onAbort()
-                else
-                    abortSignal.addEventListener("abort", onAbort, { once: true })
-                reqSpool.roll(() => { abortSignal.removeEventListener("abort", onAbort) })
+                abortReject = reject
             })
             abortPromise.catch(() => {})
+            const onAbort = () => { abortReject(ensureError(abortSignal.reason)) }
+            if (abortSignal.aborted)
+                onAbort()
+            else
+                abortSignal.addEventListener("abort", onAbort, { once: true })
+            reqSpool.roll(() => { abortSignal.removeEventListener("abort", onAbort) })
 
             /*  utility functions for timeout management  */
             const sourceTimerId = `source-fetch-send:${requestId}`
@@ -262,9 +264,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 creditGate = (initialCredit !== undefined && initialCredit > 0)
                     ? new CreditGate(initialCredit) : undefined
                 if (creditGate) {
-                    this.sourceCreditGates.set(requestId, creditGate)
+                    const gate = creditGate
+                    this.sourceCreditGates.set(requestId, gate)
                     reqSpool.roll(() => {
-                        creditGate!.abort()
+                        gate.abort()
                         this.sourceCreditGates.delete(requestId)
                     })
                 }
@@ -354,6 +357,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     if (ctrl)
                         ctrl.abort(new Error(`source "${name}" destroyed`))
                 }
+                this.sourceRequests.delete(name)
             }
         })
 
