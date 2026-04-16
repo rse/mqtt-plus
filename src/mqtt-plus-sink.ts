@@ -574,7 +574,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  send request and wait for response before sending chunks  */
         let initialCredit:        number | undefined
         let creditGate:           CreditGate | undefined
-        let remoteError           = false
         let remoteErrorObject:    Error | undefined
         let cancelledByReceiver   = false
         let pushAcked             = false
@@ -596,7 +595,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         const lockResponder = (kind: string, sender?: string): boolean => {
             if (sender === undefined || sender === "") {
                 const error = new Error(`received ${kind} without sender`)
-                remoteError = true
                 remoteErrorObject = error
                 abortController.abort(error)
                 if (!pushAcked) {
@@ -626,7 +624,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
             if (response.name !== name) {
                 const error = new Error(`sink response name mismatch (expected "${name}", got "${response.name}")`)
-                remoteError = true
                 remoteErrorObject = error
                 abortController.abort(error)
                 if (!pushAcked) {
@@ -643,7 +640,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 return
             if (response.error) {
                 const error = new Error(response.error)
-                remoteError = true
                 remoteErrorObject = error
                 abortController.abort(error)
                 if (!pushAcked) {
@@ -715,7 +711,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 this.onResponse.set(`sink-push-credit:${requestId}`, (response: SinkPushCredit) => {
                     if (response.name !== name) {
                         const error = new Error(`sink credit name mismatch (expected "${name}", got "${response.name}")`)
-                        remoteError = true
                         remoteErrorObject = error
                         abortController.abort(error)
                         if (!pushFinalized) {
@@ -790,7 +785,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  send error chunk only if push was acked and error did not originate from receiver
                 (before ack, the sink has no chunk handler yet and will time out on its own;
                 after final data chunk, no additional terminal chunk should be sent)  */
-            if (pushAcked && !remoteError && !cancelledByReceiver && !pushDataFinalSent) {
+            if (pushAcked && !remoteErrorObject && !cancelledByReceiver && !pushDataFinalSent) {
                 try {
                     const chunkTarget = responderId
                     if (chunkTarget !== undefined) {
@@ -808,7 +803,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  yield one event-loop tick to allow a pending MQTT error
                 response from the receiver to be processed, making the
                 error outcome deterministic (only when race is possible)  */
-            if (pushAcked && !remoteError)
+            if (pushAcked && !remoteErrorObject)
                 await new Promise<void>((resolve) => { setImmediate(resolve) })
 
             if (remoteErrorObject)
