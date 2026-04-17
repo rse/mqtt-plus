@@ -113,11 +113,9 @@ export class Spool {
                     throw errors[0]
                 else if (errors.length > 1)
                     throw new AggregateError(errors, "multiple cleanup failures")
+            }).finally(() => {
+                this.pending = null
             })
-            this.pending.then(
-                () => { this.pending = null },
-                () => { this.pending = null }
-            )
             if (suppress)
                 return this.pending.catch(() => {})
             return this.pending
