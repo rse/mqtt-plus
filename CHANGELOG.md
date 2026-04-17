@@ -2,20 +2,20 @@
 ChangeLog
 =========
 
-1.4.18 (2026-04-12)
+1.4.18 (2026-04-17)
 -------------------
 
 - IMPROVEMENT: detect concurrent deliveries and duplicate request ids across service and event traits
-- IMPROVEMENT: improve error handling and reject pending calls on destroy
+- IMPROVEMENT: improve error handling, honor destroyed flag in base trait, and reject pending calls on destroy
 - IMPROVEMENT: add sanity checks for message validation
 - IMPROVEMENT: allow caller to control MQTT QoS
 - IMPROVEMENT: allow emit() to be awaitable
+- UPDATE: upgrade NPM dependencies
 - CLEANUP: add license headers
 - CLEANUP: various code cleanups (naming, simplification, resource handling, messages)
 - CLEANUP: various cleanups to the source trait
 - CLEANUP: pass-through specific error on cancelAndUnroll in service trait
 - CLEANUP: simplify error handling in sink trait
-- UPDATE: upgrade NPM dependencies
 
 1.4.17 (2026-04-11)
 -------------------
