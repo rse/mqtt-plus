@@ -268,14 +268,14 @@ Event Emission
     emit(
         name:      string,
         ...params: any[]
-    ): void
+    ): Promise<void>
     emit({
         name:      string,
         params:    any[],
         receiver?: string,
         options?:  MQTT::IClientPublishOptions,
         meta?:     Record<string, any>
-    }): void
+    }): Promise<void>
     emit({
         name:      string,
         params:    any[],
@@ -285,7 +285,7 @@ Event Emission
         dry:       true
     }): { topic: string, payload: string | Uint8Array, options: IClientPublishOptions }
 
-Emit an event to all subscribers or a specific subscriber ("fire and forget").
+Emit an event to all subscribers or a specific subscriber (awaitable; ignore the promise for "fire and forget").
 
 - The optional `receiver` directs the event to a specific subscriber only.
 

@@ -33,7 +33,7 @@ import type { APISchema, EventKeys,
     Registration }                    from "./mqtt-plus-api"
 import type { WithInfo, InfoEvent }   from "./mqtt-plus-info"
 import { AuthTrait, type AuthOption } from "./mqtt-plus-auth"
-import { Spool, ensureError }         from "./mqtt-plus-error"
+import { Spool, ensureError, run }    from "./mqtt-plus-error"
 
 /*  Event Emission Trait  */
 export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
@@ -196,7 +196,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
     emit<K extends EventKeys<T> & string> (
         name:          K,
         ...params:     Parameters<T[K]>
-    ): void
+    ): Promise<void>
     emit<K extends EventKeys<T> & string> (
         config: {
             name:      K,
@@ -205,7 +205,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             options?:  IClientPublishOptions,
             meta?:     Record<string, any>
         }
-    ): void
+    ): Promise<void>
     emit<K extends EventKeys<T> & string> (
         config: {
             name:      K,
@@ -226,7 +226,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             dry?:      true
         },
         ...args:       any[]
-    ): void | { topic: string, payload: string | Uint8Array, options: IClientPublishOptions } {
+    ): Promise<void> | { topic: string, payload: string | Uint8Array, options: IClientPublishOptions } {
         /*  sanity check lifecycle  */
         if (this.destroyed)
             throw new Error("emit: instance already destroyed")
@@ -272,8 +272,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
             return { topic, payload: message, options: { qos: 2, ...options } }
         else
             /*  publish message to MQTT topic  */
-            this.publishToTopic(topic, message, { qos: 2, ...options })
-                .catch((err: unknown) => this.error(ensureError(err),
-                    `publish event as MQTT message to topic "${topic}"`))
+            return run(`publish event as MQTT message to topic "${topic}"`, () =>
+                this.publishToTopic(topic, message, { qos: 2, ...options }))
     }
 }

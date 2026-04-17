@@ -9,6 +9,7 @@ ChangeLog
 - IMPROVEMENT: improve error handling and reject pending calls on destroy
 - IMPROVEMENT: add sanity checks for message validation
 - IMPROVEMENT: allow caller to control MQTT QoS
+- IMPROVEMENT: allow emit() to be awaitable
 - CLEANUP: add license headers
 - CLEANUP: various code cleanups (naming, simplification, resource handling, messages)
 - CLEANUP: various cleanups to the source trait
