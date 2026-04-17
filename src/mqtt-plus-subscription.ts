@@ -107,20 +107,17 @@ class RefCountedSubscription {
             if (inflight)
                 await inflight
 
-            /*  perform the actual subscription  */
-            const promise = this.subscribeFn(topic, options).then(() => {
+            /*  perform the actual subscription, settling the single shared
+                deferred so first and concurrent subscribers always agree  */
+            void this.subscribeFn(topic, options).then(() => {
                 this.pending.delete(topic)
                 resolve()
-            }).catch((err: Error) => {
+            }, (err: Error) => {
                 this.pending.delete(topic)
                 this.clearCount(topic)
-
-                /*  reject the deferred for concurrent subscribers,
-                    then re-throw for the first subscriber's chain promise (both are required)  */
                 reject(err)
-                throw err
             })
-            return promise
+            return deferred
         }
         else {
             /*  perhaps still need to wait for a pending subscription  */
