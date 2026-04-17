@@ -367,7 +367,7 @@ export function run<T> (
             let error = ensureError(arg, description)
             if (oncatch) {
                 try {
-                    const result = oncatch(error)
+                    const result = await oncatch(error)
                     await runFinally(true, onfinally, description)
                     return result
                 }
