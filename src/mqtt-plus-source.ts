@@ -208,6 +208,13 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 if (info.stream instanceof Readable && !info.stream.destroyed)
                     info.stream.destroy(ensureError(abortSignal.reason))
             }, { once: true })
+            /*  safety net: destroy a stream assigned after the abort event fired  */
+            reqSpool.roll(() => {
+                if (abortSignal.aborted
+                    && info.stream instanceof Readable
+                    && !info.stream.destroyed)
+                    info.stream.destroy(ensureError(abortSignal.reason))
+            })
             let abortReject!: (reason?: any) => void
             const abortPromise = new Promise<never>((_resolve, reject) => {
                 abortReject = reject
@@ -647,6 +654,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             if (!lockResponder("source chunk", response.sender))
                 return
             if (!responseAcked) {
+                if (chunkCredit > 0 && pendingChunks.length >= creditGranted) {
+                    endWithError(new Error("flow control violation"))
+                    return
+                }
                 /*  buffer until the ack response flips responseAcked  */
                 pendingChunks.push(response)
                 return
