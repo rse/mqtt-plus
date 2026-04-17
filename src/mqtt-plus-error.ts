@@ -77,14 +77,20 @@ export class Spool {
             return this.pending
         }
 
+        /*  atomically take ownership of the currently rolled
+            resources so re-entrant unroll() calls from within
+            a synchronous cleanup observe an empty spool  */
+        const resources = this.resources
+        this.resources  = []
+
         /*  NOTICE: we operate synchronously until the first
             cleanup procedure returns a Promise. Then we continue
             asynchronously, regardless of whether the following
             cleanup procedures return a Promise or not!  */
         const errors: unknown[] = []
         let promise: Promise<void> | undefined
-        while (this.resources.length > 0) {
-            const entry    = this.resources.pop()!
+        while (resources.length > 0) {
+            const entry    = resources.pop()!
             const resource = entry.resource
             const cleanup  = entry.cleanup
             if (promise) {
