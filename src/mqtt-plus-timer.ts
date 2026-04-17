@@ -96,9 +96,9 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
 
     /*  timeout: wait a duration of time and then reject  */
     protected timeout (durationMs: number, info = "timeout", signal?: AbortSignal): Promise<never> {
-        return new Promise<never>((resolve, reject) => {
+        return new Promise<never>((_resolve, reject) => {
             if (signal?.aborted) {
-                resolve(undefined as never)
+                reject(new Error("aborted"))
                 return
             }
             const ac: AbortController | undefined =
@@ -115,7 +115,7 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
                     signal.addEventListener("abort", () => {
                         if (timer !== null)
                             clearTimeout(timer)
-                        resolve(undefined as never)
+                        reject(new Error("aborted"))
                     }, { once: true, signal: ac.signal })
             }
         })
