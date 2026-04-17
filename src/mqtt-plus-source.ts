@@ -548,7 +548,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 }
             }
         })
-        stream.once("error", () => {}) /*  prevent unhandled error exception  */
 
         /*  create promise for eagerly collecting stream chunks  */
         const buffer = stream.buffer
@@ -584,7 +583,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     : new Error("stream aborted"))
             spool.unroll()?.catch(() => {})
         }
-        stream.once("close", () => cancelAndUnroll())
+        stream.once("close", ()    => cancelAndUnroll())
         stream.once("error", (err) => cancelAndUnroll(err))
 
         /*  process a single chunk message (shared by live dispatch and buffered drain,
@@ -656,7 +655,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             if (!lockResponder("source chunk", response.sender))
                 return
             if (!responseAcked) {
-                if (chunkCredit > 0 && pendingChunks.length >= creditGranted) {
+                if (chunkCredit > 0 && pendingChunks.length > creditGranted) {
                     endWithError(new Error("flow control violation"))
                     return
                 }
