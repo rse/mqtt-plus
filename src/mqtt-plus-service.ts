@@ -184,6 +184,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             armServiceTimeout()
 
             /*  execute handler and send response  */
+            let removeAbortListener: (() => void) | undefined
             try {
                 if (auth) {
                     info.authenticated = await this.authenticated(senderId, request.auth, auth)
@@ -196,10 +197,11 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     }
                     if (abortSignal.aborted)
                         onAbort()
-                    else
+                    else {
                         abortSignal.addEventListener("abort", onAbort, { once: true })
+                        removeAbortListener = () => abortSignal.removeEventListener("abort", onAbort)
+                    }
                 })
-                abortPromise.catch(() => {})
                 const result = await Promise.race([
                     callback(...params, info),
                     abortPromise
@@ -213,7 +215,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 const encoded = this.codec.encode(rpcResponse)
                 const topic = this.options.topicMake(name, "service-call-response", senderId)
                 await this.publishToTopic(topic, encoded,
-                    { qos: request.qos ?? options.qos ?? 2 })
+                    { qos: request.qos ?? 2 })
             }
             catch (err: unknown) {
                 const error = ensureError(err)
@@ -228,13 +230,14 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                     const encoded = this.codec.encode(rpcResponse)
                     const topic = this.options.topicMake(name, "service-call-response", senderId)
                     await this.publishToTopic(topic, encoded,
-                        { qos: request.qos ?? options.qos ?? 2 })
+                        { qos: request.qos ?? 2 })
                 }
                 catch (err2: unknown) {
                     this.error(ensureError(err2), `sending error response for service "${name}" failed`)
                 }
             }
             finally {
+                removeAbortListener?.()
                 clearServiceTimeout()
                 abortController.abort()
                 requestIds.delete(requestId)
@@ -375,9 +378,9 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         /*  generate encoded message  */
         const auth      = this.authenticate()
         const metaStore = this.metaStore(meta)
+        const qos       = options.qos ?? 2
         const request   = this.msg.makeServiceCallRequest(requestId, name, params,
-            this.options.id, receiver, auth, metaStore,
-            options.qos)
+            this.options.id, receiver, auth, metaStore, qos)
         const message   = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
@@ -386,7 +389,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         /*  publish message to MQTT topic  */
         try {
             await run(`publish service request as MQTT message to topic "${topic}"`, () =>
-                this.publishToTopic(topic, message, { qos: 2, ...options }))
+                this.publishToTopic(topic, message, { ...options, qos }))
         }
         catch (err: unknown) {
             if (settle())

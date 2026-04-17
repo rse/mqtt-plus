@@ -74,20 +74,20 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
                 signal !== undefined ? new AbortController() : undefined
             let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
                 timer = null
-                if (signal !== undefined)
-                    ac!.abort()
+                if (ac !== undefined)
+                    ac.abort()
                 resolve()
             }, durationMs)
             timer.unref()
             if (signal !== undefined) {
                 if (signal.aborted)
                     resolve()
-                else
+                else if (ac !== undefined)
                     signal.addEventListener("abort", () => {
                         if (timer !== null)
                             clearTimeout(timer)
                         resolve()
-                    }, { once: true, signal: ac!.signal })
+                    }, { once: true, signal: ac.signal })
             }
         })
     }
@@ -99,20 +99,20 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
                 signal !== undefined ? new AbortController() : undefined
             let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
                 timer = null
-                if (signal !== undefined)
-                    ac!.abort()
+                if (ac !== undefined)
+                    ac.abort()
                 reject(new Error(info))
             }, durationMs)
             timer.unref()
             if (signal !== undefined) {
                 if (signal.aborted)
                     resolve(undefined as never)
-                else
+                else if (ac !== undefined)
                     signal.addEventListener("abort", () => {
                         if (timer !== null)
                             clearTimeout(timer)
                         resolve(undefined as never)
-                    }, { once: true, signal: ac!.signal })
+                    }, { once: true, signal: ac.signal })
             }
         })
     }
