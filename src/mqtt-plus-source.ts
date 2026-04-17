@@ -263,11 +263,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             try {
                 if (topicName !== request.name)
                     throw new Error(`source name mismatch (topic: "${topicName}", payload: "${request.name}")`)
-                if (auth) {
-                    info.authenticated = await this.authenticated(sender, request.auth, auth)
-                    if (!info.authenticated && (typeof auth === "string" || auth.mode === "require"))
-                        throw new Error(`source "${name}" failed authentication`)
-                }
+                if (auth)
+                    info.authenticated = await this.authenticated(sender, request.auth, auth, `source "${name}"`)
 
                 /*  register credit/cancel handler (unconditional for cancel support)  */
                 this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {

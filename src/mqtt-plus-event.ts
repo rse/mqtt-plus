@@ -168,11 +168,8 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
 
             /*  asynchronously execute handler  */
             try {
-                if (auth) {
-                    info.authenticated = await this.authenticated(senderId, request.auth, auth)
-                    if (!info.authenticated && (typeof auth === "string" || auth.mode === "require"))
-                        throw new Error(`event "${name}" failed authentication`)
-                }
+                if (auth)
+                    info.authenticated = await this.authenticated(senderId, request.auth, auth, `event "${name}"`)
                 await callback(...params, info)
             }
             catch (result: unknown) {

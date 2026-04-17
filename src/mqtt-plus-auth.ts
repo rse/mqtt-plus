@@ -110,7 +110,7 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
     }
 
     /*  check whether request is authenticated  */
-    protected async authenticated (clientId: string | undefined, tokens: string[] | undefined, option: AuthOption): Promise<boolean> {
+    protected async authenticated (clientId: string | undefined, tokens: string[] | undefined, option: AuthOption, label: string): Promise<boolean> {
         let authenticated = false
 
         /*  determine authentication configuration  */
@@ -141,6 +141,11 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
                     break
             }
         }
+
+        /*  enforce "require" mode  */
+        const required = (typeof option === "string" || option.mode === "require")
+        if (!authenticated && required)
+            throw new Error(`${label} failed authentication`)
 
         return authenticated
     }
