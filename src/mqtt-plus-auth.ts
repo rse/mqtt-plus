@@ -79,7 +79,7 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
     authenticate (token: string, remove: boolean): void
     authenticate (token?: string, remove?: boolean): string[] | undefined | void {
         if (token === undefined) {
-            const tokens = Array.from(this._tokens).filter((token) => token.length <= 8192).slice(0, 8)
+            const tokens = Array.from(this._tokens)
             return tokens.length > 0 ? tokens : undefined
         }
         else if (remove === true)
