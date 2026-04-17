@@ -529,7 +529,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         name, creditToGrant, this.options.id, targetId)
                     const encoded = this.codec.encode(creditMsg)
                     const creditTopic = this.options.topicMake(name, "source-fetch-request", targetId)
-                    this.publishToTopic(creditTopic, encoded, { qos: options.qos ?? 2 }).catch(() => {})
+                    this.publishToTopic(creditTopic, encoded, { qos: options.qos ?? 2 })
+                        .catch((err) => {
+                            const error = ensureError(err, "sending source fetch credit failed")
+                            this.error(error)
+                            endWithError(error)
+                        })
                     refreshTimeout()
                 }
             }
@@ -547,7 +552,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             streamEnded = true
             metaReject(error)
             stream.destroy(error)
-            spool.unroll()?.catch(() => {})
         }
 
         /*  ensure resources are released if consumer aborts stream early  */
@@ -561,7 +565,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                         name, 0, this.options.id, targetId)
                     const encoded = this.codec.encode(cancelMsg)
                     const cancelTopic = this.options.topicMake(name, "source-fetch-request", targetId)
-                    this.publishToTopic(cancelTopic, encoded, { qos: options.qos ?? 2 }).catch(() => {})
+                    this.publishToTopic(cancelTopic, encoded, { qos: options.qos ?? 2 })
+                        .catch((err) => this.error(ensureError(err, "sending source fetch cancel failed")))
                 }
             }
             if (!streamEnded)

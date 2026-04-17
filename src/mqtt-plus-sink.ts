@@ -197,6 +197,17 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             /*  create abort controller  */
             const abortController = new AbortController()
             const abortSignal     = abortController.signal
+            let abortReject!: (reason?: any) => void
+            const abortPromise = new Promise<never>((_resolve, reject) => {
+                abortReject = reject
+            })
+            abortPromise.catch(() => {})
+            const onRecvAbort = () => { abortReject(ensureError(abortSignal.reason)) }
+            if (abortSignal.aborted)
+                onRecvAbort()
+            else
+                abortSignal.addEventListener("abort", onRecvAbort, { once: true })
+            reqSpool.roll(() => { abortSignal.removeEventListener("abort", onRecvAbort) })
             if (this.pushRecvControllers.has(requestId)) {
                 const error = new Error(`sink: duplicate request id "${requestId}"`)
                 this.error(error)
@@ -265,7 +276,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                             const creditMsg = this.msg.makeSinkPushCredit(requestId,
                                 name, creditToGrant, this.options.id, sender)
                             const encoded = this.codec.encode(creditMsg)
-                            this.publishToTopic(responseTopic, encoded, { qos: options.qos ?? 2 }).catch(() => {})
+                            this.publishToTopic(responseTopic, encoded, { qos: options.qos ?? 2 })
+                                .catch((err) => {
+                                    const error = ensureError(err, "sending sink push credit failed")
+                                    this.error(error)
+                                    readable.destroy(error)
+                                })
                             refreshPushTimeout()
                         }
                     }
@@ -285,7 +301,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         const cancelMsg = this.msg.makeSinkPushCredit(requestId,
                             name, 0, this.options.id, sender)
                         const encoded = this.codec.encode(cancelMsg)
-                        this.publishToTopic(responseTopic, encoded, { qos: options.qos ?? 2 }).catch(() => {})
+                        this.publishToTopic(responseTopic, encoded, { qos: options.qos ?? 2 })
+                            .catch((err) => this.error(ensureError(err, "sending sink push cancel failed")))
                     }
                 })
 
@@ -408,7 +425,10 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 ackSent = true
 
                 /*  call handler  */
-                await callback(...params, info)
+                await Promise.race([
+                    Promise.resolve(callback(...params, info)),
+                    abortPromise
+                ])
 
                 /*  ensure stream is consumed or destroyed to prevent hang  */
                 if (readable.readableFlowing !== true && !readable.destroyed)
