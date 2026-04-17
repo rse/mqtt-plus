@@ -28,6 +28,11 @@ import { D2 } from "@terrastruct/d2"
 try {
     const d2 = new D2()
 
+    if (process.argv.length < 5) {
+        process.stderr.write("d2: USAGE: d2 <include-file> <diagram-file> <output-file>\n")
+        process.exit(1)
+    }
+
     const include = fs.readFileSync(process.argv[2], "utf8")
     const diag    = fs.readFileSync(process.argv[3], "utf8")
 

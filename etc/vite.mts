@@ -75,14 +75,23 @@ export default Vite.defineConfig(({ mode }) => ({
             entry:    "dst-stage1/mqtt-plus.js",
             formats:  formats.split(","),
             name:     "MQTTp",
-            fileName: (format, entryName) =>
-                `mqtt-plus.${format === "es" ? "esm" : format}.${format === "cjs" ? "cjs" : "js" }`
+            fileName: (format) => {
+                const nameMap: Record<string, { infix: string, ext: string }> = {
+                    es:  { infix: "esm", ext: "js"  },
+                    cjs: { infix: "cjs", ext: "cjs" },
+                    umd: { infix: "umd", ext: "js"  }
+                }
+                const m = nameMap[format]
+                if (!m)
+                    throw new Error(`unsupported format: ${format}`)
+                return `mqtt-plus.${m.infix}.${m.ext}`
+            }
         },
         target:                 formats === "umd" ? "es2022" : "node20",
         outDir:                 "dst-stage2",
         assetsDir:              "",
         emptyOutDir:            false,
-        chunkSizeWarningLimit:  5000,
+        chunkSizeWarningLimit:  750,
         assetsInlineLimit:      0,
         sourcemap:              (mode === "development"),
         minify:                 (mode === "production") && formats === "umd",
