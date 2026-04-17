@@ -757,13 +757,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         try {
             /*  handle abort signal  */
             const onAbort = () => {
+                const error = ensureError(abortSignal.reason)
                 if (!pushInitialSettled) {
                     pushInitialSettled = true
-                    pushInitialReject(abortSignal.reason)
+                    pushInitialReject(error)
                 }
                 if (!pushFinalized) {
                     pushFinalized = true
-                    pushFinalizeReject(abortSignal.reason)
+                    pushFinalizeReject(error)
                 }
             }
             abortSignal.addEventListener("abort", onAbort, { once: true })
