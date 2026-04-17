@@ -677,7 +677,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const credit = chunkCredit > 0 ? chunkCredit : undefined
         const request = this.msg.makeSourceFetchRequest(requestId,
             name, params, this.options.id, receiver, auth, metaStore, credit,
-            options.qos as 0 | 1 | 2 | undefined)
+            options.qos)
         const message = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */

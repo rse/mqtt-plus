@@ -379,7 +379,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const metaStore = this.metaStore(meta)
         const request   = this.msg.makeServiceCallRequest(requestId, name, params,
             this.options.id, receiver, auth, metaStore,
-            options.qos as 0 | 1 | 2 | undefined)
+            options.qos)
         const message   = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */

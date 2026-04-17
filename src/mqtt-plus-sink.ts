@@ -768,7 +768,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             const metaStore = this.metaStore(meta)
             const request   = this.msg.makeSinkPushRequest(requestId,
                 name, params, this.options.id, receiver, auth, metaStore,
-                options.qos as 0 | 1 | 2 | undefined)
+                options.qos)
             const message   = this.codec.encode(request)
             const requestTopic = this.options.topicMake(name, "sink-push-request", receiver)
             await run(`publish push request as MQTT message to topic "${requestTopic}"`, () =>
