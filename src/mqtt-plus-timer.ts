@@ -70,6 +70,10 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
     /*  sleep: wait a duration of time and then resolve  */
     protected sleep (durationMs: number, signal?: AbortSignal): Promise<void> {
         return new Promise<void>((resolve) => {
+            if (signal?.aborted) {
+                resolve()
+                return
+            }
             const ac: AbortController | undefined =
                 signal !== undefined ? new AbortController() : undefined
             let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
@@ -80,9 +84,7 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
             }, durationMs)
             timer.unref()
             if (signal !== undefined) {
-                if (signal.aborted)
-                    resolve()
-                else if (ac !== undefined)
+                if (ac !== undefined)
                     signal.addEventListener("abort", () => {
                         if (timer !== null)
                             clearTimeout(timer)
@@ -95,6 +97,10 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
     /*  timeout: wait a duration of time and then reject  */
     protected timeout (durationMs: number, info = "timeout", signal?: AbortSignal): Promise<never> {
         return new Promise<never>((resolve, reject) => {
+            if (signal?.aborted) {
+                resolve(undefined as never)
+                return
+            }
             const ac: AbortController | undefined =
                 signal !== undefined ? new AbortController() : undefined
             let timer: ReturnType<typeof setTimeout> | null = setTimeout(() => {
@@ -105,9 +111,7 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
             }, durationMs)
             timer.unref()
             if (signal !== undefined) {
-                if (signal.aborted)
-                    resolve(undefined as never)
-                else if (ac !== undefined)
+                if (ac !== undefined)
                     signal.addEventListener("abort", () => {
                         if (timer !== null)
                             clearTimeout(timer)
