@@ -68,6 +68,11 @@ class RefCountedSubscription {
         return undefined
     }
 
+    /*  clear reference count for a topic entirely  */
+    private clearCount (topic: string) {
+        this.counts.delete(topic)
+    }
+
     /*  subscribe to a topic (reference-counted)  */
     async subscribe (topic: string, options: IClientSubscribeOptions = { qos: 2 }): Promise<void> {
         /*  increment count first to reserve our interest  */
@@ -108,7 +113,7 @@ class RefCountedSubscription {
                 resolve()
             }).catch((err: Error) => {
                 this.pending.delete(topic)
-                this.decrementCount(topic)
+                this.clearCount(topic)
 
                 /*  reject the deferred for concurrent subscribers,
                     then re-throw for the first subscriber's chain promise (both are required)  */
@@ -121,10 +126,7 @@ class RefCountedSubscription {
             /*  perhaps still need to wait for a pending subscription  */
             const pending = this.pending.get(topic)
             if (pending)
-                return pending.catch((err: Error) => {
-                    this.decrementCount(topic)
-                    throw err
-                })
+                return pending
         }
     }
 
