@@ -69,7 +69,7 @@ describe("MQTT+ Sink Push", function () {
         /*  push a buffer (instead of a stream)  */
         await ctx.apiC.push("example/server/upload", new Uint8Array(data), "foo").then(() => {
             spy("push-success")
-        }).catch((err: Error) => {
+        }).catch((_err: Error) => {
             spy("push-error")
         })
         await new Promise((resolve) => { setTimeout(resolve, 100) })
@@ -117,7 +117,7 @@ describe("MQTT+ Sink Push", function () {
         readable.push(null)
         await ctx.apiC.push("example/server/upload", readable, "foo").then(() => {
             spy("transfer-success")
-        }).catch((err: Error) => {
+        }).catch((_err: Error) => {
             spy("transfer-error")
         })
         await new Promise((resolve) => { setTimeout(resolve, 100) })
@@ -164,7 +164,7 @@ describe("MQTT+ Sink Push", function () {
             meta:   { push_tag: "my-push-tag" }
         }).then(() => {
             spy("push-success")
-        }).catch((err: Error) => {
+        }).catch((_err: Error) => {
             spy("push-error")
         })
         await new Promise((resolve) => { setTimeout(resolve, 100) })

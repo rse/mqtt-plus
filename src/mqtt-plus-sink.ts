@@ -223,6 +223,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             let dataCompleted     = false
             let ackSent           = false
             let errorResponseSent = false
+            let readableRef: ReadableTee | undefined = undefined
+            const noopError = () => {} /*  prevent unhandled error exception  */
             try {
                 if (topicName !== request.name)
                     throw new Error(`sink name mismatch (topic: "${topicName}", payload: "${request.name}")`)
@@ -294,9 +296,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         }
                     }
                 })
+                readableRef = readable
                 this.pushStreams.set(requestId, readable)
                 reqSpool.roll(() => { this.pushStreams.delete(requestId) })
-                const noopError = () => {} /*  prevent unhandled error exception  */
                 readable.on("error", noopError)
                 reqSpool.roll(() => {
                     if (!dataCompleted && !abortSignal.aborted && !this.destroying)
@@ -400,7 +402,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const streamDone = new Promise<void>((res, rej) => {
                     resolve = res
                     reject  = rej
-                    readable.removeListener("error", noopError)
                     readable.once("end",   onEnd)
                     readable.once("close", onClose)
                     readable.once("error", onError)
@@ -490,6 +491,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         ? ensureError(abortSignal.reason)
                         : new Error("sink push aborted without cause"))
                 await reqSpool.unroll()
+                if (readableRef !== undefined)
+                    readableRef.removeListener("error", noopError)
             }
         })
         spool.roll(() => { this.onRequest.delete(`sink-push-request:${name}`) })

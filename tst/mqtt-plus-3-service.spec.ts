@@ -57,7 +57,7 @@ describe("MQTT+ Service Call", function () {
         await ctx.apiC.call("example/server/hello", "world", 42).then(async (result) => {
             spy("call-success")
             expect(result).to.be.equal("world:42")
-        }).catch((err: Error) => {
+        }).catch((_err: Error) => {
             spy("call-error")
         })
         expect(spy.getCalls().map((call) => call.firstArg))
@@ -65,7 +65,7 @@ describe("MQTT+ Service Call", function () {
         spy.resetHistory()
 
         /*  call service (with error)  */
-        await ctx.apiC.call("example/server/hello", "bad-arg", 42).then(async (result) => {
+        await ctx.apiC.call("example/server/hello", "bad-arg", 42).then(async (_result) => {
             spy("call-success")
         }).catch((err: Error) => {
             expect(err.message).to.be.equal("invalid service call")
@@ -145,7 +145,7 @@ describe("MQTT+ Service Call", function () {
         const spy = sinon.spy()
 
         /*  call non-existing service (should timeout)  */
-        await ctx.apiC.call("example/server/hello", "world", 42).then(async (result) => {
+        await ctx.apiC.call("example/server/hello", "world", 42).then(async (_result) => {
             spy("call-success")
         }).catch((err: Error) => {
             spy("call-timeout")
