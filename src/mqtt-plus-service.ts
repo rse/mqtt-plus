@@ -348,10 +348,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             })
             spool.roll(() => { this.pendingCalls.delete(requestId) })
             this.onResponse.set(`service-call-response:${requestId}`, (response: ServiceCallResponse) => {
-                if (receiver !== undefined && response.sender !== receiver) {
-                    this.timerRefresh(timerId, onTimeout)
+                if (receiver !== undefined && response.sender !== receiver)
                     return
-                }
                 if (response.sender === undefined || response.sender === "") {
                     if (!settle())
                         return

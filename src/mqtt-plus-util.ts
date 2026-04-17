@@ -58,6 +58,16 @@ export class CreditGate {
         else
             /*  wait for credit to be replenished  */
             await new Promise<void>((resolve, reject) => {
+                const waiter = (aborted: boolean) => {
+                    if (abortSignal)
+                        abortSignal.removeEventListener("abort", onAbort)
+                    if (aborted) {
+                        reject(new Error("credit gate aborted"))
+                        return
+                    }
+                    this.remaining--
+                    resolve()
+                }
                 const onAbort = () => {
                     const idx = this.waiters.indexOf(waiter)
                     if (idx !== -1)
@@ -72,16 +82,6 @@ export class CreditGate {
                     abortSignal.removeEventListener("abort", onAbort)
                     reject(abortSignal.reason ?? new Error("aborted"))
                     return
-                }
-                const waiter = (aborted: boolean) => {
-                    if (abortSignal)
-                        abortSignal.removeEventListener("abort", onAbort)
-                    if (aborted) {
-                        reject(new Error("credit gate aborted"))
-                        return
-                    }
-                    this.remaining--
-                    resolve()
                 }
                 this.waiters.push(waiter)
             })
