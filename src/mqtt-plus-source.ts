@@ -195,9 +195,12 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             }
             reqSet.add(requestId)
             reqSpool.roll(() => {
-                reqSet.delete(requestId)
-                if (reqSet.size === 0)
-                    this.sourceRequests.delete(name)
+                const current = this.sourceRequests.get(name)
+                if (current === reqSet) {
+                    current.delete(requestId)
+                    if (current.size === 0)
+                        this.sourceRequests.delete(name)
+                }
             })
 
             /*  ensure stream gets destroyed on abort  */
