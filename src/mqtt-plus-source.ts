@@ -651,7 +651,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             if (!lockResponder("source chunk", response.sender))
                 return
             if (!responseAcked) {
-                if (chunkCredit > 0 && pendingChunks.length > creditGranted) {
+                if (chunkCredit > 0 && pendingChunks.length >= creditGranted) {
                     endWithError(new Error("flow control violation"))
                     return
                 }
