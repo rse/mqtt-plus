@@ -46,7 +46,7 @@ export interface APIOptions {
 }
 
 /*  Options trait  */
-export class OptionsTrait<T extends APISchema = APISchema> {
+export class OptionsTrait<_T extends APISchema = APISchema> {
     protected options: APIOptions
 
     /*  construct API class  */
