@@ -97,8 +97,16 @@ export class AuthTrait<T extends APISchema = APISchema> extends MetaTrait<T> {
     private async validateToken (token: string) {
         if (this._credential === null)
             throw new Error("credential has to be provided before validating tokens")
-        const result = await jwtVerify(token, this._credential).catch(() => null)
-        return (result?.payload as TokenPayload) ?? null
+        try {
+            const result = await jwtVerify(token, this._credential)
+            return (result.payload as TokenPayload)
+        }
+        catch (err: any) {
+            const code   = err?.code ?? err?.name ?? "unknown"
+            const reason = err?.message ?? ""
+            this.log("warning", "token validation failed", { code, reason })
+            return null
+        }
     }
 
     /*  check whether request is authenticated  */

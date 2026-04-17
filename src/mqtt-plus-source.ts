@@ -338,8 +338,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
                     /*  re-check abort: a late info.buffer resolution could win the race  */
                     /*  by a microtask margin even after abort fired -- discard silently  */
-                    if (abortSignal.aborted)
-                        throw ensureError(abortSignal.reason)
+                    abortSignal.throwIfAborted()
                     await sendBufferAsChunks(buffer, this.options.chunkSize, sendChunk, creditGate, abortSignal)
                 }
             }

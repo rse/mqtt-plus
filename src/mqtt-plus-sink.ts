@@ -274,6 +274,12 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         const creditToGrant = Math.max(0, freeChunks - outstanding)
                         if (creditToGrant > 0) {
                             creditState.creditGranted += creditToGrant
+                            /*  Note: Readable._read() is synchronous by Node's contract;
+                                the publish is intentionally fire-and-forget. Flow-control
+                                correctness is preserved because creditGranted is incremented
+                                synchronously before the publish, so any re-entrant _read()
+                                computes outstanding against the already-granted value.
+                                Publish failures destroy the readable via the .catch below.  */
                             const creditMsg = this.msg.makeSinkPushCredit(requestId,
                                 name, creditToGrant, this.options.id, sender)
                             const encoded = this.codec.encode(creditMsg)
@@ -479,7 +485,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             finally {
                 /*  cleanup resources  */
                 const stream = this.pushStreams.get(requestId)
-                if (stream !== undefined && !stream.destroyed && !dataCompleted)
+                if (stream !== undefined && !stream.destroyed && !dataCompleted && !errorResponseSent)
                     stream.destroy(abortSignal.aborted
                         ? ensureError(abortSignal.reason)
                         : new Error("sink push aborted without cause"))
