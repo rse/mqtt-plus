@@ -122,7 +122,12 @@ export class TraceTrait<T extends APISchema = APISchema> extends MsgTrait<T> {
             err = new Error(`${msg}: ${error.message}`, { cause: error })
             err.stack = error.stack
         }
-        this.emitEvent("error", err)
-        this.log("error", err.message)
+        try {
+            this.emitEvent("error", err)
+            this.log("error", err.message)
+        }
+        catch {
+            /*  intentionally swallow -- error reporter must never fail  */
+        }
     }
 }
