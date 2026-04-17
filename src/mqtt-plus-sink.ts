@@ -191,7 +191,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const response = this.msg.makeSinkPushResponse(requestId,
                     name, error, this.options.id, sender, credit)
                 const message = this.codec.encode(response)
-                await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 })
+                await this.publishToTopic(responseTopic, message,
+                    { qos: request.qos ?? options.qos ?? 2 })
             }
 
             /*  create abort controller  */
@@ -256,7 +257,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                             name, 0, this.options.id, sender)
                         const encoded = this.codec.encode(cancelMsg)
                         this.publishToTopic(responseTopic, encoded,
-                            { qos: options.qos ?? 2 }).catch(() => {})
+                            { qos: request.qos ?? options.qos ?? 2 }).catch(() => {})
                     }
                 })
                 const clearPushTimeout   = () => this.timerClear(pushTimerId)
@@ -276,7 +277,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                             const creditMsg = this.msg.makeSinkPushCredit(requestId,
                                 name, creditToGrant, this.options.id, sender)
                             const encoded = this.codec.encode(creditMsg)
-                            this.publishToTopic(responseTopic, encoded, { qos: options.qos ?? 2 })
+                            this.publishToTopic(responseTopic, encoded,
+                                { qos: request.qos ?? options.qos ?? 2 })
                                 .catch((err) => {
                                     const error = ensureError(err, "sending sink push credit failed")
                                     this.error(error)
@@ -301,7 +303,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         const cancelMsg = this.msg.makeSinkPushCredit(requestId,
                             name, 0, this.options.id, sender)
                         const encoded = this.codec.encode(cancelMsg)
-                        this.publishToTopic(responseTopic, encoded, { qos: options.qos ?? 2 })
+                        this.publishToTopic(responseTopic, encoded,
+                            { qos: request.qos ?? options.qos ?? 2 })
                             .catch((err) => this.error(ensureError(err, "sending sink push cancel failed")))
                     }
                 })
@@ -764,7 +767,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             const auth      = this.authenticate()
             const metaStore = this.metaStore(meta)
             const request   = this.msg.makeSinkPushRequest(requestId,
-                name, params, this.options.id, receiver, auth, metaStore)
+                name, params, this.options.id, receiver, auth, metaStore,
+                options.qos as 0 | 1 | 2 | undefined)
             const message   = this.codec.encode(request)
             const requestTopic = this.options.topicMake(name, "sink-push-request", receiver)
             await run(`publish push request as MQTT message to topic "${requestTopic}"`, () =>

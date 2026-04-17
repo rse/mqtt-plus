@@ -102,7 +102,8 @@ export class ServiceCallRequest extends Base {
         sender?:        string,
         receiver?:      string,
         public auth?:   string[],
-        public meta?:   Record<string, any>
+        public meta?:   Record<string, any>,
+        public qos?:    0 | 1 | 2
     ) { super("service-call-request", id, sender, receiver) }
 }
 const ServiceCallRequestSchema = v.strictObject({
@@ -111,7 +112,8 @@ const ServiceCallRequestSchema = v.strictObject({
     name:               v.string(),
     params:             v.optional(v.pipe(v.array(v.unknown()), v.maxLength(64))),
     auth:               v.optional(AuthSchema),
-    meta:               v.optional(MetaSchema)
+    meta:               v.optional(MetaSchema),
+    qos:                v.optional(v.picklist([ 0, 1, 2 ]))
 })
 
 /*  service response  */
@@ -142,7 +144,8 @@ export class SinkPushRequest extends Base {
         sender?:         string,
         receiver?:       string,
         public auth?:    string[],
-        public meta?:    Record<string, any>
+        public meta?:    Record<string, any>,
+        public qos?:     0 | 1 | 2
     ) { super("sink-push-request", id, sender, receiver) }
 }
 const SinkPushRequestSchema = v.strictObject({
@@ -151,7 +154,8 @@ const SinkPushRequestSchema = v.strictObject({
     name:                v.string(),
     params:              v.optional(v.pipe(v.array(v.unknown()), v.maxLength(64))),
     auth:                v.optional(AuthSchema),
-    meta:                v.optional(MetaSchema)
+    meta:                v.optional(MetaSchema),
+    qos:                 v.optional(v.picklist([ 0, 1, 2 ]))
 })
 
 /*  sink push response (ack/nak)  */
@@ -221,7 +225,8 @@ export class SourceFetchRequest extends Base {
         receiver?:       string,
         public auth?:    string[],
         public meta?:    Record<string, any>,
-        public credit?:  number
+        public credit?:  number,
+        public qos?:     0 | 1 | 2
     ) { super("source-fetch-request", id, sender, receiver) }
 }
 const SourceFetchRequestSchema = v.strictObject({
@@ -231,7 +236,8 @@ const SourceFetchRequestSchema = v.strictObject({
     params:              v.optional(v.pipe(v.array(v.unknown()), v.maxLength(64))),
     auth:                v.optional(AuthSchema),
     meta:                v.optional(MetaSchema),
-    credit:              v.optional(v.pipe(v.number(), v.integer(), v.minValue(1)))
+    credit:              v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
+    qos:                 v.optional(v.picklist([ 0, 1, 2 ]))
 })
 
 /*  source fetch response (ack/nak)  */
@@ -326,9 +332,10 @@ class Msg {
         sender?:        string,
         receiver?:      string,
         auth?:          string[],
-        meta?:          Record<string, any>
+        meta?:          Record<string, any>,
+        qos?:           0 | 1 | 2
     ) {
-        return new ServiceCallRequest(id, name, params, sender, receiver, auth, meta)
+        return new ServiceCallRequest(id, name, params, sender, receiver, auth, meta, qos)
     }
     makeServiceCallResponse (
         id:             string,
@@ -347,9 +354,10 @@ class Msg {
         sender?:        string,
         receiver?:      string,
         auth?:          string[],
-        meta?:          Record<string, any>
+        meta?:          Record<string, any>,
+        qos?:           0 | 1 | 2
     ) {
-        return new SinkPushRequest(id, name, params, sender, receiver, auth, meta)
+        return new SinkPushRequest(id, name, params, sender, receiver, auth, meta, qos)
     }
     makeSinkPushResponse (
         id:             string,
@@ -389,9 +397,10 @@ class Msg {
         receiver?:      string,
         auth?:          string[],
         meta?:          Record<string, any>,
-        credit?:        number
+        credit?:        number,
+        qos?:           0 | 1 | 2
     ) {
-        return new SourceFetchRequest(id, name, params, sender, receiver, auth, meta, credit)
+        return new SourceFetchRequest(id, name, params, sender, receiver, auth, meta, credit, qos)
     }
     makeSourceFetchResponse (
         id:             string,
@@ -459,7 +468,7 @@ class Msg {
         else if (obj.type === "service-call-request") {
             const out = parseObject<ServiceCallRequest>(obj, "ServiceCallRequest", ServiceCallRequestSchema)
             return this.makeServiceCallRequest(out.id, out.name, out.params, out.sender, out.receiver,
-                out.auth, out.meta)
+                out.auth, out.meta, out.qos)
         }
         else if (obj.type === "service-call-response") {
             const out = parseObject<ServiceCallResponse>(obj, "ServiceCallResponse", ServiceCallResponseSchema)
@@ -468,7 +477,7 @@ class Msg {
         else if (obj.type === "sink-push-request") {
             const out = parseObject<SinkPushRequest>(obj, "SinkPushRequest", SinkPushRequestSchema)
             return this.makeSinkPushRequest(out.id, out.name, out.params, out.sender, out.receiver,
-                out.auth, out.meta)
+                out.auth, out.meta, out.qos)
         }
         else if (obj.type === "sink-push-response") {
             const out = parseObject<SinkPushResponse>(obj, "SinkPushResponse", SinkPushResponseSchema)
@@ -487,7 +496,7 @@ class Msg {
         else if (obj.type === "source-fetch-request") {
             const out = parseObject<SourceFetchRequest>(obj, "SourceFetchRequest", SourceFetchRequestSchema)
             return this.makeSourceFetchRequest(out.id, out.name, out.params, out.sender, out.receiver,
-                out.auth, out.meta, out.credit)
+                out.auth, out.meta, out.credit, out.qos)
         }
         else if (obj.type === "source-fetch-response") {
             const out = parseObject<SourceFetchResponse>(obj, "SourceFetchResponse", SourceFetchResponseSchema)

@@ -212,7 +212,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 /*  send response message  */
                 const encoded = this.codec.encode(rpcResponse)
                 const topic = this.options.topicMake(name, "service-call-response", senderId)
-                await this.publishToTopic(topic, encoded, { qos: options.qos ?? 2 })
+                await this.publishToTopic(topic, encoded,
+                    { qos: request.qos ?? options.qos ?? 2 })
             }
             catch (err: unknown) {
                 const error = ensureError(err)
@@ -226,7 +227,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 try {
                     const encoded = this.codec.encode(rpcResponse)
                     const topic = this.options.topicMake(name, "service-call-response", senderId)
-                    await this.publishToTopic(topic, encoded, { qos: options.qos ?? 2 })
+                    await this.publishToTopic(topic, encoded,
+                        { qos: request.qos ?? options.qos ?? 2 })
                 }
                 catch (err2: unknown) {
                     this.error(ensureError(err2), `sending error response for service "${name}" failed`)
@@ -376,7 +378,8 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
         const auth      = this.authenticate()
         const metaStore = this.metaStore(meta)
         const request   = this.msg.makeServiceCallRequest(requestId, name, params,
-            this.options.id, receiver, auth, metaStore)
+            this.options.id, receiver, auth, metaStore,
+            options.qos as 0 | 1 | 2 | undefined)
         const message   = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */

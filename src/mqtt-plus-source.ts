@@ -164,7 +164,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const response = this.msg.makeSourceFetchResponse(requestId,
                     name, error, this.options.id, sender, metaStore)
                 const message = this.codec.encode(response)
-                await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 })
+                await this.publishToTopic(responseTopic, message,
+                    { qos: request.qos ?? options.qos ?? 2 })
             }
 
             /*  create abort controller  */
@@ -251,7 +252,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 const chunkMsg = this.msg.makeSourceFetchChunk(requestId,
                     name, chunk, error, final, this.options.id, sender)
                 const message = this.codec.encode(chunkMsg)
-                await this.publishToTopic(responseTopic, message, { qos: options.qos ?? 2 })
+                await this.publishToTopic(responseTopic, message,
+                    { qos: request.qos ?? options.qos ?? 2 })
             }
 
             /*  call the handler callback  */
@@ -674,7 +676,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
         const metaStore = this.metaStore(meta)
         const credit = chunkCredit > 0 ? chunkCredit : undefined
         const request = this.msg.makeSourceFetchRequest(requestId,
-            name, params, this.options.id, receiver, auth, metaStore, credit)
+            name, params, this.options.id, receiver, auth, metaStore, credit,
+            options.qos as 0 | 1 | 2 | undefined)
         const message = this.codec.encode(request)
 
         /*  generate corresponding MQTT topic  */
