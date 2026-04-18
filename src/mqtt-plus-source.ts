@@ -263,10 +263,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             try {
                 if (topicName !== request.name)
                     throw new Error(`source name mismatch (topic: "${topicName}", payload: "${request.name}")`)
-                if (auth)
-                    info.authenticated = await this.authenticated(sender, request.auth, auth, `source "${name}"`)
 
-                /*  register credit/cancel handler (unconditional for cancel support)  */
+                /*  register credit/cancel handler early (before any await) so cancel
+                    signals arriving during async authentication are not lost  */
                 this.onResponse.set(`source-fetch-credit:${requestId}`, (creditParsed: SourceFetchCredit) => {
                     if (abortSignal.aborted)
                         return
@@ -295,6 +294,11 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     this.onResponse.delete(`source-fetch-credit:${requestId}`)
                 })
 
+                /*  check for authentication  */
+                if (auth)
+                    info.authenticated = await this.authenticated(sender, request.auth, auth, `source "${name}"`)
+
+                /*  finally call the handler callback  */
                 await Promise.race([
                     Promise.resolve(callback(...params, info)),
                     abortPromise
