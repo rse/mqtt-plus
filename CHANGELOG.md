@@ -6,6 +6,7 @@ ChangeLog
 -------------------
 
 - IMPROVEMENT: improve error handling in source and sink traits
+- UPDATE: upgrade NPM dependencies
 
 1.4.18 (2026-04-17)
 -------------------
