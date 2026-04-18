@@ -432,10 +432,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 ackSent = true
 
                 /*  call handler  */
-                await Promise.race([
-                    Promise.resolve(callback(...params, info)),
-                    abortPromise
-                ])
+                const callbackPromise = Promise.resolve(callback(...params, info))
+                callbackPromise.catch(() => {}) /*  guard against unhandled rejection if abort wins the race  */
+                await Promise.race([ callbackPromise, abortPromise ])
 
                 /*  ensure stream is consumed or destroyed to prevent hang  */
                 if (readable.readableFlowing !== true && !readable.destroyed)

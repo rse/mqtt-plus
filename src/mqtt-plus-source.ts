@@ -299,10 +299,9 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     info.authenticated = await this.authenticated(sender, request.auth, auth, `source "${name}"`)
 
                 /*  finally call the handler callback  */
-                await Promise.race([
-                    Promise.resolve(callback(...params, info)),
-                    abortPromise
-                ])
+                const callbackPromise = Promise.resolve(callback(...params, info))
+                callbackPromise.catch(() => {}) /*  guard against unhandled rejection if abort wins the race  */
+                await Promise.race([ callbackPromise, abortPromise ])
 
                 /*  check for valid data source  */
                 if (!(info.stream instanceof Readable) && !(info.buffer instanceof Promise) && !(info.buffer instanceof Uint8Array))
@@ -333,9 +332,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                     await sendStreamAsChunks(info.stream, this.options.chunkSize, sendChunk, creditGate, abortSignal)
                 else if (info.buffer instanceof Promise || info.buffer instanceof Uint8Array) {
                     /*  handle Buffer result  */
-                    const buffer = (info.buffer instanceof Promise)
-                        ? await Promise.race([ info.buffer, abortPromise ])
-                        : info.buffer
+                    let buffer: Uint8Array
+                    if (info.buffer instanceof Promise) {
+                        const bufferPromise = info.buffer
+                        bufferPromise.catch(() => {}) /*  guard against unhandled rejection if abort wins the race  */
+                        buffer = await Promise.race([ bufferPromise, abortPromise ])
+                    }
+                    else
+                        buffer = info.buffer
 
                     /*  re-check abort: a late info.buffer resolution could win the race  */
                     /*  by a microtask margin even after abort fired -- discard silently  */
