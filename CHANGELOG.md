@@ -2,6 +2,11 @@
 ChangeLog
 =========
 
+1.4.19 (2026-04-18)
+-------------------
+
+- IMPROVEMENT: improve error handling in source and sink traits
+
 1.4.18 (2026-04-17)
 -------------------
 
