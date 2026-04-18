@@ -475,10 +475,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                         stream.destroy(error)
                 }
 
-                /*  send error as nak response or as mid-stream error response  */
+                /*  send error as nak response or as mid-stream error response
+                    (skip when a terminal signal was already emitted, e.g. the
+                    pre-emptive credit=0 cancel published by the timeout handler)  */
                 this.error(error)
-                errorResponseSent = true
-                await sendResponse(error.message).catch(() => {})
+                if (!errorResponseSent) {
+                    errorResponseSent = true
+                    await sendResponse(error.message).catch(() => {})
+                }
             }
             finally {
                 /*  cleanup resources  */
