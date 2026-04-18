@@ -169,8 +169,6 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  create a resource spool for request cleanup  */
             const reqSpool = new Spool()
-            this.pushSpools.set(requestId, reqSpool)
-            reqSpool.roll(() => { this.pushSpools.delete(requestId) })
 
             /*  sanity check sender  */
             if (sender === undefined || sender === "") {
@@ -218,6 +216,8 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             }
             this.pushRecvControllers.set(requestId, abortController)
             reqSpool.roll(() => { this.pushRecvControllers.delete(requestId) })
+            this.pushSpools.set(requestId, reqSpool)
+            reqSpool.roll(() => { this.pushSpools.delete(requestId) })
 
             /*  check authentication and prepare stream  */
             let dataCompleted     = false
@@ -753,6 +753,17 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 creditGate.replenish(response.credit)
                 refreshTimeout()
             }
+            else if (pushAcked && initialCredit === undefined) {
+                /*  protocol violation: receiver sent credit despite
+                    not granting initial credit during ack  */
+                const error = new Error(`push to sink "${name}" received unsolicited credit (credit-flow disabled)`)
+                remoteErrorObject = error
+                abortController.abort(error)
+                if (!pushFinalized) {
+                    pushFinalized = true
+                    pushFinalizeReject(error)
+                }
+            }
             else
                 pendingCredit += response.credit
         })
@@ -794,6 +805,9 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     refreshTimeout()
                 pendingCredit = 0
             }
+            else if (pendingCredit > 0)
+                /*  protocol violation: receiver sent credit before ack despite not granting initial credit  */
+                throw new Error(`push to sink "${name}" received unsolicited credit (credit-flow disabled)`)
 
             /*  register credit gate at instance level  */
             if (creditGate) {
