@@ -33,8 +33,8 @@ import type { APISchema }  from "./mqtt-plus-api"
 import { MetaTrait }       from "./mqtt-plus-meta"
 
 /*  type of the "auth" options  */
-export type AuthMode   = "require" | "optional"
-export type AuthRole   = string
+type AuthMode   = "require" | "optional"
+type AuthRole   = string
 export type AuthOption = AuthRole | { mode: AuthMode, roles: AuthRole[] }
 type TokenPayload = { roles: AuthRole[], id?: string, exp?: number }
 
