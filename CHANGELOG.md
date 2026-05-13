@@ -2,6 +2,11 @@
 ChangeLog
 =========
 
+1.4.21 (2026-05-13)
+-------------------
+
+- BUGFIX: use "prepare" instead of "postinstall" for patch-package
+
 1.4.20 (2026-05-13)
 -------------------
 

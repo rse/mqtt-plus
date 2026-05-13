@@ -93,7 +93,7 @@
         "node":                       ">=20.0.0"
     },
     "scripts": {
-        "postinstall":                "npm start patch-apply",
+        "prepare":                    "npm start patch-apply",
         "prepublishOnly":             "npm start build",
         "start":                      "stx -v4 -c etc/stx.conf",
         "test":                       "npm start test"
