@@ -22,9 +22,6 @@
 **  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-/*  external requirements  */
-import { nanoid }           from "nanoid"
-
 /*  internal requirements  */
 import type { APISchema }   from "./mqtt-plus-api"
 
@@ -55,7 +52,7 @@ export class OptionsTrait<_T extends APISchema = APISchema> {
     ) {
         /*  determine options and provide defaults  */
         this.options = {
-            id:          nanoid(),
+            id:          "", /*  intentionally resolved later in BaseTrait  */
             codec:       "cbor",
             timeout:     10 * 1000,
             share:       "",

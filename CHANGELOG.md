@@ -2,10 +2,12 @@
 ChangeLog
 =========
 
-1.4.22 (2026-05-14)
+1.4.22 (2026-06-08)
 -------------------
 
+- IMPROVEMENT: derive instance id from MQTT client's clientId when none is explicitly provided
 - UPDATE: upgrade NPM dependencies
+- CLEANUP: add .ase directory to .gitignore
 
 1.4.21 (2026-05-13)
 -------------------

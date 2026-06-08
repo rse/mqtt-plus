@@ -28,6 +28,7 @@ import { type MqttClient,
     type IClientSubscribeOptions,
     type IClientPublishOptions,
     type IPublishPacket }               from "mqtt"
+import { nanoid }                       from "nanoid"
 
 /*  internal requirements  */
 import type { APISchema, Registration } from "./mqtt-plus-api"
@@ -78,6 +79,19 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
 
         /*  store MQTT client  */
         this.mqtt = mqtt
+
+        /*  resolve the instance "id": if the user did not provide an
+            explicit one, fetch the "clientId" from the underlying MQTT
+            client, and only as a last resort fall back to a generated id
+            (e.g. for the fake proxy MQTT client without a real clientId)  */
+        if (this.options.id === "") {
+            const clientId = (mqtt as any).isFakeProxy
+                ? undefined
+                : mqtt.options?.clientId
+            this.options.id = (typeof clientId === "string" && clientId !== "")
+                ? clientId
+                : nanoid()
+        }
 
         /*  hook into the MQTT message processing  */
         this.log("info", "hooking into MQTT client")
