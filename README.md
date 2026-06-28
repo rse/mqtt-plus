@@ -176,22 +176,22 @@ Notice
 
 > [!Note]
 > **MQTT+** and its peer dependency **MQTT.js** provide a powerful
-> functionality, but are not small in size. **MQTT+** is 4.000 LoC
+> functionality, but are not small in size. **MQTT+** is 4,000 LoC
 > and 75 KB in size (ESM and CJS format). When bundled with all its
 > dependencies, it is 220 KB in size (UMD format). Its peer dependency
 > **MQTT.js** is 370 KB (ESM and CJS format) and 860 KB (UMD format) in
-> size. For a Node.js application, this usually doesn't matter. For a
+> size. For a Node.js application, this usually doesn't matter. For an
 > HTML5 SPA it matters more, but usually is still acceptable.
 
 > [!Note]
 > **MQTT+** is still somewhat similar to and originally derived from the weaker
 > [MQTT-JSON-RPC](https://github.com/rse/mqtt-json-rpc) library of the same
 > author. But instead of just JSON, MQTT+ encodes packets as JSON
-> or CBOR (default), uses an own packet format (allowing sender and
+> or CBOR (default), uses its own packet format (allowing sender and
 > receiver information), uses shorter NanoIDs instead of longer UUIDs
 > for identification of sender, receiver and requests, and additionally
 > provides source/sink transfer support (with fetch and push capabilities),
-> has an authentication mechanism, supports meta-data passing, and many more.
+> has an authentication mechanism, supports meta-data passing, and much more.
 
 License
 -------
