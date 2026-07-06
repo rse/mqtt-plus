@@ -50,8 +50,14 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
     private sourceSpools      = new Map<string, Spool>()
     private sourceRequests    = new Map<string, Set<string>>()
 
+    /*  fetch state  */
+    private fetchAborts       = new Map<string, (error: Error) => void>()
+
     /*  destroy source trait  */
     override async destroy () {
+        for (const abort of this.fetchAborts.values())
+            abort(new Error("instance destroyed"))
+        this.fetchAborts.clear()
         for (const controller of this.sourceControllers.values())
             controller.abort(new Error("source destroyed"))
         for (const gate of this.sourceCreditGates.values())
@@ -565,6 +571,10 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             metaReject(error)
             stream.destroy(error)
         }
+
+        /*  register abort handler at instance level (for destroy)  */
+        this.fetchAborts.set(requestId, endWithError)
+        spool.roll(() => { this.fetchAborts.delete(requestId) })
 
         /*  ensure resources are released if consumer aborts stream early  */
         let cancelled = false

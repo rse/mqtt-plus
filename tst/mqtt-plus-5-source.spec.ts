@@ -31,8 +31,13 @@ import { Buffer }           from "node:buffer"
 import { describe, it }     from "mocha"
 import * as chai            from "chai"
 
+/*  external dependencies (application)  */
+import MQTT                 from "mqtt"
+
 /*  internal dependencies  */
+import MQTTp                from "mqtt-plus"
 import { ctx }              from "./mqtt-plus-0-fixture"
+import type { API }         from "./mqtt-plus-0-fixture"
 
 /*  setup test suite infrastructure  */
 chai.config.includeStack = true
@@ -262,6 +267,36 @@ describe("MQTT+ Source Fetch", function () {
 
         /*  cleanup  */
         await sourcing.destroy()
+    })
+
+    /*  test case: Source Fetch (Destroy In-Flight)  */
+    it("MQTT+ Source Fetch (Destroy In-Flight)", async function () {
+        /*  setup  */
+        this.slow(2000)
+        this.timeout(2000)
+
+        /*  connect to broker as a dedicated client with a long communication timeout  */
+        const mqttClient = MQTT.connect("mqtt://127.0.0.1:1883")
+        await new Promise<void>((resolve, reject) => {
+            mqttClient.once("connect", ()           => { resolve() })
+            mqttClient.once("error",   (err: Error) => { reject(err) })
+        })
+        const apiClient = new MQTTp<API>(mqttClient, { timeout: 60 * 1000 })
+
+        /*  start fetching a source nobody responds to  */
+        const result = await apiClient.fetch("example/server/download", "foo")
+
+        /*  destroy the instance while the fetch is still in-flight  */
+        await apiClient.destroy()
+
+        /*  expect meta and buffer to settle well below the communication timeout  */
+        const errorMeta = await result.meta.catch((err: Error) => err.message)
+        expect(errorMeta).to.be.equal("instance destroyed")
+        const errorBuffer = await result.buffer.catch((err: Error) => err.message)
+        expect(errorBuffer).to.be.equal("instance destroyed")
+
+        /*  cleanup  */
+        await mqttClient.endAsync()
     })
 })
 
