@@ -82,7 +82,8 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
                     ac.abort()
                 resolve()
             }, durationMs)
-            timer.unref()
+            if (typeof timer.unref === "function")
+                timer.unref()
             if (signal !== undefined) {
                 if (ac !== undefined)
                     signal.addEventListener("abort", () => {
@@ -109,7 +110,8 @@ export class TimerTrait<T extends APISchema = APISchema> extends SubscriptionTra
                     ac.abort()
                 reject(new Error(info))
             }, durationMs)
-            timer.unref()
+            if (typeof timer.unref === "function")
+                timer.unref()
             if (signal !== undefined) {
                 if (ac !== undefined)
                     signal.addEventListener("abort", () => {

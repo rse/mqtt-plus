@@ -5,6 +5,7 @@ ChangeLog
 1.4.24 (2026-07-06)
 -------------------
 
+- BUGFIX: guard timer.unref() calls in sleep()/timeout() against browser runtimes where setTimeout() returns a plain number
 - BUGFIX: use distinct type brands per API marker type so endpoint kinds Event/Service/Source/Sink are discriminated nominally instead of structurally
 - BUGFIX: route synchronous errors of the inbound MQTT message handler through the "error" event instead of letting them escape into MQTT.js
 - BUGFIX: track in-flight fetch() operations and abort them on destroy() so their stream/buffer/meta settle
