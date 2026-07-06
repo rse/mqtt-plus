@@ -23,7 +23,7 @@
 */
 
 /*  utility type for branding  */
-type Brand<T> = T & { readonly __brand: unique symbol }
+type Brand<T, K extends string> = T & { readonly __brand: K }
 
 /*  endpoint types  */
 export type APIEndpoint        = APIEndpointEvent | APIEndpointService | APIEndpointSource | APIEndpointSink
@@ -33,10 +33,10 @@ export type APIEndpointSource  = (...args: any[]) => void | Promise<void>
 export type APIEndpointSink    = (...args: any[]) => void | Promise<void>
 
 /*  API marker types  */
-export type Event<T   extends APIEndpointEvent>   = Brand<T>
-export type Service<T extends APIEndpointService> = Brand<T>
-export type Source<T  extends APIEndpointSource>  = Brand<T>
-export type Sink<T    extends APIEndpointSink>    = Brand<T>
+export type Event<T   extends APIEndpointEvent>   = Brand<T, "event">
+export type Service<T extends APIEndpointService> = Brand<T, "service">
+export type Source<T  extends APIEndpointSource>  = Brand<T, "source">
+export type Sink<T    extends APIEndpointSink>    = Brand<T, "sink">
 
 /*  type utilities for generic API  */
 export type APISchema = Record<string, APIEndpoint>
