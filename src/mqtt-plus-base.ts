@@ -110,8 +110,10 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
                 input = Buffer.isBuffer(message)
                     ? new Uint8Array(message.buffer, message.byteOffset, message.byteLength)
                     : message
-            else
-                throw new Error("invalid codec configured")
+            else {
+                this.error(new Error("invalid codec configured"))
+                return
+            }
             this._onMessage(topic, input, packet)
         }
         this.mqtt.on("message", this.messageHandler)
@@ -222,7 +224,14 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
             return
 
         /*  parse MQTT topic  */
-        const topicMatch = this.options.topicMatch(topic)
+        let topicMatch
+        try {
+            topicMatch = this.options.topicMatch(topic)
+        }
+        catch (err: unknown) {
+            this.error(ensureError(err, "failed to match MQTT topic"))
+            return
+        }
         if (topicMatch === null)
             return
 

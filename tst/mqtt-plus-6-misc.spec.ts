@@ -138,6 +138,38 @@ describe("MQTT+ Miscellaneous", function () {
         apiJsonC.destroy()
     })
 
+    /*  test case: Error Event on throwing topicMatch  */
+    it("MQTT+ Error Event on Throwing topicMatch", async function () {
+        /*  setup  */
+        this.slow(2000)
+        this.timeout(2000)
+        const spy = sinon.spy()
+
+        /*  create API instances with a throwing user-supplied topicMatch on the receiver side  */
+        const apiThrowS = new MQTTp<API>(ctx.mqttS, { id: "throw-server", timeout: 500,
+            topicMatch: () => { throw new Error("intentionally failing topicMatch") } })
+        const apiThrowC = new MQTTp<API>(ctx.mqttC, { id: "throw-client", timeout: 500 })
+
+        /*  observe MQTT+ error events  */
+        apiThrowS.on("error", (err: Error) => { spy(err.message) })
+
+        /*  register event handler to subscribe the topic  */
+        const registration = await apiThrowS.event("example/server/sample", () => {})
+
+        /*  emit event to trigger the inbound message processing  */
+        apiThrowC.emit("example/server/sample", "hello", 42)
+        await new Promise((resolve) => { setTimeout(resolve, 100) })
+
+        /*  ensure the exception surfaced as MQTT+ "error" event  */
+        expect(spy.getCalls().length).to.be.at.least(1)
+        expect(spy.getCalls()[0].args[0]).to.match(/failed to match MQTT topic/)
+
+        /*  cleanup  */
+        await registration.destroy()
+        apiThrowS.destroy()
+        apiThrowC.destroy()
+    })
+
     /*  test case: Authentication  */
     it("MQTT+ Authentication", async function () {
         /*  setup  */
