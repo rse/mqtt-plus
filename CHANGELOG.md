@@ -8,6 +8,7 @@ ChangeLog
 - BUGFIX: use distinct type brands per API marker type so endpoint kinds Event/Service/Source/Sink are discriminated nominally instead of structurally
 - BUGFIX: route synchronous errors of the inbound MQTT message handler through the "error" event instead of letting them escape into MQTT.js
 - BUGFIX: track in-flight fetch() operations and abort them on destroy() so their stream/buffer/meta settle
+- BUGFIX: encode Buffer values correctly with the JSON codec, as Buffer.prototype.toJSON runs before the JSON.stringify replacer
 
 1.4.22 (2026-06-08)
 -------------------

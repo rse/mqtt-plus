@@ -39,17 +39,24 @@ export class JSONX {
         return new Uint8Array(Buffer.from(base64, "base64"))
     }
     static stringify (obj: unknown): string {
-        return JSON.stringify(obj, (_, value) =>
-            value instanceof Uint8Array
-                ? { __Uint8Array: this.uint8ArrayToBase64(value) }
-                : value
-        )
+        return JSON.stringify(obj, function (key, value) {
+            /*  re-read the original value from the holder, as JSON.stringify
+                applies Buffer.prototype.toJSON before calling the replacer  */
+            const orig: unknown = this[key]
+            return orig instanceof Buffer
+                ? { __Buffer:     JSONX.uint8ArrayToBase64(orig) }
+                : orig instanceof Uint8Array
+                    ? { __Uint8Array: JSONX.uint8ArrayToBase64(orig) }
+                    : value
+        })
     }
     static parse (json: string): unknown {
         return JSON.parse(json, (_, value) =>
-            typeof value?.__Uint8Array === "string"
-                ? this.base64ToUint8Array(value.__Uint8Array)
-                : value
+            typeof value?.__Buffer === "string"
+                ? Buffer.from(value.__Buffer, "base64")
+                : typeof value?.__Uint8Array === "string"
+                    ? this.base64ToUint8Array(value.__Uint8Array)
+                    : value
         )
     }
 }

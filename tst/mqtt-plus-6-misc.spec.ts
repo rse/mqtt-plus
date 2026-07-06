@@ -36,6 +36,7 @@ import MQTT                 from "mqtt"
 
 /*  internal dependencies  */
 import MQTTp                from "mqtt-plus"
+import type { Event }       from "mqtt-plus"
 import { ctx }              from "./mqtt-plus-0-fixture"
 import type { API }         from "./mqtt-plus-0-fixture"
 import { makeMutuallyExclusiveFields } from "../src/mqtt-plus-util"
@@ -113,27 +114,40 @@ describe("MQTT+ Miscellaneous", function () {
         /*  setup  */
         this.slow(2000)
         this.timeout(2000)
-        const spy = sinon.spy()
+        const spy  = sinon.spy()
+        const spyB = sinon.spy()
 
         /*  create JSON codec API instances on existing MQTT connections  */
-        const apiJsonS = new MQTTp<API>(ctx.mqttS, { id: "json-server", codec: "json", timeout: 500 })
-        const apiJsonC = new MQTTp<API>(ctx.mqttC, { id: "json-client", codec: "json", timeout: 500 })
+        type APIX = API & { "example/server/binary": Event<(data: Buffer) => void> }
+        const apiJsonS = new MQTTp<APIX>(ctx.mqttS, { id: "json-server", codec: "json", timeout: 500 })
+        const apiJsonC = new MQTTp<APIX>(ctx.mqttC, { id: "json-client", codec: "json", timeout: 500 })
 
-        /*  register event handler  */
+        /*  register event handlers  */
         const registration = await apiJsonS.event("example/server/sample", (str: string, num: number) => {
             spy("event", str, num)
         })
+        const registrationB = await apiJsonS.event("example/server/binary", (data: Buffer) => {
+            spyB(data)
+        })
 
-        /*  emit event via JSON codec  */
+        /*  emit events via JSON codec  */
         apiJsonC.emit("example/server/sample", "hello", 99)
+        apiJsonC.emit("example/server/binary", Buffer.from([ 0x01, 0x02, 0x03, 0xff ]))
         await new Promise((resolve) => { setTimeout(resolve, 100) })
 
         /*  verify round-trip  */
         expect(spy.getCalls().length).to.equal(1)
         expect(spy.getCalls()[0].args).to.deep.equal([ "event", "hello", 99 ])
 
+        /*  verify Buffer round-trip  */
+        expect(spyB.getCalls().length).to.equal(1)
+        const data: Buffer = spyB.getCalls()[0].args[0]
+        expect(data).to.be.instanceOf(Buffer)
+        expect(data.equals(Buffer.from([ 0x01, 0x02, 0x03, 0xff ]))).to.equal(true)
+
         /*  cleanup  */
         await registration.destroy()
+        await registrationB.destroy()
         apiJsonS.destroy()
         apiJsonC.destroy()
     })
