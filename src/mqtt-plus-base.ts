@@ -149,10 +149,18 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     protected async subscribeTopic (topic: string, options: Partial<IClientSubscribeOptions> = {}): Promise<void> {
         this.log("info", `subscribing to MQTT topic "${topic}"`)
         return new Promise<void>((resolve, reject) => {
-            this.mqtt.subscribe(topic, { qos: 2, ...options }, (err: Error | null, _granted: any) => {
+            this.mqtt.subscribe(topic, { qos: 2, ...options }, (err: Error | null, granted: any) => {
                 if (err) {
                     this.error(err, `subscribing to MQTT topic "${topic}" failed`)
                     reject(err)
+                }
+                else if (Array.isArray(granted)
+                    && granted.some((grant: any) => typeof grant?.qos === "number" && grant.qos >= 0x80)) {
+                    /*  the broker rejected the subscription via SUBACK grant/reason code  */
+                    const error = new Error(`broker rejected subscription to MQTT topic "${topic}" ` +
+                        `(grant codes: ${granted.map((grant: any) => grant?.qos).join(", ")})`)
+                    this.error(error, `subscribing to MQTT topic "${topic}" failed`)
+                    reject(error)
                 }
                 else
                     resolve()
