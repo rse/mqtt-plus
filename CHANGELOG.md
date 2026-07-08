@@ -5,6 +5,7 @@ ChangeLog
 1.4.24 (2026-07-06)
 -------------------
 
+- BUGFIX: register source request cleanup spool only after duplicate-request-id guard, so a duplicate request no longer corrupts the spool tracking of the in-flight original request
 - BUGFIX: guard the sink push ack promise against an unhandled promise rejection when publishing the push request fails
 - BUGFIX: reject requests instead of skipping authentication when the falsy-but-valid auth option value "" is used (event/service/source/sink traits)
 - BUGFIX: never linger the unsubscription of shared subscriptions ("$share/..."), as a lingering group member still receives and silently drops its round-robin share of messages and causes duplicate deliveries alongside overlapping non-shared subscriptions

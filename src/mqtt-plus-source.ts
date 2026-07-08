@@ -149,8 +149,6 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
 
             /*  create a resource spool for request cleanup  */
             const reqSpool = new Spool()
-            this.sourceSpools.set(requestId, reqSpool)
-            reqSpool.roll(() => { this.sourceSpools.delete(requestId) })
 
             /*  sanity check sender  */
             if (sender === undefined || sender === "") {
@@ -186,6 +184,8 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             }
             this.sourceControllers.set(requestId, abortController)
             reqSpool.roll(() => { this.sourceControllers.delete(requestId) })
+            this.sourceSpools.set(requestId, reqSpool)
+            reqSpool.roll(() => { this.sourceSpools.delete(requestId) })
 
             /*  provide info object  */
             const info: InfoSource = { sender, signal: abortSignal }
