@@ -319,5 +319,48 @@ describe("MQTT+ Sink Push", function () {
         /*  cleanup  */
         await sinking.destroy()
     })
+
+    /*  test case: Sink Push (Stalled After Early Callback)  */
+    it("MQTT+ Sink Push (Stalled After Early Callback)", async function () {
+        /*  setup  */
+        this.slow(4000)
+        this.timeout(4000)
+        const spy = sinon.spy()
+
+        /*  establish sink whose callback resolves immediately, ignoring stream/buffer  */
+        const sinking = await ctx.apiS.sink("example/server/upload", (name: string, _info) => {
+            spy("sink")
+            expect(name).to.be.equal("foo")
+            /*  intentionally do not consume info.stream or info.buffer  */
+        })
+
+        /*  create a readable that emits one chunk and then stalls forever  */
+        const chunkSize = 16 * 1024
+        let emitted = false
+        const readable = new stream.Readable({
+            read () {
+                if (!emitted) {
+                    emitted = true
+                    this.push(Buffer.from(crypto.randomBytes(chunkSize)))
+                }
+                /*  never push more and never end -- simulate a stalled sender  */
+            }
+        })
+
+        /*  the push must fail (via receiver push timeout) instead of hanging  */
+        await ctx.apiC.push("example/server/upload", readable, "foo").then(() => {
+            spy("push-success")
+        }).catch(() => {
+            spy("push-error")
+        })
+
+        /*  wait for receiver-side cleanup to settle  */
+        await new Promise((resolve) => { setTimeout(resolve, 200) })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.same.deep.members([ "sink", "push-error" ])
+
+        /*  cleanup  */
+        await sinking.destroy()
+    })
 })
 

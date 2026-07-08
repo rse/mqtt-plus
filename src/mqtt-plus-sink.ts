@@ -247,7 +247,16 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 const refreshPushTimeout = () => this.timerRefresh(pushTimerId, () => {
                     if (streamEnded || this.destroying)
                         return
-                    abortController.abort(new Error("push stream timeout"))
+                    const error = new Error("push stream timeout")
+                    abortController.abort(error)
+
+                    /*  destroy the push stream so that streamDone settles even when
+                        the callback already completed before the timeout fired  */
+                    streamEnded = true
+                    const stream = this.pushStreams.get(requestId)
+                    if (stream !== undefined && !stream.destroyed)
+                        stream.destroy(error)
+
                     /*  eagerly notify sender so it stops publishing chunks
                         (suppress the spool-rollback cancel via errorResponseSent)  */
                     if (sender && !errorResponseSent) {

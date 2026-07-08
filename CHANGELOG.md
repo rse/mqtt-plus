@@ -5,6 +5,7 @@ ChangeLog
 1.4.24 (2026-07-06)
 -------------------
 
+- BUGFIX: destroy the sink push receive stream on push timeout so a receiver whose callback completed early no longer hangs at the stream drain and leaks per-request state
 - BUGFIX: register source request cleanup spool only after duplicate-request-id guard, so a duplicate request no longer corrupts the spool tracking of the in-flight original request
 - BUGFIX: guard the sink push ack promise against an unhandled promise rejection when publishing the push request fails
 - BUGFIX: reject requests instead of skipping authentication when the falsy-but-valid auth option value "" is used (event/service/source/sink traits)
