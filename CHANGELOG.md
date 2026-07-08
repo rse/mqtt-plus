@@ -16,6 +16,7 @@ ChangeLog
 - BUGFIX: track in-flight fetch() operations and abort them on destroy() so their stream/buffer/meta settle
 - BUGFIX: encode Buffer values correctly with the JSON codec, as Buffer.prototype.toJSON runs before the JSON.stringify replacer
 - BUGFIX: register the oncatch recovery value with oncleanup on the spool in run() so fallback resources are disposed on unroll
+- BUGFIX: invoke the onfinally callback of run() only once when oncatch recovers but onfinally fails
 
 1.4.22 (2026-06-08)
 -------------------

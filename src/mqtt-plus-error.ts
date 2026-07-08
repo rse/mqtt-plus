@@ -374,12 +374,9 @@ export function run<T> (
             /*  asynchronous case (error branch)  */
             let error = ensureError(arg, description)
             if (oncatch) {
+                let result: T
                 try {
-                    const result = await oncatch(error)
-                    await runFinally(true, onfinally, description)
-                    if (spool && oncleanup)
-                        spool.roll(result, oncleanup as SpoolCleanup<unknown>)
-                    return result
+                    result = await oncatch(error)
                 }
                 catch (arg: unknown) {
                     error = ensureError(arg, description)
@@ -387,6 +384,10 @@ export function run<T> (
                     await runUnroll(true, spool)
                     throw error
                 }
+                await runFinally(true, onfinally, description)
+                if (spool && oncleanup)
+                    spool.roll(result, oncleanup as SpoolCleanup<unknown>)
+                return result
             }
             await runFinally(true, onfinally, description)
             await runUnroll(true, spool)

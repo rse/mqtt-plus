@@ -81,6 +81,23 @@ describe("MQTT+ Run", function () {
         }
     })
 
+    /*  test case: MQTT+ Run: async oncatch recovers but onfinally fails invokes onfinally once  */
+    it("MQTT+ Run: async oncatch recovers but onfinally fails invokes onfinally once", async function () {
+        let finallyCount = 0
+        try {
+            await run(
+                () => Promise.reject(new Error("async-fail")),
+                (_err: Error) => Promise.resolve("async-recovered"),
+                async () => { finallyCount++; throw new Error("onfinally-fail") }
+            )
+            expect.fail("should have thrown")
+        }
+        catch (err: any) {
+            expect(err.message).to.match(/onfinally-fail/)
+        }
+        expect(finallyCount).to.equal(1)
+    })
+
     /*  test case: MQTT+ Run: sync success with spool and oncleanup  */
     it("MQTT+ Run: sync success with spool and oncleanup", function () {
         const spool = new Spool()
