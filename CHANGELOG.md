@@ -5,6 +5,7 @@ ChangeLog
 1.4.24 (2026-07-06)
 -------------------
 
+- BUGFIX: never linger the unsubscription of shared subscriptions ("$share/..."), as a lingering group member still receives and silently drops its round-robin share of messages and causes duplicate deliveries alongside overlapping non-shared subscriptions
 - BUGFIX: reject subscribeTopic() promise when the broker denies a subscription via SUBACK grant/reason codes >= 0x80 instead of silently resolving
 - BUGFIX: guard timer.unref() calls in sleep()/timeout() against browser runtimes where setTimeout() returns a plain number
 - BUGFIX: use distinct type brands per API marker type so endpoint kinds Event/Service/Source/Sink are discriminated nominally instead of structurally

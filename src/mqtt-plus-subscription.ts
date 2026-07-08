@@ -127,11 +127,16 @@ class RefCountedSubscription {
         }
     }
 
-    /*  unsubscribe from a topic (reference-counted)  */
+    /*  unsubscribe from a topic (reference-counted)
+        NOTICE: shared subscriptions ("$share/...") are never lingered, as a
+        lingering group member would still receive its round-robin share of
+        the group's messages and silently drop them, and would additionally
+        cause duplicate deliveries once an overlapping non-shared
+        subscription is established on the same connection  */
     async unsubscribe (topic: string): Promise<void> {
         const count = this.decrementCount(topic)
         if (count === 0) {
-            if (this.lingerMs > 0) {
+            if (this.lingerMs > 0 && !topic.startsWith("$share/")) {
                 /*  defer the actual broker unsubscription  */
                 const timer = setTimeout(() => {
                     this.lingers.delete(topic)
