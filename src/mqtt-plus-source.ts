@@ -301,7 +301,7 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
                 })
 
                 /*  check for authentication  */
-                if (auth)
+                if (auth !== undefined)
                     info.authenticated = await this.authenticated(sender, request.auth, auth, `source "${name}"`)
 
                 /*  finally call the handler callback  */

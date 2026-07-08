@@ -186,7 +186,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             /*  execute handler and send response  */
             let removeAbortListener: (() => void) | undefined
             try {
-                if (auth)
+                if (auth !== undefined)
                     info.authenticated = await this.authenticated(senderId, request.auth, auth, `service "${name}"`)
                 const abortPromise = new Promise<never>((_resolve, reject) => {
                     const onAbort = () => {

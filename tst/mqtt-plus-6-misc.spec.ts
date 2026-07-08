@@ -268,6 +268,37 @@ describe("MQTT+ Miscellaneous", function () {
         await registration2.destroy()
     })
 
+    /*  test case: Authentication with Empty Role  */
+    it("MQTT+ Authentication with Empty Role", async function () {
+        /*  setup  */
+        this.slow(2000)
+        this.timeout(2000)
+        const spy = sinon.spy()
+
+        /*  server-side: provide hello service with falsy-but-valid empty role  */
+        const registration = await ctx.apiS.service({
+            name: "example/server/hello",
+            auth: "",
+            callback: (str: string, num: number) => {
+                spy("hello")
+                return `${str}:${num}`
+            }
+        })
+
+        /*  call service and expect fail-closed rejection  */
+        await ctx.apiC.call("example/server/hello", "world", 42).then(async (_result) => {
+            spy("call-success")
+        }).catch((err: Error) => {
+            spy("call-error")
+            expect(err.message).to.match(/failed authentication/)
+        })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.deep.equal([ "call-error" ])
+
+        /*  cleanup  */
+        await registration.destroy()
+    })
+
     /*  test case: Unit: arr2buf/buf2arr  */
     it("MQTT+ Unit: arr2buf/buf2arr", function () {
         /*  create a dry-run MQTTp instance for accessing encode methods  */
