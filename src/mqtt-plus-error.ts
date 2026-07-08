@@ -201,6 +201,43 @@ function runUnroll (isAsync: boolean, spool?: Spool): Promise<void> | void {
     return result
 }
 
+/*  helper function for settling the epilog of "run": run the finally
+    code isolated, unroll the spool, and preserve a pending error  */
+function runSettle (isAsync: false,   pending: boolean, spool?: Spool, onfinally?: () => void,                  description?: string): void
+function runSettle (isAsync: true,    pending: boolean, spool?: Spool, onfinally?: () => Promise<void> | void,  description?: string): Promise<void>
+function runSettle (isAsync: boolean, pending: boolean, spool?: Spool, onfinally?: () => Promise<void> | void,  description?: string): Promise<void> | void {
+    if (!isAsync) {
+        let failure: Error | undefined
+        try {
+            runFinally(false, onfinally as (() => void) | undefined, description)
+        }
+        catch (arg: unknown) {
+            failure = ensureError(arg, description)
+        }
+        if (pending || failure !== undefined) {
+            runUnroll(false, spool)
+            if (!pending && failure !== undefined)
+                throw failure
+        }
+    }
+    else {
+        return (async () => {
+            let failure: Error | undefined
+            try {
+                await runFinally(true, onfinally, description)
+            }
+            catch (arg: unknown) {
+                failure = ensureError(arg, description)
+            }
+            if (pending || failure !== undefined) {
+                await runUnroll(true, spool)
+                if (!pending && failure !== undefined)
+                    throw failure
+            }
+        })()
+    }
+}
+
 /*  helper type for ensuring T contains no Promise  */
 type RunNoPromise<T> =
     [ T ] extends [ Promise<any> ] ? never : T
@@ -350,25 +387,23 @@ export function run<T> (
             }
             catch (arg: unknown) {
                 error = ensureError(arg, description)
-                runFinally(false, onfinally, description)
-                runUnroll(false, spool)
+                runSettle(false, true, spool, onfinally, description)
                 throw error
             }
-            runFinally(false, onfinally, description)
             if (spool && oncleanup)
                 spool.roll(result, oncleanup as SpoolCleanup<unknown>)
+            runSettle(false, false, spool, onfinally, description)
             return result
         }
-        runFinally(false, onfinally, description)
-        runUnroll(false, spool)
+        runSettle(false, true, spool, onfinally, description)
         throw error
     }
     if (result instanceof Promise) {
         /*  asynchronous case (result or error branch)  */
         return result.then(async (result) => {
-            await runFinally(true, onfinally, description)
             if (spool && oncleanup)
                 spool.roll(result, oncleanup as SpoolCleanup<unknown>)
+            await runSettle(true, false, spool, onfinally, description)
             return result
         }, async (arg: unknown) => {
             /*  asynchronous case (error branch)  */
@@ -380,25 +415,23 @@ export function run<T> (
                 }
                 catch (arg: unknown) {
                     error = ensureError(arg, description)
-                    await runFinally(true, onfinally, description)
-                    await runUnroll(true, spool)
+                    await runSettle(true, true, spool, onfinally, description)
                     throw error
                 }
-                await runFinally(true, onfinally, description)
                 if (spool && oncleanup)
                     spool.roll(result, oncleanup as SpoolCleanup<unknown>)
+                await runSettle(true, false, spool, onfinally, description)
                 return result
             }
-            await runFinally(true, onfinally, description)
-            await runUnroll(true, spool)
+            await runSettle(true, true, spool, onfinally, description)
             throw error
         })
     }
     else {
         /*  synchronous case (result branch)  */
-        runFinally(false, onfinally, description)
         if (spool && oncleanup)
             spool.roll(result, oncleanup as SpoolCleanup<unknown>)
+        runSettle(false, false, spool, onfinally, description)
         return result
     }
 }

@@ -158,5 +158,65 @@ describe("MQTT+ Run", function () {
             expect(err.message).to.equal("oncleanup requires a spool")
         }
     })
+
+    /*  test case: MQTT+ Run: sync error with throwing onfinally still unrolls and preserves error  */
+    it("MQTT+ Run: sync error with throwing onfinally still unrolls and preserves error", function () {
+        const spool = new Spool()
+        const cleanups: string[] = []
+        spool.roll("res", (val: unknown) => { cleanups.push(val as string) })
+        try {
+            run<string, string>(
+                spool,
+                () => { throw new Error("action-fail") },
+                undefined,
+                () => { throw new Error("finally-fail") }
+            )
+            expect.fail("should have thrown")
+        }
+        catch (err: any) {
+            expect(err.message).to.match(/action-fail/)
+        }
+        expect(cleanups).to.deep.equal([ "res" ])
+    })
+
+    /*  test case: MQTT+ Run: async error with rejecting onfinally still unrolls and preserves error  */
+    it("MQTT+ Run: async error with rejecting onfinally still unrolls and preserves error", async function () {
+        const spool = new Spool()
+        const cleanups: string[] = []
+        spool.roll("res", (val: unknown) => { cleanups.push(val as string) })
+        try {
+            await run<string, Promise<string>>(
+                spool,
+                () => Promise.reject(new Error("async-action-fail")),
+                undefined,
+                () => Promise.reject(new Error("async-finally-fail"))
+            )
+            expect.fail("should have thrown")
+        }
+        catch (err: any) {
+            expect(err.message).to.match(/async-action-fail/)
+        }
+        expect(cleanups).to.deep.equal([ "res" ])
+    })
+
+    /*  test case: MQTT+ Run: async success with rejecting onfinally surfaces onfinally error but still cleans up  */
+    it("MQTT+ Run: async success with rejecting onfinally surfaces onfinally error but still cleans up", async function () {
+        const spool = new Spool()
+        const cleanups: string[] = []
+        try {
+            await run<string, Promise<string>>(
+                spool,
+                () => Promise.resolve("resource-val"),
+                undefined,
+                () => Promise.reject(new Error("finally-fail")),
+                async (val: string) => { cleanups.push(val) }
+            )
+            expect.fail("should have thrown")
+        }
+        catch (err: any) {
+            expect(err.message).to.match(/finally-fail/)
+        }
+        expect(cleanups).to.deep.equal([ "resource-val" ])
+    })
 })
 
