@@ -5,6 +5,7 @@ ChangeLog
 1.4.24 (2026-07-06)
 -------------------
 
+- BUGFIX: guard the sink push ack promise against an unhandled promise rejection when publishing the push request fails
 - BUGFIX: reject requests instead of skipping authentication when the falsy-but-valid auth option value "" is used (event/service/source/sink traits)
 - BUGFIX: never linger the unsubscription of shared subscriptions ("$share/..."), as a lingering group member still receives and silently drops its round-robin share of messages and causes duplicate deliveries alongside overlapping non-shared subscriptions
 - BUGFIX: reject subscribeTopic() promise when the broker denies a subscription via SUBACK grant/reason codes >= 0x80 instead of silently resolving

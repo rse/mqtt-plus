@@ -666,6 +666,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             pushInitialResolve   = resolve
             pushInitialReject    = reject
         })
+        pushInitial.catch(() => {})  /*  avoid unhandled promise rejection  */
         this.onResponse.set(`sink-push-response:${requestId}`, (response: SinkPushResponse) => {
             if (response.name !== name) {
                 const error = new Error(`sink response name mismatch (expected "${name}", got "${response.name}")`)
