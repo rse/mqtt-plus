@@ -355,6 +355,8 @@ export function run<T> (
                 throw error
             }
             runFinally(false, onfinally, description)
+            if (spool && oncleanup)
+                spool.roll(result, oncleanup as SpoolCleanup<unknown>)
             return result
         }
         runFinally(false, onfinally, description)
@@ -375,6 +377,8 @@ export function run<T> (
                 try {
                     const result = await oncatch(error)
                     await runFinally(true, onfinally, description)
+                    if (spool && oncleanup)
+                        spool.roll(result, oncleanup as SpoolCleanup<unknown>)
                     return result
                 }
                 catch (arg: unknown) {

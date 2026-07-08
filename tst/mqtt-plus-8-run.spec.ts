@@ -96,6 +96,36 @@ describe("MQTT+ Run", function () {
         expect(cleanups).to.deep.equal([ "resource-val" ])
     })
 
+    /*  test case: MQTT+ Run: sync oncatch recovery with spool and oncleanup  */
+    it("MQTT+ Run: sync oncatch recovery with spool and oncleanup", function () {
+        const spool = new Spool()
+        const cleanups: string[] = []
+        run<string, string>(
+            spool,
+            () => { throw new Error("fail") },
+            (_err: Error) => "recovered-val",
+            undefined,
+            (val: string) => { cleanups.push(val) }
+        )
+        spool.unroll()
+        expect(cleanups).to.deep.equal([ "recovered-val" ])
+    })
+
+    /*  test case: MQTT+ Run: async oncatch recovery with spool and oncleanup  */
+    it("MQTT+ Run: async oncatch recovery with spool and oncleanup", async function () {
+        const spool = new Spool()
+        const cleanups: string[] = []
+        await run<string, Promise<string>>(
+            spool,
+            () => Promise.reject(new Error("async-fail")),
+            (_err: Error) => Promise.resolve("async-recovered-val"),
+            undefined,
+            async (val: string) => { cleanups.push(val) }
+        )
+        await spool.unroll()
+        expect(cleanups).to.deep.equal([ "async-recovered-val" ])
+    })
+
     /*  test case: MQTT+ Run: oncleanup without spool throws  */
     it("MQTT+ Run: oncleanup without spool throws", function () {
         try {
