@@ -320,6 +320,29 @@ describe("MQTT+ Sink Push", function () {
         await sinking.destroy()
     })
 
+    /*  test case: Sink Push (Aborted Before Consumption)  */
+    it("MQTT+ Sink Push (Aborted Before Consumption)", async function () {
+        /*  setup  */
+        this.slow(4000)
+        this.timeout(4000)
+
+        /*  create a readable which intentionally carries no "error" listener  */
+        const readable = new stream.Readable({
+            read () {}
+        })
+        readable.push(Buffer.from(crypto.randomBytes(1024)))
+
+        /*  push to an unserved sink: the ack timeout aborts the push while the
+            stream is still unconsumed, which must not crash the process  */
+        const error = await ctx.apiC.push("example/server/upload", readable, "foo")
+            .then(() => undefined).catch((err: Error) => err.message)
+        expect(error).to.be.a("string")
+        expect(readable.destroyed).to.be.equal(true)
+
+        /*  wait for the deferred stream "error" emission to settle  */
+        await new Promise((resolve) => { setTimeout(resolve, 100) })
+    })
+
     /*  test case: Sink Push (Stalled After Early Callback)  */
     it("MQTT+ Sink Push (Stalled After Early Callback)", async function () {
         /*  setup  */

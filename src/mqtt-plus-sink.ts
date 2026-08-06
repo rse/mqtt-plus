@@ -603,9 +603,14 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         /*  ensure stream gets destroyed on abort  */
         if (data instanceof Readable) {
             const stream = data
+            const noopError = () => {} /*  prevent unhandled error exception  */
             abortSignal.addEventListener("abort", () => {
-                if (!stream.destroyed)
+                if (!stream.destroyed) {
+                    /*  guard the caller's stream, as it still carries no "error"
+                        listener when the abort precedes the chunk sending phase  */
+                    stream.on("error", noopError)
                     stream.destroy(ensureError(abortSignal.reason))
+                }
             }, { once: true })
         }
 

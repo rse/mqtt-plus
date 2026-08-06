@@ -5,6 +5,7 @@ ChangeLog
 1.4.25 (2026-07-11)
 -------------------
 
+- BUGFIX: guard the caller-supplied sink push stream with a no-op "error" listener before destroying it on abort, as an abort before the chunk sending phase (nak, early cancel, ack timeout) otherwise raised an unhandled "error" event and crashed the process
 - UPDATE: upgrade NPM dependencies
 
 1.4.24 (2026-07-06)
