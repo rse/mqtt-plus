@@ -866,7 +866,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 response from the receiver to be processed, making the
                 error outcome deterministic (only when race is possible)  */
             if (pushAcked && !remoteErrorObject)
-                await new Promise<void>((resolve) => { setImmediate(resolve) })
+                await new Promise<void>((resolve) => { setTimeout(resolve, 0) })
 
             if (remoteErrorObject)
                 throw remoteErrorObject
