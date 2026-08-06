@@ -26,7 +26,7 @@ import * as Vite             from "vite"
 import { tscPlugin }         from "@wroud/vite-plugin-tsc"
 import { nodePolyfills }     from "vite-plugin-node-polyfills"
 import replace               from "@rollup/plugin-replace"
-import pkg                   from "../package.json"
+import pkg                   from "../package.json" with { type: "json" }
 
 const formats = process.env.VITE_BUILD_FORMATS ?? "es"
 
