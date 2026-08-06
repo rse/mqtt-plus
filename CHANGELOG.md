@@ -6,6 +6,7 @@ ChangeLog
 -------------------
 
 - BUGFIX: settle the epilog of run() adaptively when the action throws synchronously, as an asynchronous onfinally, oncleanup or spool cleanup was previously mistaken for a non-async context and replaced the original error
+- BUGFIX: attach a failing onfinally callback of run() as a "suppressed" error to the propagated pending error instead of discarding it entirely
 - BUGFIX: guard the caller-supplied sink push stream with a no-op "error" listener before destroying it on abort, as an abort before the chunk sending phase (nak, early cancel, ack timeout) otherwise raised an unhandled "error" event and crashed the process
 - BUGFIX: define the mutually exclusive "stream"/"buffer" fields as non-enumerable and assignable, as a mere object spread, Object.values() or JSON.stringify() otherwise consumed one field and then threw on the other
 - BUGFIX: surface the cleanup failures of the fire-and-forget spool unrolling in the service call settle path as "error" events, as they were previously silently suppressed

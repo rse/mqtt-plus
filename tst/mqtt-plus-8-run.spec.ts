@@ -175,6 +175,7 @@ describe("MQTT+ Run", function () {
         }
         catch (err: any) {
             expect(err.message).to.match(/action-fail/)
+            expect(err.suppressed?.message).to.match(/finally-fail/)
         }
         expect(cleanups).to.deep.equal([ "res" ])
     })
@@ -195,6 +196,7 @@ describe("MQTT+ Run", function () {
         }
         catch (err: any) {
             expect(err.message).to.match(/async-action-fail/)
+            expect(err.suppressed?.message).to.match(/async-finally-fail/)
         }
         expect(cleanups).to.deep.equal([ "res" ])
     })

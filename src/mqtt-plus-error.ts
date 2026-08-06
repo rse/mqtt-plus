@@ -201,11 +201,15 @@ function runUnroll (isAsync: boolean, spool?: Spool): Promise<void> | void {
     return result
 }
 
-/*  helper function for settling the epilog of "run": run the finally
-    code isolated, unroll the spool, and preserve a pending error  */
-function runSettle (isAsync: false,   pending: boolean, spool?: Spool, onfinally?: () => void,                  description?: string): void
-function runSettle (isAsync: true,    pending: boolean, spool?: Spool, onfinally?: () => Promise<void> | void,  description?: string): Promise<void>
-function runSettle (isAsync: boolean, pending: boolean, spool?: Spool, onfinally?: () => Promise<void> | void,  description?: string): Promise<void> | void {
+/*  helper type for an error carrying an attached, secondary error  */
+type ErrorSuppressing = Error & { suppressed?: Error }
+
+/*  helper function for settling the epilog of "run": run the finally code
+    isolated, unroll the spool, and preserve a pending error by attaching a
+    failing finally code to it as a suppressed error instead of discarding it  */
+function runSettle (isAsync: false,   pending: ErrorSuppressing | undefined, spool?: Spool, onfinally?: () => void,                  description?: string): void
+function runSettle (isAsync: true,    pending: ErrorSuppressing | undefined, spool?: Spool, onfinally?: () => Promise<void> | void,  description?: string): Promise<void>
+function runSettle (isAsync: boolean, pending: ErrorSuppressing | undefined, spool?: Spool, onfinally?: () => Promise<void> | void,  description?: string): Promise<void> | void {
     if (!isAsync) {
         let failure: Error | undefined
         try {
@@ -214,10 +218,14 @@ function runSettle (isAsync: boolean, pending: boolean, spool?: Spool, onfinally
         catch (arg: unknown) {
             failure = ensureError(arg, description)
         }
-        if (pending || failure !== undefined) {
+        if (pending !== undefined || failure !== undefined) {
             runUnroll(false, spool)
-            if (!pending && failure !== undefined)
-                throw failure
+            if (failure !== undefined) {
+                if (pending !== undefined)
+                    pending.suppressed = failure
+                else
+                    throw failure
+            }
         }
     }
     else {
@@ -229,10 +237,14 @@ function runSettle (isAsync: boolean, pending: boolean, spool?: Spool, onfinally
             catch (arg: unknown) {
                 failure = ensureError(arg, description)
             }
-            if (pending || failure !== undefined) {
+            if (pending !== undefined || failure !== undefined) {
                 await runUnroll(true, spool)
-                if (!pending && failure !== undefined)
-                    throw failure
+                if (failure !== undefined) {
+                    if (pending !== undefined)
+                        pending.suppressed = failure
+                    else
+                        throw failure
+                }
             }
         })()
     }
@@ -242,17 +254,18 @@ function runSettle (isAsync: boolean, pending: boolean, spool?: Spool, onfinally
     a pending error in a still unknown synchronous/asynchronous context:
     operate synchronously as long as possible and continue asynchronously as
     soon as a callback returns a Promise. As the pending error always takes
-    precedence, all epilog failures are intentionally suppressed.  */
-function runFail (error: Error, spool?: Spool, onfinally?: () => Promise<void> | void): Promise<never> {
+    precedence, a failing finally code is attached to it as a suppressed error.  */
+function runFail (error: ErrorSuppressing, spool?: Spool, onfinally?: () => Promise<void> | void, description?: string): Promise<never> {
+    const attach = (arg: unknown) => { error.suppressed = ensureError(arg, description) }
     let result: Promise<void> | void = undefined
     try {
         result = onfinally?.()
     }
-    catch {
-        /*  intentionally suppressed  */
+    catch (arg: unknown) {
+        attach(arg)
     }
     if (result instanceof Promise)
-        return result.catch(() => {}).then(() => spool?.unroll()).then(() => { throw error })
+        return result.catch(attach).then(() => spool?.unroll()).then(() => { throw error })
     const unrolled = spool?.unroll()
     if (unrolled instanceof Promise)
         return unrolled.then(() => { throw error })
@@ -405,12 +418,12 @@ export function run<T> (
             still unknown here and hence has to be probed  */
         const error = ensureError(arg, description)
         if (!oncatch)
-            return runFail(error, spool, onfinally)
+            return runFail(error, spool, onfinally, description)
         try {
             result = oncatch(error)
         }
         catch (arg: unknown) {
-            return runFail(ensureError(arg, description), spool, onfinally)
+            return runFail(ensureError(arg, description), spool, onfinally, description)
         }
 
         /*  the recovery already ran, so let the common epilog below settle
@@ -422,7 +435,7 @@ export function run<T> (
         return result.then(async (result) => {
             if (spool && oncleanup)
                 spool.roll(result, oncleanup as SpoolCleanup<unknown>)
-            await runSettle(true, false, spool, onfinally, description)
+            await runSettle(true, undefined, spool, onfinally, description)
             return result
         }, async (arg: unknown) => {
             /*  asynchronous case (error branch)  */
@@ -434,15 +447,15 @@ export function run<T> (
                 }
                 catch (arg: unknown) {
                     error = ensureError(arg, description)
-                    await runSettle(true, true, spool, onfinally, description)
+                    await runSettle(true, error, spool, onfinally, description)
                     throw error
                 }
                 if (spool && oncleanup)
                     spool.roll(result, oncleanup as SpoolCleanup<unknown>)
-                await runSettle(true, false, spool, onfinally, description)
+                await runSettle(true, undefined, spool, onfinally, description)
                 return result
             }
-            await runSettle(true, true, spool, onfinally, description)
+            await runSettle(true, error, spool, onfinally, description)
             throw error
         })
     }
@@ -450,7 +463,7 @@ export function run<T> (
         /*  synchronous case (result branch)  */
         if (spool && oncleanup)
             spool.roll(result, oncleanup as SpoolCleanup<unknown>)
-        runSettle(false, false, spool, onfinally, description)
+        runSettle(false, undefined, spool, onfinally, description)
         return result
     }
 }
