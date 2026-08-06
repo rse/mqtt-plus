@@ -5,7 +5,7 @@ MQTT+ Broker Setup
 **MQTT+** can be used with an arbitrary MQTT broker. One popular
 MQTT broker is [Mosquitto](https://mosquitto.org/).
 For establishing your own permanent MQTT environment, you can install the
-[Mosquitto](https://mosquitto.org/) MQTT broker yourself and a setup
+[Mosquitto](https://mosquitto.org/) MQTT broker yourself and set up
 a `mosquitto.conf` file like...
 
 ```

@@ -55,7 +55,7 @@ The following is a simple but self-contained example usage of
 and an MQTT infrastructure. It can be found in the file
 [sample.ts](sample/sample.ts) and can be executed from the **MQTT+**
 source tree via `npm start sample` (assuming the prerequisite *Docker* is
-available for the underlying *Mosquitto* broker based infrastructure):
+available for the underlying *Mosquitto* broker-based infrastructure):
 
 ```ts
 import { Readable }                          from "node:stream"
@@ -175,7 +175,7 @@ Notice
 ------
 
 > [!Note]
-> **MQTT+** and its peer dependency **MQTT.js** provide a powerful
+> **MQTT+** and its peer dependency **MQTT.js** provide powerful
 > functionality, but are not small in size. **MQTT+** is 4,000 LoC
 > and 75 KB in size (ESM and CJS format). When bundled with all its
 > dependencies, it is 220 KB in size (UMD format). Its peer dependency

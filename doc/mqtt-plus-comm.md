@@ -13,7 +13,7 @@ case of a directed event emission) or *all* receivers are called and
 receive the parameters as extra information.
 
 > In contrast to the regular MQTT message publish/subscribe, this
-> pattern allows to direct the event to particular receivers,
+> pattern allows directing the event to particular receivers,
 > provides optional information about the sender and receiver to
 > receivers, supports authentication and meta-data, etc.
 
@@ -48,7 +48,7 @@ sink push) or *one* arbitrary sink is called and receives the data
 chunks as a stream with arguments.
 
 > In contrast to the regular MQTT message publish/subscribe, this
-> pattern allows to transfer arbitrary amounts of arbitrary data by
+> pattern allows transferring arbitrary amounts of arbitrary data by
 > chunking the data via a stream. Additionally, it supports authentication
 > and meta-data, provides an `AbortSignal` to the sink handler for
 > cooperative cancellation, and allows the receiver to cancel an
@@ -67,7 +67,7 @@ directed source fetch) or *one* arbitrary source is called and sends the
 data chunks as a stream with arguments.
 
 > In contrast to the regular MQTT message publish/subscribe, this
-> pattern allows to transfer arbitrary amounts of arbitrary data by
+> pattern allows transferring arbitrary amounts of arbitrary data by
 > chunking the data via a stream. Additionally, it supports
 > authentication and meta-data, and provides an `AbortSignal` to the
 > source handler for cooperative cancellation, etc.

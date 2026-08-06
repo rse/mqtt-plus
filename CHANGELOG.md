@@ -79,12 +79,12 @@ ChangeLog
 - IMPROVEMENT: bump minimum Node version to 20 for ES2022
 - BUGFIX: Spool.unroll() silently skipped remaining cleanups on first async failure
 - BUGFIX: improve semantics of info.authenticated field for event/service/sink/source in case of optional authentication
-- BUGFIX: in the ReadableTee class, do not run read() twice: once ourself and once via the base class
+- BUGFIX: in the ReadableTee class, do not run read() twice: once ourselves and once via the base class
 - BUGFIX: correctly propagate description in run() also to finally callback
 - BUGFIX: fix resource handling in source trait
 - BUGFIX: avoid race conditions and unhandled promise rejections in async processing
 - BUGFIX: fix cleanup and error handling across sink/source traits
-- BUGFIX: fix Mosqitto ACL
+- BUGFIX: fix Mosquitto ACL
 - UPDATE: upgrade NPM dependencies
 - CLEANUP: various code cleanups (callback handling, settle code, destroy handling, termination, subscriptions)
 - CLEANUP: align with ensureError code and fix typos
@@ -286,14 +286,14 @@ ChangeLog
 - CLEANUP: simplify typing and remove unused code
 - CLEANUP: rename variables and align code formatting
 - CLEANUP: various code cleanups
-- CLEANUP: splitted documentation from README.md into doc/*.md
+- CLEANUP: split documentation from README.md into doc/*.md
 - UPDATE: upgrade NPM dependencies
 
 1.3.0 (2026-02-07)
 ------------------
 
 - IMPROVEMENT: add credit-based flow control to sink/source facility
-- IMPROVEMENT: make "buffer" and "stream" fields always mutual-exlusive
+- IMPROVEMENT: make "buffer" and "stream" fields always mutually exclusive
 - IMPROVEMENT: provide version field in protocol messages
 
 1.2.1 (2026-02-07)
@@ -368,7 +368,7 @@ ChangeLog
 0.9.17 (2026-01-25)
 -------------------
 
-- IMPROVEMENT: add Dry-Run mode will null MQTT client
+- IMPROVEMENT: add Dry-Run mode with null MQTT client
 - IMPROVEMENT: add Dry-Run mode for emit() to generate last-will message
 
 0.9.16 (2026-01-24)

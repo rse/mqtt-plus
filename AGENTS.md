@@ -50,7 +50,7 @@ Configuration lives in `etc/`: `tsc.json`, `vite.mts`, `eslint.mts`,
 `knip.jsonc`, `stx.conf`, `d2.mts`, `d2.theme.d2`, `logo.ai`,
 `logo.svg`.
 
-Tests require an MQTT broker under run-time; the test suite starts/stops
+Tests require an MQTT broker at run-time; the test suite starts/stops
 one automatically. If Docker is available, a Mosquitto broker is used;
 otherwise, the Aedes in-process broker serves as the fallback.
 For regression testing always use the all-in-one command `npm start build test`.
