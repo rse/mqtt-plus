@@ -25,14 +25,23 @@
 /*  import necessary types  */
 import type { APISchema } from "./mqtt-plus-api"
 import { SinkTrait }      from "./mqtt-plus-sink"
+import { VERSION, MIN_VERSION,
+    version, minVersion,
+    versionToNum }        from "./mqtt-plus-version"
 
 /*  re-export most important types  */
 export type *             from "./mqtt-plus-api"
 export type *             from "./mqtt-plus-info"
 
-/*  re-export version information  */
-export *                  from "./mqtt-plus-version"
-
-/*  export the default API class  */
+/*  export the default API class (as the sole export of this module, as an
+    additional named run-time export would force CJS/UMD consumers into
+    the awkward "MQTTp.default" access path)  */
 export default class MQTTp<T extends APISchema = APISchema>
-    extends SinkTrait<T> {}
+    extends SinkTrait<T> {
+    /*  expose the version information  */
+    static readonly VERSION      = VERSION
+    static readonly MIN_VERSION  = MIN_VERSION
+    static readonly version      = version
+    static readonly minVersion   = minVersion
+    static readonly versionToNum = versionToNum
+}

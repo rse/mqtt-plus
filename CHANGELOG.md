@@ -2,6 +2,11 @@
 ChangeLog
 =========
 
+1.4.27 (2026-08-05)
+-------------------
+
+- IMPROVEMENT [code]: expose the version information as static members of the MQTTp class instead of re-exporting the "mqtt-plus-version" module
+
 1.4.26 (2026-08-06)
 -------------------
 
