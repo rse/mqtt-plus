@@ -198,6 +198,8 @@ export async function sendBufferAsChunks (
     creditGate?:  CreditGate,
     abortSignal?: AbortSignal
 ): Promise<void> {
+    if (!(Number.isFinite(chunkSize) && chunkSize > 0))
+        throw new Error("invalid chunk size")
     if (buffer.byteLength === 0)
         await sendChunk(undefined, undefined, true)
     else {
@@ -222,6 +224,8 @@ export async function sendStreamAsChunks (
     creditGate?:  CreditGate,
     abortSignal?: AbortSignal
 ): Promise<void> {
+    if (!(Number.isFinite(chunkSize) && chunkSize > 0))
+        throw new Error("invalid chunk size")
     let pending: Uint8Array | undefined
     for await (const raw of readable) {
         if (abortSignal?.aborted)

@@ -71,5 +71,13 @@ export class OptionsTrait<_T extends APISchema = APISchema> {
             },
             ...options
         }
+
+        /*  sanity check numeric option ranges  */
+        if (!(Number.isFinite(this.options.timeout) && this.options.timeout > 0))
+            throw new Error("options: \"timeout\" must be a positive number")
+        if (!(Number.isInteger(this.options.chunkSize) && this.options.chunkSize > 0))
+            throw new Error("options: \"chunkSize\" must be a positive integer")
+        if (!(Number.isInteger(this.options.chunkCredit) && this.options.chunkCredit >= 0))
+            throw new Error("options: \"chunkCredit\" must be a non-negative integer")
     }
 }
