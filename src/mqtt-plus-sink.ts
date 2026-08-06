@@ -645,20 +645,25 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
         })
         pushFinalize.catch(() => {})  /*  avoid unhandled promise rejection  */
 
+        /*  abort the push and settle the pending initial/finalize promises  */
+        const failPush = (error: Error) => {
+            abortController.abort(error)
+            if (!pushAcked) {
+                pushInitialSettled = true
+                pushInitialReject(error)
+            }
+            else if (!pushFinalized) {
+                pushFinalized = true
+                pushFinalizeReject(error)
+            }
+        }
+
         /*  lock the responder for this communication  */
         const lockResponder = (kind: string, sender?: string): boolean => {
             if (sender === undefined || sender === "") {
                 const error = new Error(`received ${kind} without sender`)
                 remoteErrorObject = error
-                abortController.abort(error)
-                if (!pushAcked) {
-                    pushInitialSettled = true
-                    pushInitialReject(error)
-                }
-                else if (!pushFinalized) {
-                    pushFinalized = true
-                    pushFinalizeReject(error)
-                }
+                failPush(error)
                 return false
             }
             if (responderId === undefined)
@@ -680,15 +685,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             if (response.name !== name) {
                 const error = new Error(`sink response name mismatch (expected "${name}", got "${response.name}")`)
                 remoteErrorObject = error
-                abortController.abort(error)
-                if (!pushAcked) {
-                    pushInitialSettled = true
-                    pushInitialReject(error)
-                }
-                else if (!pushFinalized) {
-                    pushFinalized = true
-                    pushFinalizeReject(error)
-                }
+                failPush(error)
                 return
             }
             if (!lockResponder("sink response", response.sender))
@@ -696,15 +693,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             if (response.error) {
                 const error = new Error(response.error)
                 remoteErrorObject = error
-                abortController.abort(error)
-                if (!pushAcked) {
-                    pushInitialSettled = true
-                    pushInitialReject(error)
-                }
-                else if (!pushFinalized) {
-                    pushFinalized = true
-                    pushFinalizeReject(error)
-                }
+                failPush(error)
             }
             else if (!pushAcked) {
                 initialCredit = response.credit
@@ -730,15 +719,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
             if (response.name !== name) {
                 const error = new Error(`sink credit name mismatch (expected "${name}", got "${response.name}")`)
                 remoteErrorObject = error
-                abortController.abort(error)
-                if (!pushAcked) {
-                    pushInitialSettled = true
-                    pushInitialReject(error)
-                }
-                else if (!pushFinalized) {
-                    pushFinalized = true
-                    pushFinalizeReject(error)
-                }
+                failPush(error)
                 return
             }
             if (!lockResponder("sink credit", response.sender))
@@ -747,15 +728,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                 /*  cancel signal from receiver  */
                 cancelledByReceiver = true
                 const error = new Error(`push to sink "${name}" cancelled by receiver`)
-                abortController.abort(error)
-                if (!pushAcked) {
-                    pushInitialSettled = true
-                    pushInitialReject(error)
-                }
-                else if (!pushFinalized) {
-                    pushFinalized = true
-                    pushFinalizeReject(error)
-                }
+                failPush(error)
                 return
             }
             if (creditGate !== undefined) {
@@ -767,11 +740,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
                     not granting initial credit during ack  */
                 const error = new Error(`push to sink "${name}" received unsolicited credit (credit-flow disabled)`)
                 remoteErrorObject = error
-                abortController.abort(error)
-                if (!pushFinalized) {
-                    pushFinalized = true
-                    pushFinalizeReject(error)
-                }
+                failPush(error)
             }
             else
                 pendingCredit += response.credit
