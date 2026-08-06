@@ -269,6 +269,32 @@ describe("MQTT+ Source Fetch", function () {
         await sourcing.destroy()
     })
 
+    /*  test case: Source Fetch (Un-Consumed Stream)  */
+    it("MQTT+ Source Fetch (Un-Consumed Stream)", async function () {
+        /*  setup  */
+        this.slow(2000)
+        this.timeout(2000)
+
+        /*  establish source providing data via both stream and buffer, so the
+            request is aborted before the stream is ever consumed  */
+        const sourcing = await ctx.apiS.source("example/server/download", async (_filename, info) => {
+            info.stream = new stream.Readable({ read () { this.push(null) } })
+            info.buffer = Buffer.from("data")
+        })
+
+        /*  fetch source and expect a regular nak response instead of a crash  */
+        const result = await ctx.apiC.fetch("example/server/download", "foo")
+        const error = await result.buffer.catch((err: Error) => err.message)
+        expect(error).to.be.equal("handler for source \"example/server/download\" failed: " +
+            "handler has set both info.stream and info.buffer fields")
+
+        /*  wait for the deferred stream "error" event to settle  */
+        await new Promise((resolve) => { setTimeout(resolve, 100) })
+
+        /*  cleanup  */
+        await sourcing.destroy()
+    })
+
     /*  test case: Source Fetch (Destroy In-Flight)  */
     it("MQTT+ Source Fetch (Destroy In-Flight)", async function () {
         /*  setup  */

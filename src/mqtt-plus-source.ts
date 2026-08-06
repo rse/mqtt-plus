@@ -211,16 +211,20 @@ export class SourceTrait<T extends APISchema = APISchema> extends ServiceTrait<T
             })
 
             /*  ensure stream gets destroyed on abort  */
-            abortSignal.addEventListener("abort", () => {
-                if (info.stream instanceof Readable && !info.stream.destroyed)
+            const noopError = () => {} /*  prevent unhandled error exception  */
+            const destroyStream = () => {
+                if (info.stream instanceof Readable && !info.stream.destroyed) {
+                    /*  guard the handler's stream, as it still carries no "error"
+                        listener when the abort precedes the chunk sending phase  */
+                    info.stream.on("error", noopError)
                     info.stream.destroy(ensureError(abortSignal.reason))
-            }, { once: true })
+                }
+            }
+            abortSignal.addEventListener("abort", destroyStream, { once: true })
             /*  safety net: destroy a stream assigned after the abort event fired  */
             reqSpool.roll(() => {
-                if (abortSignal.aborted
-                    && info.stream instanceof Readable
-                    && !info.stream.destroyed)
-                    info.stream.destroy(ensureError(abortSignal.reason))
+                if (abortSignal.aborted)
+                    destroyStream()
             })
             let abortReject!: (reason?: any) => void
             const abortPromise = new Promise<never>((_resolve, reject) => {
