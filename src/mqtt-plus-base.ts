@@ -268,12 +268,15 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
         }
         this.log("debug", `received from MQTT topic "${topic}"`, { message })
 
-        /*  warn on receiver mismatch on direct topics  */
+        /*  drop message on receiver mismatch on direct topics, as it is
+            addressed to a foreign peer and hence must not be processed here  */
         if (topicMatch.peerId !== undefined
             && message.receiver !== undefined
-            && message.receiver !== topicMatch.peerId)
-            this.log("warning", `receiver mismatch on direct topic "${topic}"` +
+            && message.receiver !== topicMatch.peerId) {
+            this.log("warning", `receiver mismatch -- dropped message from direct topic "${topic}"` +
                 ` (expected "${topicMatch.peerId}", got "${message.receiver}")`)
+            return
+        }
 
         /*  dispatch MQTT+ message  */
         if (this.msg.isRequest(message)) {

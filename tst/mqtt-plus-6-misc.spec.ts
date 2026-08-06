@@ -33,6 +33,7 @@ import sinonChai            from "sinon-chai"
 
 /*  external dependencies (application)  */
 import MQTT                 from "mqtt"
+import * as CBOR            from "cbor2"
 
 /*  internal dependencies  */
 import MQTTp                from "mqtt-plus"
@@ -182,6 +183,46 @@ describe("MQTT+ Miscellaneous", function () {
         await registration.destroy()
         apiThrowS.destroy()
         apiThrowC.destroy()
+    })
+
+    /*  test case: Receiver Mismatch on Direct Topic  */
+    it("MQTT+ Receiver Mismatch on Direct Topic", async function () {
+        /*  setup  */
+        this.slow(2000)
+        this.timeout(2000)
+
+        /*  forge a service call response which is mislabeled for a foreign receiver  */
+        const requestTopic  = "example/server/hello/service-call-request/any"
+        const responseTopic = "example/server/hello/service-call-response/client"
+        const onMessage = (topic: string, payload: Buffer) => {
+            if (topic !== requestTopic)
+                return
+            const request = CBOR.decode(new Uint8Array(payload)) as { version: string, id: string, name: string }
+            const response = {
+                version:  request.version,
+                type:     "service-call-response",
+                id:       request.id,
+                name:     request.name,
+                result:   "forged",
+                sender:   "server",
+                receiver: "foreign-client"
+            }
+            ctx.mqttS.publish(responseTopic, Buffer.from(CBOR.encode(response)), { qos: 2 })
+        }
+        ctx.mqttS.on("message", onMessage)
+        await ctx.mqttS.subscribeAsync(requestTopic, { qos: 2 })
+
+        /*  perform the service call  */
+        const result = await ctx.apiC.call("example/server/hello", "world", 42)
+            .then((result) => `success: ${result}`)
+            .catch((err: Error) => `error: ${err.message}`)
+
+        /*  cleanup (before asserting, as the forging must not leak into subsequent test cases)  */
+        await ctx.mqttS.unsubscribeAsync(requestTopic)
+        ctx.mqttS.off("message", onMessage)
+
+        /*  ensure the mislabeled response was dropped and the call hence ran into its timeout  */
+        expect(result).to.be.equal("error: communication timeout")
     })
 
     /*  test case: Authentication  */

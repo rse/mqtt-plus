@@ -5,6 +5,7 @@ ChangeLog
 1.4.26 (2026-08-06)
 -------------------
 
+- BUGFIX: drop instead of just warn about a message received on a direct topic whose "receiver" field does not match the peer id of the topic, as such a mislabeled message is addressed to a foreign peer and was still dispatched to the response handlers
 - BUGFIX: settle the epilog of run() adaptively when the action throws synchronously, as an asynchronous onfinally, oncleanup or spool cleanup was previously mistaken for a non-async context and replaced the original error
 - BUGFIX: attach a failing onfinally callback of run() as a "suppressed" error to the propagated pending error instead of discarding it entirely
 - BUGFIX: guard the caller-supplied sink push stream with a no-op "error" listener before destroying it on abort, as an abort before the chunk sending phase (nak, early cancel, ack timeout) otherwise raised an unhandled "error" event and crashed the process

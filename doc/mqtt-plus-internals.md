@@ -328,6 +328,12 @@ the configured credential and required roles:
 Message Dispatching
 -------------------
 
+### Receiver Validation
+
+A message received on a direct topic (i.e. a topic carrying a concrete
+peer id instead of `any`) is dropped if its `receiver` field does not
+match that peer id, as it is addressed to a foreign peer.
+
 ### Request Dispatching
 
 Incoming request messages are dispatched based on the combination of
