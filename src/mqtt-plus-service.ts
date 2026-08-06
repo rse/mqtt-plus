@@ -325,11 +325,13 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
                 return false
             settled = true
 
-            /*  unroll fire-and-forget: the "settled" boolean guard is the
-                primary protection against concurrent/duplicate responses,
-                while cleanup errors are suppressed and the async MQTT
-                unsubscription is handled by reference-counting/linger  */
-            spool.unroll()
+            /*  unroll fire-and-forget: the "settled" boolean guard protects
+                against concurrent/duplicate responses and the async MQTT
+                unsubscription is handled by reference-counting/linger, while
+                cleanup failures are surfaced as "error" events  */
+            spool.unroll(false)?.catch((err: unknown) => {
+                this.error(ensureError(err, `cleanup after call of service "${name}" failed`))
+            })
             return true
         }
         const promise: Promise<ReturnType<T[K]>> = new Promise((resolve, reject) => {
