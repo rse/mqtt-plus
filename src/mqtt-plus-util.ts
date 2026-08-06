@@ -267,8 +267,12 @@ export function makeMutuallyExclusiveFields<T extends object>(
     if (!(typeof obj === "object" && obj !== null))
         throw new Error("invalid object")
     let consumed: "f1" | "f2" | undefined
-    const f1Value = obj[f1Name]
-    const f2Value = obj[f2Name]
+    let f1Value = obj[f1Name]
+    let f2Value = obj[f2Name]
+
+    /*  both fields are intentionally non-enumerable, as any enumeration
+        (object spread, Object.values(), JSON.stringify(), etc) would
+        otherwise consume the first field and then throw on the second  */
     Object.defineProperty(obj, f1Name, {
         get: () => {
             if (consumed === "f2")
@@ -279,7 +283,8 @@ export function makeMutuallyExclusiveFields<T extends object>(
             consumed = "f1"
             return f1Value
         },
-        enumerable:   true,
+        set: (value: T[keyof T & string]) => { f1Value = value },
+        enumerable:   false,
         configurable: true
     })
     Object.defineProperty(obj, f2Name, {
@@ -292,7 +297,8 @@ export function makeMutuallyExclusiveFields<T extends object>(
             consumed = "f2"
             return f2Value
         },
-        enumerable:   true,
+        set: (value: T[keyof T & string]) => { f2Value = value },
+        enumerable:   false,
         configurable: true
     })
 }

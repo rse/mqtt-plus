@@ -343,6 +343,23 @@ describe("MQTT+ Miscellaneous", function () {
         makeMutuallyExclusiveFields(obj2, "a", "b")
         void obj2.a
         expect(() => obj2.b).to.throw(/mutually exclusive/)
+
+        /*  enumerating neither consumes a field nor throws  */
+        const consumed: string[] = []
+        const obj3 = { a: 1, b: 2, c: 3 }
+        makeMutuallyExclusiveFields(obj3, "a", "b", (field) => { consumed.push(field) })
+        expect(() => ({ ...obj3 })).to.not.throw()
+        expect(JSON.parse(JSON.stringify(obj3))).to.be.deep.equal({ c: 3 })
+        expect(consumed).to.be.deep.equal([])
+        expect(obj3.a).to.be.equal(1)
+        expect(consumed).to.be.deep.equal([ "a" ])
+
+        /*  assigning a field is possible and preserves the exclusivity  */
+        const obj4 = { a: 1, b: 2 }
+        makeMutuallyExclusiveFields(obj4, "a", "b")
+        obj4.a = 42
+        expect(obj4.a).to.be.equal(42)
+        expect(() => obj4.b).to.throw(/mutually exclusive/)
     })
 })
 
