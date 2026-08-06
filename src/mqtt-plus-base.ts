@@ -40,8 +40,8 @@ import { PLazy }                        from "./mqtt-plus-util"
 
 /*  MQTTp Base class with shared infrastructure  */
 export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
-    private mqtt: MqttClient
-    private messageHandler: OnMessageCallback
+    private _mqtt:           MqttClient
+    private _messageHandler: OnMessageCallback
 
     /*  lifecycle state  */
     protected destroyed = false
@@ -78,7 +78,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
         }
 
         /*  store MQTT client  */
-        this.mqtt = mqtt
+        this._mqtt = mqtt
 
         /*  resolve the instance "id": if the user did not provide an
             explicit one, fetch the "clientId" from the underlying MQTT
@@ -95,7 +95,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
 
         /*  hook into the MQTT message processing  */
         this.log("info", "hooking into MQTT client")
-        this.messageHandler = (topic, message, packet) => {
+        this._messageHandler = (topic, message, packet) => {
             if (this.destroyed)
                 return
 
@@ -116,14 +116,14 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
             }
             this._onMessage(topic, input, packet)
         }
-        this.mqtt.on("message", this.messageHandler)
+        this._mqtt.on("message", this._messageHandler)
     }
 
     /*  destroy API class  */
     async destroy () {
         this.destroyed = true
         this.log("info", "un-hooking from MQTT client")
-        this.mqtt.off("message", this.messageHandler)
+        this._mqtt.off("message", this._messageHandler)
         this.onRequest.clear()
         this.onResponse.clear()
     }
@@ -149,7 +149,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     protected async subscribeTopic (topic: string, options: Partial<IClientSubscribeOptions> = {}): Promise<void> {
         this.log("info", `subscribing to MQTT topic "${topic}"`)
         return new Promise<void>((resolve, reject) => {
-            this.mqtt.subscribe(topic, { qos: 2, ...options }, (err: Error | null, granted: any) => {
+            this._mqtt.subscribe(topic, { qos: 2, ...options }, (err: Error | null, granted: any) => {
                 if (err) {
                     this.error(err, `subscribing to MQTT topic "${topic}" failed`)
                     reject(err)
@@ -172,7 +172,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
     protected async unsubscribeTopic (topic: string): Promise<void> {
         this.log("info", `unsubscribing from MQTT topic "${topic}"`)
         return new Promise<void>((resolve, reject) => {
-            this.mqtt.unsubscribe(topic, (err?: Error, _packet?: any) => {
+            this._mqtt.unsubscribe(topic, (err?: Error, _packet?: any) => {
                 if (err) {
                     this.error(err, `unsubscribing from MQTT topic "${topic}" failed`)
                     reject(err)
@@ -215,7 +215,7 @@ export class BaseTrait<T extends APISchema = APISchema> extends TraceTrait<T> {
             const messageData = typeof message === "string"
                 ? message
                 : Buffer.from(message.buffer, message.byteOffset, message.byteLength)
-            this.mqtt.publish(topic, messageData, options, (err?: Error) => {
+            this._mqtt.publish(topic, messageData, options, (err?: Error) => {
                 if (err) {
                     this.error(err, `publishing to MQTT topic "${topic}" failed`)
                     reject(err)
