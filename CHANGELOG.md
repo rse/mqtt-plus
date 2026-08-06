@@ -5,14 +5,21 @@ ChangeLog
 1.4.26 (2026-08-06)
 -------------------
 
-- BUGFIX: guard the handler-supplied source fetch stream with a no-op "error" listener before destroying it on abort, as an abort before the chunk sending phase (field validation, early cancel, ack timeout) otherwise raised an unhandled "error" event and crashed the process
-- BUGFIX: drop instead of just warn about a message received on a direct topic whose "receiver" field does not match the peer id of the topic, as such a mislabeled message is addressed to a foreign peer and was still dispatched to the response handlers
-- BUGFIX: settle the epilog of run() adaptively when the action throws synchronously, as an asynchronous onfinally, oncleanup or spool cleanup was previously mistaken for a non-async context and replaced the original error
-- BUGFIX: attach a failing onfinally callback of run() as a "suppressed" error to the propagated pending error instead of discarding it entirely
-- BUGFIX: align received parameters to the handler arity in the event/service/source/sink traits, as an endpoint with trailing optional parameters otherwise shifted the trailing "info" argument into a data parameter slot
-- BUGFIX: guard the caller-supplied sink push stream with a no-op "error" listener before destroying it on abort, as an abort before the chunk sending phase (nak, early cancel, ack timeout) otherwise raised an unhandled "error" event and crashed the process
-- BUGFIX: define the mutually exclusive "stream"/"buffer" fields as non-enumerable and assignable, as a mere object spread, Object.values() or JSON.stringify() otherwise consumed one field and then threw on the other
-- BUGFIX: surface the cleanup failures of the fire-and-forget spool unrolling in the service call settle path as "error" events, as they were previously silently suppressed
+- IMPROVEMENT [code]: sanity check the numeric option ranges of "timeout", "chunkSize" and "chunkCredit" at construction time and guard the chunk sending helpers against an invalid chunk size
+- IMPROVEMENT [infr]: upgrade the NPM patch generation procedure to use "npm install --package-lock-only" instead of "npm shrinkwrap"
+- BUGFIX [code, othr]: guard the handler-supplied source fetch stream and the caller-supplied sink push stream with a no-op "error" listener before destroying them on abort, as an abort before the chunk sending phase (field validation, nak, early cancel, ack timeout) otherwise raised an unhandled "error" event and crashed the process
+- BUGFIX [code, docs]: drop instead of just warn about a message received on a direct topic whose "receiver" field does not match the peer id of the topic, as such a mislabeled message is addressed to a foreign peer and was still dispatched to the response handlers
+- BUGFIX [code, othr]: settle the epilog of run() adaptively when the action throws synchronously, as an asynchronous onfinally, oncleanup or spool cleanup was previously mistaken for a non-async context and replaced the original error
+- BUGFIX [code, othr]: attach a failing onfinally callback of run() as a "suppressed" error to the propagated pending error instead of discarding it entirely
+- BUGFIX [code, othr]: align received parameters to the handler arity in the event/service/source/sink traits, as an endpoint with trailing optional parameters otherwise shifted the trailing "info" argument into a data parameter slot
+- BUGFIX [code, othr]: define the mutually exclusive "stream"/"buffer" fields as non-enumerable and assignable, as a mere object spread, Object.values() or JSON.stringify() otherwise consumed one field and then threw on the other
+- BUGFIX [code]: surface the cleanup failures of the fire-and-forget spool unrolling in the service call settle path as "error" events, as they were previously silently suppressed
+- BUGFIX [code]: re-export the "mqtt-plus-version" module with "export *" instead of "export type *", as its version utility is a run-time value and was stripped from the public API
+- BUGFIX [code]: settle the sink push race window with setTimeout() instead of setImmediate(), as setImmediate() is unavailable in browser environments
+- UPDATE [infr, othr]: upgrade NPM dependencies
+- CLEANUP [code]: prefix the private members of BaseTrait with an underscore
+- CLEANUP [docs, infr, othr]: fix spelling in the documentation
+- REFACTOR [code]: factor out the repeated push abort and settle logic in the sink trait into a "failPush" helper
 
 1.4.25 (2026-07-11)
 -------------------
