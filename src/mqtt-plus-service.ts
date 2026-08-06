@@ -28,6 +28,7 @@ import type { IClientPublishOptions,
 import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
+import { alignHandlerParams }         from "./mqtt-plus-util"
 import { run, Spool, ensureError }    from "./mqtt-plus-error"
 import type { ServiceCallRequest,
     ServiceCallResponse }             from "./mqtt-plus-msg"
@@ -138,7 +139,7 @@ export class ServiceTrait<T extends APISchema = APISchema> extends EventTrait<T>
             /*  determine request information  */
             const requestId = request.id
             const senderId  = request.sender
-            const params    = request.params ?? []
+            const params    = alignHandlerParams(request.params ?? [], callback)
             if (senderId === undefined || senderId === "") {
                 this.error(new Error("invalid request: missing sender"))
                 return

@@ -33,7 +33,7 @@ import { nanoid }                                         from "nanoid"
 /*  internal requirements  */
 import { CreditGate, ReadableTee,
     sendBufferAsChunks, sendStreamAsChunks,
-    makeMutuallyExclusiveFields }                         from "./mqtt-plus-util"
+    makeMutuallyExclusiveFields, alignHandlerParams }     from "./mqtt-plus-util"
 import { run, Spool, ensureError }                        from "./mqtt-plus-error"
 import type { SinkPushRequest, SinkPushResponse,
     SinkPushChunk, SinkPushCredit }                       from "./mqtt-plus-msg"
@@ -163,7 +163,7 @@ export class SinkTrait<T extends APISchema = APISchema> extends SourceTrait<T> {
 
             /*  determine information  */
             const requestId = request.id
-            const params    = request.params ?? []
+            const params    = alignHandlerParams(request.params ?? [], callback)
             const sender    = request.sender
             const receiver  = request.receiver
 

@@ -257,6 +257,19 @@ export async function sendStreamAsChunks (
         await sendChunk(undefined, undefined, true)
 }
 
+/*  utility function for aligning received parameters to the parameter arity a
+    handler declares, as the handler receives its trailing "info" argument
+    positionally and a sender omitting trailing optional parameters would
+    otherwise shift that argument into a data parameter slot  */
+export function alignHandlerParams (params: any[], handler: unknown): any[] {
+    if (typeof handler !== "function")
+        return params
+    const arity = handler.length - 1
+    if (params.length >= arity)
+        return params
+    return [ ...params, ...Array(arity - params.length).fill(undefined) ]
+}
+
 /*  utility function for making two object fields mutually exclusive  */
 export function makeMutuallyExclusiveFields<T extends object>(
     obj: T,

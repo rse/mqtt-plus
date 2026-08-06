@@ -60,6 +60,31 @@ describe("MQTT+ Event Emission", function () {
         await registration.destroy()
     })
 
+    /*  test case: Event Emission (Omitted Optional Parameter)  */
+    it("MQTT+ Event Emission (Omitted Optional Parameter)", async function () {
+        /*  setup  */
+        const spy = sinon.spy()
+
+        /*  register to event  */
+        const registration = await ctx.apiS.event("example/server/optional",
+            (str: string, num: number | undefined, info) => {
+                expect(str).to.be.equal("world")
+                expect(num).to.be.equal(undefined)
+                expect(info).to.be.an("object")
+                expect(info.sender).to.be.a("string")
+                spy("event")
+            })
+
+        /*  emit event without the trailing optional parameter  */
+        ctx.apiC.emit("example/server/optional", "world")
+        await new Promise((resolve) => { setTimeout(resolve, 10) })
+        expect(spy.getCalls().map((call) => call.firstArg))
+            .to.be.deep.equal([ "event" ])
+
+        /*  destroy registration  */
+        await registration.destroy()
+    })
+
     /*  test case: Event Emission (Object API)  */
     it("MQTT+ Event Emission (Object API)", async function () {
         /*  setup  */

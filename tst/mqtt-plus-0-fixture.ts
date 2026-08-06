@@ -36,6 +36,7 @@ import Broker                                 from "./mqtt-plus-0-broker"
 export type API = {
     "example/server/connection":       Event<(state: "open" | "close") => void>
     "example/server/sample":           Event<(a1: string, a2: number) => void>
+    "example/server/optional":         Event<(a1: string, a2?: number) => void>
     "example/server/hello":            Service<(a1: string, a2: number) => string>
     "example/server/upload":           Sink<(name: string) => void>
     "example/server/download":         Source<(filename: string) => void>

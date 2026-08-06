@@ -28,6 +28,7 @@ import type { IClientPublishOptions,
 import { nanoid }                     from "nanoid"
 
 /*  internal requirements  */
+import { alignHandlerParams }         from "./mqtt-plus-util"
 import type { EventEmission }         from "./mqtt-plus-msg"
 import type { APISchema, EventKeys,
     Registration }                    from "./mqtt-plus-api"
@@ -142,7 +143,7 @@ export class EventTrait<T extends APISchema = APISchema> extends AuthTrait<T> {
                     ` (topic: "${topicName}", payload: "${request.name}")`, { requestId })
                 return
             }
-            const params   = request.params ?? []
+            const params   = alignHandlerParams(request.params ?? [], callback)
 
             /*  sanity check request id  */
             if (this.eventControllers.has(requestId)) {
