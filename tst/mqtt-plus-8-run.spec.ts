@@ -218,5 +218,63 @@ describe("MQTT+ Run", function () {
         }
         expect(cleanups).to.deep.equal([ "resource-val" ])
     })
+
+    /*  test case: MQTT+ Run: sync-throwing action in async usage settles asynchronously  */
+    it("MQTT+ Run: sync-throwing action in async usage settles asynchronously", async function () {
+        const spool = new Spool()
+        const cleanups: string[] = []
+        spool.roll("res", async (val: unknown) => { cleanups.push(val as string) })
+        let finallyCount = 0
+        try {
+            await run<string, Promise<string>>(
+                spool,
+                () => { throw new Error("sync-action-fail") },
+                undefined,
+                async () => { finallyCount++ }
+            )
+            expect.fail("should have thrown")
+        }
+        catch (err: any) {
+            expect(err.message).to.match(/sync-action-fail/)
+        }
+        expect(finallyCount).to.equal(1)
+        expect(cleanups).to.deep.equal([ "res" ])
+    })
+
+    /*  test case: MQTT+ Run: sync-throwing action with recovering async oncatch  */
+    it("MQTT+ Run: sync-throwing action with recovering async oncatch", async function () {
+        const spool = new Spool()
+        const cleanups: string[] = []
+        const result = await run<string, Promise<string>>(
+            spool,
+            () => { throw new Error("sync-action-fail") },
+            (_err: Error) => Promise.resolve("async-recovered-val"),
+            undefined,
+            async (val: string) => { cleanups.push(val) }
+        )
+        expect(result).to.equal("async-recovered-val")
+        await spool.unroll()
+        expect(cleanups).to.deep.equal([ "async-recovered-val" ])
+    })
+
+    /*  test case: MQTT+ Run: sync-throwing action with rejecting async oncatch  */
+    it("MQTT+ Run: sync-throwing action with rejecting async oncatch", async function () {
+        const spool = new Spool()
+        const cleanups: string[] = []
+        try {
+            await run<string, Promise<string>>(
+                spool,
+                () => { throw new Error("sync-action-fail") },
+                (_err: Error) => Promise.reject(new Error("async-oncatch-fail")),
+                undefined,
+                async (val: string) => { cleanups.push(val) }
+            )
+            expect.fail("should have thrown")
+        }
+        catch (err: any) {
+            expect(err.message).to.match(/async-oncatch-fail/)
+        }
+        expect(cleanups).to.deep.equal([])
+    })
 })
 

@@ -2,10 +2,15 @@
 ChangeLog
 =========
 
+1.4.26 (2026-08-06)
+-------------------
+
+- BUGFIX: settle the epilog of run() adaptively when the action throws synchronously, as an asynchronous onfinally, oncleanup or spool cleanup was previously mistaken for a non-async context and replaced the original error
+- BUGFIX: guard the caller-supplied sink push stream with a no-op "error" listener before destroying it on abort, as an abort before the chunk sending phase (nak, early cancel, ack timeout) otherwise raised an unhandled "error" event and crashed the process
+
 1.4.25 (2026-07-11)
 -------------------
 
-- BUGFIX: guard the caller-supplied sink push stream with a no-op "error" listener before destroying it on abort, as an abort before the chunk sending phase (nak, early cancel, ack timeout) otherwise raised an unhandled "error" event and crashed the process
 - UPDATE: upgrade NPM dependencies
 
 1.4.24 (2026-07-06)

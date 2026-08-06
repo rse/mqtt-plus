@@ -238,6 +238,27 @@ function runSettle (isAsync: boolean, pending: boolean, spool?: Spool, onfinally
     }
 }
 
+/*  helper function for settling the epilog of "run" and then failing with
+    a pending error in a still unknown synchronous/asynchronous context:
+    operate synchronously as long as possible and continue asynchronously as
+    soon as a callback returns a Promise. As the pending error always takes
+    precedence, all epilog failures are intentionally suppressed.  */
+function runFail (error: Error, spool?: Spool, onfinally?: () => Promise<void> | void): Promise<never> {
+    let result: Promise<void> | void = undefined
+    try {
+        result = onfinally?.()
+    }
+    catch {
+        /*  intentionally suppressed  */
+    }
+    if (result instanceof Promise)
+        return result.catch(() => {}).then(() => spool?.unroll()).then(() => { throw error })
+    const unrolled = spool?.unroll()
+    if (unrolled instanceof Promise)
+        return unrolled.then(() => { throw error })
+    throw error
+}
+
 /*  helper type for ensuring T contains no Promise  */
 type RunNoPromise<T> =
     [ T ] extends [ Promise<any> ] ? never : T
@@ -379,24 +400,22 @@ export function run<T> (
         result = action()
     }
     catch (arg: unknown) {
-        /*  synchronous case (error branch)  */
-        let error = ensureError(arg, description)
-        if (oncatch) {
-            try {
-                result = oncatch(error)
-            }
-            catch (arg: unknown) {
-                error = ensureError(arg, description)
-                runSettle(false, true, spool, onfinally, description)
-                throw error
-            }
-            if (spool && oncleanup)
-                spool.roll(result, oncleanup as SpoolCleanup<unknown>)
-            runSettle(false, false, spool, onfinally, description)
-            return result
+        /*  synchronous case (error branch): as the action failed before
+            returning its potentially asynchronous result, the context is
+            still unknown here and hence has to be probed  */
+        const error = ensureError(arg, description)
+        if (!oncatch)
+            return runFail(error, spool, onfinally)
+        try {
+            result = oncatch(error)
         }
-        runSettle(false, true, spool, onfinally, description)
-        throw error
+        catch (arg: unknown) {
+            return runFail(ensureError(arg, description), spool, onfinally)
+        }
+
+        /*  the recovery already ran, so let the common epilog below settle
+            its potentially asynchronous result without re-entering it  */
+        oncatch = undefined
     }
     if (result instanceof Promise) {
         /*  asynchronous case (result or error branch)  */
