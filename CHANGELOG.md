@@ -2,6 +2,12 @@
 ChangeLog
 =========
 
+1.4.28 (2026-08-22)
+-------------------
+
+- UPDATE [infr, othr]: upgrade NPM dependencies and raise the minimum Node.js version to 22.13.0
+- CLEANUP [infr]: drop the "@eslint/eslintrc" FlatCompat shim in the ESLint configuration in favor of the native "js.configs.recommended"
+
 1.4.27 (2026-08-05)
 -------------------
 
